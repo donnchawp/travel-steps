@@ -1,0 +1,254 @@
+:root {
+	--ts-accent: #e8591a;
+	--ts-accent-ink: #fff;
+	--ts-bg: #f7f6f3;
+	--ts-surface: #fff;
+	--ts-ink: #1d1d1b;
+	--ts-muted: #6b6a66;
+	--ts-line: #e3e1dc;
+	--ts-radius: 12px;
+	--ts-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 16px rgba(0, 0, 0, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ts-bg: #141413;
+		--ts-surface: #1f1f1d;
+		--ts-ink: #f0efe9;
+		--ts-muted: #a3a29c;
+		--ts-line: #33322f;
+		--ts-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+	}
+}
+
+/* Outranks wp-app's default `body.wp-app-body:not(…):not(…) { margin: 40px 20px }` while
+   leaving its !important top offset for the masterbar in place. */
+body.ts-body:not(#ts-none) {
+	margin: 0;
+	background: var(--ts-bg);
+	color: var(--ts-ink);
+	font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* WordPress already pushes <html> down for the admin bar; wp-app adds the same 32px
+   to <body> again, leaving an empty strip under the bar. */
+html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
+
+.ts-body a { color: var(--ts-accent); }
+.ts-muted { color: var(--ts-muted); }
+.ts-empty { color: var(--ts-muted); padding: 2rem 0; }
+
+.ts-page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 16px 4rem; }
+.ts-narrow { max-width: 720px; }
+.ts-page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.ts-page-head h1, .ts-page-head h2 { margin: .5rem 0; }
+
+.ts-button {
+	display: inline-block;
+	padding: .55rem 1.1rem;
+	border: 0;
+	border-radius: 999px;
+	background: var(--ts-accent);
+	color: var(--ts-accent-ink) !important;
+	font: inherit;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+}
+.ts-button-secondary { background: transparent; color: var(--ts-accent) !important; box-shadow: inset 0 0 0 2px var(--ts-accent); }
+.ts-button-light { background: rgba(255, 255, 255, .9); color: #1d1d1b !important; }
+
+.ts-badge {
+	display: inline-block;
+	padding: .1rem .5rem;
+	border-radius: 999px;
+	background: var(--ts-line);
+	color: var(--ts-ink);
+	font-size: .75rem;
+	font-weight: 600;
+	vertical-align: middle;
+}
+.ts-badge.is-warning { background: #fde7c7; color: #7a4a00; }
+
+.ts-notice { padding: .75rem 1rem; border-radius: var(--ts-radius); background: #e3f4e6; color: #1e5a2b; }
+.ts-notice.is-error { background: #fbe3e1; color: #8a1f17; }
+
+/* ---------- Trip list ---------- */
+
+.ts-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem; margin-top: 1rem; }
+.ts-card {
+	display: block;
+	overflow: hidden;
+	border-radius: var(--ts-radius);
+	background: var(--ts-surface);
+	box-shadow: var(--ts-shadow);
+	color: inherit !important;
+	text-decoration: none;
+	transition: transform .15s ease;
+}
+.ts-card:hover { transform: translateY(-2px); }
+.ts-card-cover { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, #11998e, #38ef7d); }
+.ts-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ts-card-cover .ts-badge { position: absolute; top: .75rem; left: .75rem; }
+.ts-card-body { padding: 1rem 1.1rem 1.2rem; }
+.ts-card-body h2 { margin: 0 0 .2rem; font-size: 1.2rem; }
+.ts-card-body p { margin: 0; }
+.ts-card-stats { display: flex; flex-wrap: wrap; gap: .25rem .9rem; margin-top: .6rem !important; font-size: .9rem; color: var(--ts-muted); }
+.ts-card-stats strong { color: var(--ts-ink); }
+
+/* ---------- Trip page ---------- */
+
+.ts-hero {
+	position: relative;
+	display: flex;
+	align-items: flex-end;
+	min-height: 220px;
+	padding: 2rem 16px;
+	background: linear-gradient(135deg, #11998e, #38ef7d);
+	color: #fff;
+	overflow: hidden;
+}
+.ts-hero.has-cover { min-height: 42vh; }
+.ts-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ts-hero.has-cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .65), rgba(0, 0, 0, 0) 65%); }
+.ts-hero-text { position: relative; z-index: 1; max-width: 1100px; width: 100%; margin: 0 auto; }
+.ts-hero h1 { margin: .1rem 0 .6rem; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.1; }
+.ts-hero-dates { margin: 0; font-weight: 600; opacity: .9; }
+.ts-stats { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; margin: 0; padding: 0; list-style: none; }
+.ts-stats strong { font-size: 1.25rem; }
+
+.ts-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ts-map-wrap { position: sticky; top: 32px; height: calc(100vh - 32px); }
+.ts-map { width: 100%; height: 100%; background: var(--ts-line); }
+.ts-map.is-unavailable { display: none; }
+.ts-timeline { padding: 1.5rem 24px 6rem; }
+
+.ts-intro { margin-bottom: 2rem; font-size: 1.1rem; }
+
+.ts-step { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 1rem; padding-bottom: 2.5rem; }
+.ts-step::before { content: ""; position: absolute; top: 34px; bottom: 0; left: 19px; width: 2px; background: var(--ts-line); }
+.ts-step:last-child::before { display: none; }
+.ts-step-marker {
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	background: var(--ts-surface);
+	box-shadow: inset 0 0 0 2px var(--ts-accent);
+	color: var(--ts-accent);
+	font-weight: 700;
+	font-size: .9rem;
+	transition: background .2s, color .2s;
+}
+.ts-step.is-active .ts-step-marker { background: var(--ts-accent); color: var(--ts-accent-ink); }
+.ts-step-meta { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin: .3rem 0 0; color: var(--ts-muted); font-size: .85rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.ts-step h2 { margin: .1rem 0 .5rem; font-size: 1.5rem; }
+.ts-content > :first-child { margin-top: 0; }
+.ts-content img { max-width: 100%; height: auto; }
+.ts-step-actions { font-size: .9rem; }
+
+.ts-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-auto-flow: dense; gap: 6px; margin-top: 1rem; }
+.ts-photos.is-single { grid-template-columns: 1fr; }
+.ts-photo { position: relative; margin: 0; }
+.ts-photo-open { display: block; width: 100%; padding: 0; border: 0; background: var(--ts-line); border-radius: 6px; overflow: hidden; cursor: zoom-in; }
+.ts-photo img { display: block; width: 100%; aspect-ratio: 1; height: auto; object-fit: cover; }
+.ts-photos.is-single .ts-photo img { aspect-ratio: auto; }
+.ts-photo.is-hidden img { opacity: .3; filter: grayscale(1); }
+.ts-photo.is-pinned .ts-photo-open { box-shadow: 0 0 0 3px var(--ts-accent); }
+
+/* Lead photo of each step: larger, Polarsteps-style. */
+.ts-photos:not(.ts-photos-more):not(.is-single) .ts-photo:first-child { grid-column: span 2; grid-row: span 2; }
+
+.ts-photo-tools {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	opacity: 0;
+	transition: opacity .15s;
+}
+.ts-photo:hover .ts-photo-tools, .ts-photo-tools:focus-within, .ts-photo.is-pinned .ts-photo-tools, .ts-photo.is-hidden .ts-photo-tools { opacity: 1; }
+.ts-photo-state, .ts-photo-fav {
+	padding: .15rem .5rem;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, .65);
+	color: #fff;
+	font: inherit;
+	font-size: .75rem;
+	line-height: 1.4;
+}
+.ts-photo-state { cursor: pointer; }
+.ts-photo-state[aria-pressed="true"] { background: var(--ts-accent); }
+.ts-photo-fav { color: #ff7a9c; }
+
+.ts-more-photos { margin-top: .75rem; }
+.ts-more-photos summary { cursor: pointer; color: var(--ts-accent); font-weight: 600; font-size: .9rem; }
+.ts-more-photos[open] summary { margin-bottom: .5rem; }
+
+.ts-pin span {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 0 0 2px var(--ts-accent), 0 2px 6px rgba(0, 0, 0, .3);
+	color: var(--ts-accent);
+	font: 700 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.ts-pin.is-active span { background: var(--ts-accent); color: #fff; transform: scale(1.15); }
+
+.ts-lightbox { max-width: 100vw; max-height: 100vh; width: 100vw; height: 100vh; padding: 0; border: 0; background: rgba(0, 0, 0, .92); }
+.ts-lightbox[open] { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; }
+.ts-lightbox::backdrop { background: rgba(0, 0, 0, .6); }
+.ts-lightbox figure { grid-column: 2; margin: 0; text-align: center; }
+.ts-lightbox img { max-width: 100%; max-height: 88vh; object-fit: contain; }
+.ts-lightbox figcaption { color: #ddd; padding: .5rem; }
+.ts-lightbox button { border: 0; background: none; color: #fff; font-size: 2.5rem; cursor: pointer; }
+.ts-lightbox-close { position: absolute; top: .5rem; right: 1rem; }
+
+/* ---------- Forms ---------- */
+
+.ts-form { display: grid; gap: 1rem; margin: 1.5rem 0; }
+.ts-form label { display: grid; gap: .3rem; }
+.ts-form label > span { font-weight: 600; font-size: .9rem; }
+.ts-form input, .ts-form select, .ts-form textarea {
+	width: 100%;
+	box-sizing: border-box;
+	padding: .55rem .7rem;
+	border: 1px solid var(--ts-line);
+	border-radius: 8px;
+	background: var(--ts-surface);
+	color: var(--ts-ink);
+	font: inherit;
+}
+.ts-form fieldset { display: grid; gap: 1rem; margin: 0; padding: 1rem 1.1rem 1.2rem; border: 1px solid var(--ts-line); border-radius: var(--ts-radius); background: var(--ts-surface); }
+.ts-form legend { padding: 0 .4rem; font-weight: 700; }
+.ts-form fieldset p { margin: 0; }
+.ts-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+.ts-form-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.ts-panel { margin-top: 2rem; padding: 1rem 1.25rem; border-radius: var(--ts-radius); background: var(--ts-surface); box-shadow: var(--ts-shadow); }
+.ts-panel h2 { margin: .25rem 0; font-size: 1.2rem; }
+.ts-step-list { padding-left: 1.4rem; }
+.ts-step-list li { margin: .35rem 0; }
+.ts-step-list li > * + * { margin-left: .5rem; }
+
+/* ---------- Narrow screens: map on top, timeline below ---------- */
+
+@media (max-width: 860px) {
+	.ts-layout { grid-template-columns: 1fr; }
+	.ts-map-wrap { position: sticky; top: 32px; z-index: 2; height: 38vh; }
+	.ts-timeline { padding: 1.25rem 16px 4rem; }
+	.ts-step { grid-template-columns: 34px minmax(0, 1fr); gap: .75rem; }
+	.ts-step::before { left: 16px; }
+	.ts-photos { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* The admin bar grows to 46px here. */
+@media (max-width: 782px) {
+	.ts-map-wrap { top: 46px; }
+}

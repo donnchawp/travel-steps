@@ -62,15 +62,15 @@ class App extends BaseApp {
 	}
 
 	protected function setup_routes(): void {
-		$this->app->route( 'new', 'trip-edit.php', [], 'edit_posts' );
+		$this->app->route( 'new', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'settings', 'settings.php', [], 'manage_options' );
-		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], 'edit_posts' );
+		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}', 'trip.php' );
 	}
 
 	protected function setup_menu(): void {
 		$this->app->add_menu_item( 'trips', __( 'Trips', 'travel-steps' ), self::url() );
-		if ( current_user_can( 'edit_posts' ) ) {
+		if ( current_user_can( Trips::capability() ) ) {
 			$this->app->add_menu_item( 'new', __( 'New trip', 'travel-steps' ), self::url( 'new' ) );
 		}
 		if ( current_user_can( 'manage_options' ) ) {

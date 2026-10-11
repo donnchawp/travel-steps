@@ -24,7 +24,7 @@ include __DIR__ . '/_header.php';
 <div class="ts-page">
 	<div class="ts-page-head">
 		<h1><?php esc_html_e( 'Trips', 'travel-steps' ); ?></h1>
-		<?php if ( $can_edit ) : ?>
+		<?php if ( current_user_can( Trips::capability() ) ) : ?>
 			<a class="ts-button" href="<?php echo esc_url( App::url( 'new' ) ); ?>"><?php esc_html_e( 'New trip', 'travel-steps' ); ?></a>
 		<?php endif; ?>
 	</div>

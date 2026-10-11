@@ -107,6 +107,15 @@ class Trips {
 		}
 	}
 
+	/**
+	 * Creating, editing and syncing trips uses the site's Immich and Dawarich
+	 * credentials, which reach the owner's whole photo library and location history,
+	 * so it takes more than being able to write posts.
+	 */
+	public static function capability(): string {
+		return (string) apply_filters( 'travel_steps_capability', 'manage_options' );
+	}
+
 	public static function find_by_slug( string $slug ): ?\WP_Post {
 		$posts = get_posts(
 			[
@@ -299,7 +308,7 @@ class Trips {
 
 	private function trip_from_request(): \WP_Post {
 		$trip = get_post( absint( $_POST['trip_id'] ?? 0 ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified by callers.
-		if ( ! $trip || self::TRIP !== $trip->post_type || ! current_user_can( 'edit_post', $trip->ID ) ) {
+		if ( ! $trip || self::TRIP !== $trip->post_type || ! current_user_can( 'edit_post', $trip->ID ) || ! current_user_can( self::capability() ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps' ), 403 );
 		}
 		return $trip;
@@ -312,7 +321,7 @@ class Trips {
 
 		if ( $trip_id ) {
 			$this->trip_from_request();
-		} elseif ( ! current_user_can( 'edit_posts' ) ) {
+		} elseif ( ! current_user_can( 'edit_posts' ) || ! current_user_can( self::capability() ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to create trips.', 'travel-steps' ), 403 );
 		}
 

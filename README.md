@@ -18,7 +18,7 @@ A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A
 
 Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position.
 
-Publish the days you want shown. Draft steps, and their photos, stay private.
+Publish the days you want shown. Draft steps and their photos stay private, but a published trip's map route, distance and country count cover all its dates, unpublished days included. To keep a day's whereabouts private, leave it outside the trip's dates.
 
 ## Which photos are shown
 
@@ -47,6 +47,14 @@ To add a step by hand, click **Add step**, set its date in the block editor and 
 
 ## Privacy
 
+Creating, editing and syncing trips uses the site's Immich and Dawarich credentials, which reach your whole photo library and location history, so it needs the `manage_options` capability (administrators) rather than just being able to write posts. To let other roles manage trips, filter it:
+
+```php
+add_filter( 'travel_steps_capability', fn() => 'edit_others_posts' );
+```
+
+Add the filter before `init`, e.g. in a plugin or mu-plugin, since routes are registered then.
+
 Steps and places are in core REST for the block editor, but a step is only readable when its trip is (published, or you can edit it), and place terms only by editors. The photo proxy serves the public only photos shown on published steps of published trips. Shared caches (CDNs, proxies) keep a public photo for 5 minutes, so unpublishing a step or hiding a photo takes effect within that; browsers revalidate after an hour with an ETag, which re-runs the access check without resending the image.
 
 Leaflet (1.9.4, BSD-2-Clause) ships with the plugin in `assets/vendor/leaflet/`, so no third-party script runs on trip pages. Map tiles still load from OpenStreetMap's tile servers, which see visitors' IP addresses.
@@ -57,7 +65,7 @@ Leaflet (1.9.4, BSD-2-Clause) ships with the plugin in `assets/vendor/leaflet/`,
 |---|---|
 | `/travel-steps/` | Everyone: published trips (editors also see drafts) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox. Editors can pin and hide photos. |
-| `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Editors: dates, album, visibility, sync, step list |
+| `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, album, visibility, sync, step list |
 | `/travel-steps/settings` | Admins: Dawarich/Immich URLs and keys, home privacy zone, place radius |
 
 ## Setup

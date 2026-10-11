@@ -304,6 +304,42 @@ update_post_meta( $trip_id, Trips::META_ALBUM, $gone );
 wp_set_current_user( 1 );
 $edit = $render( 'trip-edit.php', (string) $trip_id );
 check( 'a saved album missing from Immich stays selected', 1 === preg_match( '/<option value="' . $gone . '"[^>]*selected/', $edit ), substr( $edit, strpos( $edit, '<select name="album"' ) ?: 0, 600 ) );
+
+// Only users with the travel-steps capability may use the site's Immich and Dawarich
+// credentials: a contributor can't create or sync a trip.
+$contributor = wp_insert_user( [ 'user_login' => 'contrib', 'user_pass' => wp_generate_password(), 'role' => 'contributor' ] );
+$own_trip    = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Mine', 'post_status' => 'draft', 'post_author' => $contributor ] );
+$stopped     = function ( callable $handler ) {
+	$die      = fn() => function () { throw new RuntimeException( 'die' ); };
+	$redirect = function ( $location ) { throw new RuntimeException( 'redirect' ); };
+	add_filter( 'wp_die_handler', $die );
+	add_filter( 'wp_redirect', $redirect );
+	try {
+		$handler();
+		$result = 'returned';
+	} catch ( RuntimeException $e ) {
+		$result = $e->getMessage();
+	}
+	remove_filter( 'wp_die_handler', $die );
+	remove_filter( 'wp_redirect', $redirect );
+	return $result;
+};
+wp_set_current_user( $contributor );
+check( 'contributor owns their trip', current_user_can( 'edit_post', $own_trip ) );
+$_POST = $_REQUEST = [ 'trip_id' => $own_trip, '_wpnonce' => wp_create_nonce( 'travel_steps_sync' ) ];
+$synced = get_post_meta( $own_trip, Trips::META_SYNCED, true );
+check( 'contributor cannot sync a trip', 'die' === $stopped( [ new Trips(), 'handle_sync' ] ) && $synced === get_post_meta( $own_trip, Trips::META_SYNCED, true ) );
+$_POST = $_REQUEST = [ 'trip_id' => 0, 'title' => 'Sneaky', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+$before = count( get_posts( [ 'post_type' => Trips::TRIP, 'post_status' => 'any', 'posts_per_page' => -1 ] ) );
+check( 'contributor cannot create a trip', 'die' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && $before === count( get_posts( [ 'post_type' => Trips::TRIP, 'post_status' => 'any', 'posts_per_page' => -1 ] ) ) );
+$_POST = $_REQUEST = [];
+wp_set_current_user( 1 );
+check( 'administrators have the travel-steps capability', current_user_can( Trips::capability() ) );
+add_filter( 'travel_steps_capability', fn() => 'edit_posts' );
+wp_set_current_user( $contributor );
+check( 'the capability can be widened with a filter', current_user_can( Trips::capability() ) );
+remove_all_filters( 'travel_steps_capability' );
+wp_set_current_user( 1 );
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

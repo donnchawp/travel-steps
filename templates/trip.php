@@ -93,7 +93,7 @@ include __DIR__ . '/_header.php';
 					<li><strong><?php echo esc_html( $value ); ?></strong> <?php echo esc_html( $label ); ?></li>
 				<?php endforeach; ?>
 			</ul>
-			<?php if ( $can_edit ) : ?>
+			<?php if ( $can_edit && current_user_can( Trips::capability() ) ) : ?>
 				<p><a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a></p>
 			<?php endif; ?>
 		</div>

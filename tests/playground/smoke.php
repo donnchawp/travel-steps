@@ -9,6 +9,17 @@ require '/wordpress/wp-load.php';
 use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, Days};
 
 $out = [];
+// Write results even if a fatal error ends the run, with the error as a failure.
+register_shutdown_function(
+	function () {
+		global $out;
+		$error = error_get_last();
+		if ( $error && in_array( $error['type'], [ E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR ], true ) ) {
+			$out[] = 'FAIL fatal: ' . $error['message'] . ' @ ' . $error['file'] . ':' . $error['line'];
+		}
+		file_put_contents( '/out/result.txt', implode( "\n", $out ) . "\n" );
+	}
+);
 function check( string $name, bool $ok, $detail = '' ) {
 	global $out;
 	$out[] = ( $ok ? 'ok   ' : 'FAIL ' ) . $name . ( $ok || '' === $detail ? '' : '  -- ' . ( is_string( $detail ) ? $detail : wp_json_encode( $detail ) ) );
@@ -69,7 +80,8 @@ check( 'steps are drafts', 'draft' === $d1->post_status && 'draft' === $d2->post
 check( 'day 1 title names both places', 'Lisbon, Sintra' === $d1->post_title, $d1->post_title );
 check( 'day 1 dated 1 May', '2025-05-01' === Trips::day( $d1 ), $d1->post_date );
 check( 'day 1 seeded with two place headings', 2 === count( Days::anchor_times( $d1->post_content ) ), $d1->post_content );
-check( 'day 2 has no headings', '' === $d2->post_content, $d2->post_content );
+check( 'day 2 has no headings', false === strpos( $d2->post_content, 'wp:heading' ), $d2->post_content );
+check( 'day 2 has a photos block', has_block( Days::PHOTOS_BLOCK, $d2->post_content ), $d2->post_content );
 check( 'day 1 tagged with places', [ 'Lisbon', 'Sintra' ] === wp_list_pluck( wp_get_object_terms( $d1->ID, Trips::PLACE, [ 'orderby' => 'name' ] ), 'name' ) );
 check( 'day 1 positioned at its first favourite', '38.7139' === (string) get_post_meta( $d1->ID, Trips::META_LAT, true ), get_post_meta( $d1->ID, Trips::META_LAT, true ) );
 check( 'draft step has a real GMT date', '0000-00-00 00:00:00' !== $d1->post_date_gmt, $d1->post_date_gmt );
@@ -149,6 +161,21 @@ check( 'cache stores a thumbnail', TravelSteps\RestController::store_cached( $fi
 check( 'cache leaves no temporary files', [] === glob( dirname( $file ) . '/*.tmp' ) );
 check( 'cache skips an empty thumbnail', ! TravelSteps\RestController::store_cached( $file . '-empty', '', 'image/webp' ) && ! file_exists( $file . '-empty' ) );
 
+// Medium photos: Immich's preview scaled down for the grid, never up.
+$jpeg = function ( $w, $h ) {
+	$im = imagecreatetruecolor( $w, $h );
+	ob_start();
+	imagejpeg( $im );
+	return ob_get_clean();
+};
+$medium = TravelSteps\RestController::shrink( $jpeg( 1440, 1080 ), 'image/jpeg' );
+$dims   = is_wp_error( $medium ) ? [] : getimagesizefromstring( $medium['body'] );
+check( 'medium photo is 640px on its short side', [ 853, 640 ] === array_slice( $dims ?: [], 0, 2 ), is_wp_error( $medium ) ? $medium->get_error_message() : $dims );
+$portrait = TravelSteps\RestController::shrink( $jpeg( 1080, 1440 ), 'image/jpeg' );
+check( 'portrait medium photo too', [ 640, 853 ] === array_slice( getimagesizefromstring( $portrait['body'] ) ?: [], 0, 2 ) );
+$small = TravelSteps\RestController::shrink( $jpeg( 300, 200 ), 'image/jpeg' );
+check( 'small photos are not enlarged', [ 300, 200 ] === array_slice( getimagesizefromstring( $small['body'] ) ?: [], 0, 2 ) );
+
 // Story rendering: photos under the heading they belong to.
 $by_step = Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) );
 ob_start();
@@ -161,6 +188,24 @@ $sin  = strpos( $html, '>Sintra</h2>' );
 check( 'story: Lisbon photos after Lisbon heading', false !== $lis && strpos( $html, '[GRID 1,2]' ) > $lis && strpos( $html, '[GRID 1,2]' ) < $sin, $html );
 check( 'story: Sintra photos after Sintra heading', false !== $sin && strpos( $html, '[GRID 3,4]' ) > $sin, $html );
 check( 'story: written text kept', false !== strpos( $html, 'Tram 28' ) );
+check( 'story: Sintra photos sit where its photos block is, before later text', strpos( $html, '[GRID 3,4]' ) < strpos( $html, 'Tram 28' ), $html );
+check( 'story: no photos block markup left in the page', false === strpos( $html, 'travel-steps/photos' ) && false === strpos( $html, 'wp-block-travel-steps' ), $html );
+
+// Editor preview of a photos block: the photos of the section it's in, for editors only.
+$sintra_t = Days::anchor_times( get_post( $d1->ID )->post_content )[1];
+$preview  = function ( $attrs ) use ( $get, $d1 ) {
+	return $get( '/wp/v2/block-renderer/' . Days::PHOTOS_BLOCK, [ 'context' => 'edit', 'post_id' => $d1->ID, 'attributes' => $attrs ] );
+};
+wp_set_current_user( 1 );
+$res = $preview( [ 'start' => $sintra_t ] );
+$rendered = $res->get_data()['rendered'] ?? '';
+check( 'preview: Sintra block shows the Sintra favourite', 200 === $res->get_status() && false !== strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ) && false === strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ), [ $res->get_status(), $rendered ] );
+$rendered = $preview( [ 'start' => 0, 'end' => $sintra_t ] )->get_data()['rendered'] ?? '';
+check( 'preview: first block shows the Lisbon favourite', false !== strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ) && false === strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ), $rendered );
+$GLOBALS['post'] = get_post( $d1->ID );
+wp_set_current_user( 0 );
+check( 'photos block renders nothing for visitors outside the trip page', '' === trim( render_block( [ 'blockName' => Days::PHOTOS_BLOCK, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => [] ] ) ) );
+wp_set_current_user( 1 );
 
 // Full templates render without errors.
 $render = function ( $tpl, $slug ) {
@@ -222,4 +267,3 @@ check( 'a saved album missing from Immich stays selected', 1 === preg_match( '/<
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }
-file_put_contents( '/out/result.txt', implode( "\n", $out ) . "\n" );

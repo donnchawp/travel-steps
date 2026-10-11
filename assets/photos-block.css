@@ -1,0 +1,27 @@
+/* Editor preview of the "Trip photos" block. */
+.ts-photos-block-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+	gap: 4px;
+}
+
+.ts-photos-block-grid img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 1;
+	object-fit: cover;
+	border-radius: 2px;
+}
+
+.ts-photos-block-note,
+.ts-photos-block-empty {
+	margin: 6px 0 0;
+	font-size: 13px;
+	color: #757575;
+}
+
+.ts-photos-block-empty {
+	padding: 16px;
+	border: 1px dashed #ccc;
+	text-align: center;
+}

@@ -85,7 +85,10 @@ class View {
 	 * Echo a step's story with its photos placed under the place headings they belong
 	 * to: each heading gets the photos taken from its time until the next heading's.
 	 * Photos from before the first heading, or in a story without place headings,
-	 * follow the text before the first heading.
+	 * go with the text before the first heading.
+	 *
+	 * A section's photos go where its first Trip photos block is, else after its text.
+	 * Further photos blocks in the same section show nothing.
 	 *
 	 * @param array    $photos Photos to show, sorted by time.
 	 * @param callable $grid   Echoes a photo grid: fn( array $photos ).
@@ -109,18 +112,34 @@ class View {
 		}
 
 		foreach ( $chunks as $chunk ) {
-			$html = trim( serialize_blocks( $chunk['blocks'] ) );
-			if ( '' !== $html ) {
-				echo '<div class="ts-content">' . apply_filters( 'the_content', $html ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core content filter.
+			// Text before the photos, then text after them.
+			$parts  = [ [], [] ];
+			$placed = false;
+			foreach ( $chunk['blocks'] as $block ) {
+				if ( Days::PHOTOS_BLOCK === $block['blockName'] ) {
+					$placed = true;
+					continue;
+				}
+				$parts[ (int) $placed ][] = $block;
 			}
+
+			self::render_blocks( $parts[0] );
 			if ( ! empty( $sections[ $chunk['section'] ] ) ) {
 				$grid( $sections[ $chunk['section'] ] );
 				unset( $sections[ $chunk['section'] ] );
 			}
+			self::render_blocks( $parts[1] );
 		}
 		// Headings nested inside other blocks: their photos go at the end.
 		foreach ( $sections as $rest ) {
 			$grid( $rest );
+		}
+	}
+
+	private static function render_blocks( array $blocks ): void {
+		$html = trim( serialize_blocks( $blocks ) );
+		if ( '' !== $html ) {
+			echo '<div class="ts-content">' . apply_filters( 'the_content', $html ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core content filter.
 		}
 	}
 

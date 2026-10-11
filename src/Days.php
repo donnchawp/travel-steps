@@ -12,6 +12,7 @@ namespace TravelSteps;
  */
 class Days {
 	const ANCHOR_PREFIX = 'ts-place-';
+	const PHOTOS_BLOCK  = 'travel-steps/photos';
 
 	// How far, in local time, a photo with a time zone can lend it to one without.
 	const ZONE_BORROW_MAX_S = 36 * 3600;
@@ -133,18 +134,18 @@ class Days {
 	}
 
 	/**
-	 * Block markup for a new step: a heading and an empty paragraph per place. A day
-	 * with one place gets none; the step title already names it.
+	 * Block markup for a new step: per place a heading, an empty paragraph to write in
+	 * and a photos block. A day with one place gets no heading; the title names it.
 	 */
 	public static function seed_content( array $places, string $unnamed = 'Place' ): string {
-		if ( count( $places ) < 2 ) {
-			return '';
-		}
 		$blocks = [];
 		foreach ( $places as $place ) {
-			$name     = htmlspecialchars( '' !== $place['city'] ? $place['city'] : $unnamed, ENT_QUOTES, 'UTF-8' );
-			$blocks[] = "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\" id=\"" . self::ANCHOR_PREFIX . (int) $place['t'] . "\">{$name}</h2>\n<!-- /wp:heading -->";
+			if ( count( $places ) > 1 ) {
+				$name     = htmlspecialchars( '' !== $place['city'] ? $place['city'] : $unnamed, ENT_QUOTES, 'UTF-8' );
+				$blocks[] = "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\" id=\"" . self::ANCHOR_PREFIX . (int) $place['t'] . "\">{$name}</h2>\n<!-- /wp:heading -->";
+			}
 			$blocks[] = "<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->";
+			$blocks[] = '<!-- wp:' . self::PHOTOS_BLOCK . ' /-->';
 		}
 		return implode( "\n\n", $blocks );
 	}

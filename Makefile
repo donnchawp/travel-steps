@@ -20,10 +20,11 @@ smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs N
 		--blueprint=tests/playground/blueprint.json \
 		--mount=$(CURDIR):/wordpress/wp-content/plugins/travel-steps \
 		--mount=$(CURDIR)/tests/playground:/smoke \
-		--mount="$$out":/out && \
+		--mount="$$out":/out; \
+	status=$$?; \
 	{ test -s "$$out/result.txt" || { echo "No results: the smoke script didn't finish"; exit 1; }; } && \
 	cat "$$out/result.txt" && \
-	! grep -q '^FAIL' "$$out/result.txt"
+	! grep -q '^FAIL' "$$out/result.txt" && test $$status -eq 0
 
 check: test smoke ## Unit tests, then smoke
 

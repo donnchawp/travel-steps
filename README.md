@@ -13,7 +13,7 @@ A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A
 1. Fetches your Dawarich points for those dates and drops anything near home.
 2. Fetches the album's photos, or all photos taken during those dates if there's no album. Photos without GPS get the position you were at when you took them. A camera that records no time zone gets the offset of the nearest phone photo that does (or the site's), so abroad its photos aren't hours off. Photos are kept by the local date they were taken, so the first morning and last evening of a trip in another time zone aren't cut off.
 3. Creates a **draft step for each day with favourites**. The day is the local date the photos were taken (Immich's `localDateTime`).
-4. Groups each new day's favourites into **places**. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a **place tag** (`ts_place`) for each. The title lists them: "Lisbon, Sintra".
+4. Groups each new day's favourites into **places**. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a **place tag** (`ts_place`) for each. Each place also gets an empty paragraph to write in and a **Trip photos** block. The title lists them: "Lisbon, Sintra".
 5. Simplifies the route, splits it at big jumps (flights, ferries) and caches it on the trip.
 
 Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin. It only refreshes each step's map position.
@@ -33,6 +33,10 @@ A step shows photos from its date. Favourites in Immich decide which:
 - **Star ratings are ignored**, since they're often a Lightroom workflow rather than a quality score.
 
 Shown photos sit under the place heading they belong to. Each seeded heading carries an anchor with its start time (`id="ts-place-<unix>"`) and owns the photos taken from then until the next heading. Rename the headings, write between them, or add your own. Delete one and its photos join the section above. Favourites added later appear in the right section without sync touching the story.
+
+The **Trip photos** block marks where a section's photos go and previews them in the block editor. Move it to put text after the photos, or insert one under a heading of a step made before the block existed. A section without one gets its photos after its text. Only the first block in a section shows photos.
+
+Grids load a 640 px (short side) copy of Immich's preview, made once and cached; a photo shown on its own, and the lightbox, use the full preview.
 
 The map gets a marker per place heading (3a, 3b…), or one per step without headings, numbered by trip day.
 

@@ -8,6 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class RestController {
 	const NS = 'travel-steps/v1';
+	// Immich's sizes, plus medium: its preview scaled down to this on the short side, for grids.
+	const SIZES           = [ 'thumbnail', 'medium', 'preview' ];
+	const MEDIUM_SHORT_PX = 640;
 
 	public function register_routes(): void {
 		register_rest_route(
@@ -50,7 +53,7 @@ class RestController {
 				'args'                => [
 					'size' => [
 						'type'    => 'string',
-						'enum'    => ImmichClient::SIZES,
+						'enum'    => self::SIZES,
 						'default' => 'thumbnail',
 					],
 				],
@@ -158,7 +161,7 @@ class RestController {
 
 		$cache = self::cache_file( $asset, $size );
 		if ( ! is_readable( $cache['file'] ) ) {
-			$image = ( new ImmichClient() )->thumbnail( $asset, $size );
+			$image = 'medium' === $size ? self::medium( $asset ) : ( new ImmichClient() )->thumbnail( $asset, $size );
 			if ( is_wp_error( $image ) || '' === $image['body'] ) {
 				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
 			}
@@ -183,6 +186,64 @@ class RestController {
 		header( 'Cache-Control: ' . self::photo_cache_control( $is_public ) );
 		header( 'ETag: ' . $etag );
 		header( 'X-Content-Type-Options: nosniff' );
+	}
+
+	/**
+	 * Medium size, made from the preview, which is cached on the way so the lightbox
+	 * can use it.
+	 *
+	 * @return array{body: string, type: string}|\WP_Error
+	 */
+	private static function medium( string $asset ) {
+		$preview = self::cache_file( $asset, 'preview' )['file'];
+		if ( is_readable( $preview ) ) {
+			$type  = is_readable( $preview . '.type' ) ? trim( (string) file_get_contents( $preview . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$image = [ 'body' => (string) file_get_contents( $preview ), 'type' => $type ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		} else {
+			$image = ( new ImmichClient() )->thumbnail( $asset, 'preview' );
+			if ( is_wp_error( $image ) ) {
+				return $image;
+			}
+			self::store_cached( $preview, $image['body'], $image['type'] );
+		}
+		$medium = self::shrink( $image['body'], $image['type'] );
+		// Without an image editor, the preview will do.
+		return is_wp_error( $medium ) ? $image : $medium;
+	}
+
+	/**
+	 * Scale an image down to MEDIUM_SHORT_PX on its short side, never up.
+	 *
+	 * @return array{body: string, type: string}|\WP_Error
+	 */
+	public static function shrink( string $body, string $type ) {
+		$ext = wp_get_default_extension_for_mime_type( $type ) ?: 'jpg';
+		$in  = get_temp_dir() . 'ts-photo-' . wp_generate_password( 12, false ) . '.' . $ext;
+		$out = substr( $in, 0, -strlen( $ext ) - 1 ) . '-medium.' . $ext;
+		try {
+			file_put_contents( $in, $body ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			$editor = wp_get_image_editor( $in );
+			if ( is_wp_error( $editor ) ) {
+				return $editor;
+			}
+			$size  = $editor->get_size();
+			$short = self::MEDIUM_SHORT_PX;
+			if ( min( $size['width'], $size['height'] ) > $short ) {
+				$resized = $size['width'] >= $size['height'] ? $editor->resize( null, $short ) : $editor->resize( $short, null );
+				if ( is_wp_error( $resized ) ) {
+					return $resized;
+				}
+			}
+			$editor->set_quality( 82 );
+			$saved = $editor->save( $out, $type );
+			if ( is_wp_error( $saved ) ) {
+				return $saved;
+			}
+			return [ 'body' => (string) file_get_contents( $saved['path'] ), 'type' => $saved['mime-type'] ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		} finally {
+			wp_delete_file( $in );
+			wp_delete_file( $out );
+		}
 	}
 
 	private static function send_type( string $type ): void {

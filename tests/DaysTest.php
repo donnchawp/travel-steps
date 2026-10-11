@@ -105,9 +105,14 @@ check( 'title falls back when nothing is named', 'Day 3' === Days::title( $unnam
 // Seeded content: one heading per place, each with an anchor holding its start time.
 $content = Days::seed_content( $places );
 check( 'seed has a heading per place', 3 === substr_count( $content, '<!-- wp:heading' ) );
+check( 'seed has a photos block per place', 3 === substr_count( $content, '<!-- wp:' . Days::PHOTOS_BLOCK . ' /-->' ) );
+check( 'each photos block follows its heading', 1 === preg_match( '/Sintra<\/h2>.*?<!-- wp:paragraph -->.*?<!-- wp:' . preg_quote( Days::PHOTOS_BLOCK, '/' ) . ' \/-->.*?Lisbon<\/h2>/s', $content ) );
 check( 'seed anchors parse back to start times', [ $t, $t + 7200, $t + 18000 ] === Days::anchor_times( $content ) );
 check( 'seed escapes place names', false === strpos( Days::seed_content( [ [ 't' => 1, 'city' => '<b>', 'lat' => null, 'lon' => null ], [ 't' => 2, 'city' => 'x', 'lat' => null, 'lon' => null ] ] ), '<b>' ) );
-check( 'one place needs no headings', '' === Days::seed_content( [ $places[0] ] ) );
+$single = Days::seed_content( [ $places[0] ] );
+check( 'one place needs no headings', false === strpos( $single, 'wp:heading' ) );
+check( 'one place still gets a paragraph and a photos block', 1 === substr_count( $single, '<!-- wp:paragraph' ) && 1 === substr_count( $single, Days::PHOTOS_BLOCK ) );
+check( 'no places, nothing to seed', '' === Days::seed_content( [] ) );
 check( 'place_anchor reads a heading id', 42 === Days::place_anchor( '<h2 class="wp-block-heading" id="ts-place-42">X</h2>' ) );
 check( 'place_anchor ignores other headings', null === Days::place_anchor( '<h2 id="intro">X</h2>' ) );
 

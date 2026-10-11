@@ -9,7 +9,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ImmichClient {
 	const PAGE_SIZE = 1000;
 	const MAX_PAGES = 20;
-	const SIZES     = [ 'thumbnail', 'preview' ];
 	// The edit page lists albums on every load, so a slow Immich mustn't hold it up.
 	const ALBUMS_TIMEOUT_S = 5;
 	const ALBUMS_TTL_S     = 5 * MINUTE_IN_SECONDS;

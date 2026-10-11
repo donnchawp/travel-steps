@@ -20,14 +20,15 @@ $steps    = Trips::timeline_steps( $trip, $can_edit );
 $by_step  = Trips::photos_by_step( $trip->ID, $steps );
 $pinned   = array_flip( Trips::pinned( $trip->ID ) );
 
-$render_photo = function ( array $photo, string $state ) use ( $trip, $authed, $can_edit ) {
+// Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_edit ) {
 	?>
 	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
 		<button type="button" class="ts-photo-open"
 			data-full="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview', $authed ) ); ?>"
 			data-caption="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>"
 			aria-label="<?php esc_attr_e( 'Open photo', 'travel-steps' ); ?>">
-			<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'thumbnail', $authed ) ); ?>"
+			<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], $size, $authed ) ); ?>"
 				alt="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>" loading="lazy"
 				<?php if ( ! empty( $photo['w'] ) && ! empty( $photo['h'] ) ) : ?>
 					width="<?php echo (int) $photo['w']; ?>" height="<?php echo (int) $photo['h']; ?>"
@@ -50,7 +51,7 @@ $render_grid = function ( array $photos ) use ( $render_photo, $pinned ) {
 	<div class="ts-photos<?php echo count( $photos ) === 1 ? ' is-single' : ''; ?>">
 		<?php
 		foreach ( $photos as $photo ) {
-			$render_photo( $photo, isset( $pinned[ $photo['id'] ] ) ? 'pinned' : 'default' );
+			$render_photo( $photo, isset( $pinned[ $photo['id'] ] ) ? 'pinned' : 'default', count( $photos ) === 1 ? 'preview' : 'medium' );
 		}
 		?>
 	</div>

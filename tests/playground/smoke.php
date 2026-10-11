@@ -227,6 +227,7 @@ check( 'edit page renders step list', false !== strpos( $edit, 'ts-step-list' ),
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
+check( 'editor trip page: block editor opens in a new tab', 1 === preg_match( '/<a href="[^"]*post\.php\?post=\d+&(amp;|#038;)?action=edit" target="_blank" rel="noopener">/', $html ) );
 check( 'editor trip page: photo grid under heading', preg_match( '/Sintra<\/h2>.*?ts-photos/s', $html ) === 1 );
 wp_set_current_user( 0 );
 $html = $render( 'trip.php', (string) $trip_id );

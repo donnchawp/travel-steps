@@ -144,7 +144,7 @@ include __DIR__ . '/_header.php';
 						<?php endif; ?>
 						<?php View::render_story( $step, $groups['shown'], $render_grid ); ?>
 						<?php if ( $can_edit ) : ?>
-							<p class="ts-step-actions"><a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>"><?php esc_html_e( 'Write in the block editor', 'travel-steps' ); ?></a></p>
+							<p class="ts-step-actions"><a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Write in the block editor', 'travel-steps' ); ?></a></p>
 						<?php endif; ?>
 						<?php if ( $more ) : ?>
 							<details class="ts-more-photos">

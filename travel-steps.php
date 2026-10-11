@@ -22,6 +22,18 @@ define( 'TRAVEL_STEPS_PLUGIN_FILE', __FILE__ );
 define( 'TRAVEL_STEPS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TRAVEL_STEPS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
+// Without Composer's dependencies, stand down instead of taking the whole site with us.
+if ( ! is_readable( TRAVEL_STEPS_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
+	add_action(
+		'admin_notices',
+		function () {
+			if ( current_user_can( 'activate_plugins' ) ) {
+				echo '<div class="notice notice-error"><p>' . esc_html__( 'Travel Steps is missing its dependencies. Run composer install --no-dev in wp-content/plugins/travel-steps.', 'travel-steps' ) . '</p></div>';
+			}
+		}
+	);
+	return;
+}
 require_once TRAVEL_STEPS_PLUGIN_DIR . 'vendor/autoload.php';
 
 add_action(

@@ -16,7 +16,7 @@ A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A
 4. Groups each new day's favourites into **places**. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a **place tag** (`ts_place`) for each. Each place also gets an empty paragraph to write in and a **Trip photos** block. The title lists them: "Lisbon, Sintra".
 5. Simplifies the route, splits it at big jumps (flights, ferries) and caches it on the trip.
 
-Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin. It only refreshes each step's map position.
+Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position.
 
 Publish the days you want shown. Draft steps, and their photos, stay private.
 

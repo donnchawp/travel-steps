@@ -43,6 +43,13 @@ include __DIR__ . '/_header.php';
 			$new_steps = absint( $_GET['new_steps'] ?? 0 );
 			/* translators: %d: number of steps */
 			echo esc_html( sprintf( _n( 'Synced. %d new draft step.', 'Synced. %d new draft steps.', $new_steps, 'travel-steps' ), $new_steps ) );
+			$skipped_days = absint( $_GET['skipped_days'] ?? 0 );
+			if ( $skipped_days ) :
+				echo ' ' . esc_html( sprintf( /* translators: %d: number of days */ _n( '%d day with favourites was skipped because its step is in the trash.', '%d days with favourites were skipped because their steps are in the trash.', $skipped_days, 'travel-steps' ), $skipped_days ) );
+				?>
+				<a href="<?php echo esc_url( admin_url( 'edit.php?post_status=trash&post_type=' . Trips::STEP ) ); ?>"><?php esc_html_e( 'Restore them, or empty the trash and sync again to recreate them.', 'travel-steps' ); ?></a>
+				<?php
+			endif;
 			?>
 		</p>
 	<?php elseif ( $error ) : ?>

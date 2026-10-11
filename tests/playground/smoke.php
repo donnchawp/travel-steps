@@ -97,6 +97,7 @@ check( 're-sync keeps the edited story', false !== strpos( get_post( $d1->ID )->
 wp_trash_post( $d2->ID );
 $r = $sync->sync( $trip_id );
 check( 'binned day is not recreated', 0 === $r['new_steps'] && 1 === count( Trips::steps( $trip_id, true ) ), $r );
+check( 'sync counts the day skipped for the trash', 1 === ( $r['skipped_days'] ?? null ), $r );
 wp_untrash_post( $d2->ID );
 wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
 
@@ -104,6 +105,7 @@ wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
 wp_update_post( [ 'ID' => $d2->ID, 'post_date' => '2025-05-03 12:00:00', 'edit_date' => true ] );
 $r = $sync->sync( $trip_id );
 check( 'moved step keeps its original day taken', 0 === $r['new_steps'], $r );
+check( 'a moved step is not counted as skipped', 0 === ( $r['skipped_days'] ?? null ), $r );
 wp_update_post( [ 'ID' => $d2->ID, 'post_date' => '2025-05-02 12:00:00', 'edit_date' => true ] );
 
 // Lock.
@@ -217,6 +219,10 @@ $render = function ( $tpl, $slug ) {
 wp_publish_post( $d2->ID );
 wp_set_current_user( 1 );
 $edit = $render( 'trip-edit.php', (string) $trip_id );
+$_GET = [ 'synced' => '1', 'new_steps' => '0', 'skipped_days' => '3' ];
+$notice = $render( 'trip-edit.php', (string) $trip_id );
+$_GET   = [];
+check( 'edit page says how many days were skipped for the trash', false !== strpos( $notice, '3 days with favourites were skipped' ) && false !== strpos( $notice, 'post_status=trash' ), substr( $notice, strpos( $notice, 'ts-notice' ) ?: 0, 400 ) );
 check( 'edit page renders step list', false !== strpos( $edit, 'ts-step-list' ), [ 'len' => strlen( $edit ), 'notfound' => false !== strpos( $edit, 'Trip not found' ), 'nosteps' => false !== strpos( $edit, 'No steps yet' ), 'panel' => substr_count( $edit, 'ts-panel' ), 'tail' => substr( preg_replace( '/\s+/', ' ', strip_tags( substr( $edit, strpos( $edit, '<main' ) ?: 0 ) ) ), 0, 900 ) ] );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );

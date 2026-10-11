@@ -354,8 +354,9 @@ class Trips {
 		wp_safe_redirect(
 			add_query_arg(
 				[
-					'synced'    => '1',
-					'new_steps' => (int) $result['new_steps'],
+					'synced'       => '1',
+					'new_steps'    => (int) $result['new_steps'],
+					'skipped_days' => (int) $result['skipped_days'],
 				],
 				self::url( $trip, 'edit' )
 			)

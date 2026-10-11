@@ -84,7 +84,7 @@ class TripSync {
 			}
 		}
 
-		$new_steps = $this->sync_steps( $trip_id, $track, $photos );
+		[ $new_steps, $skipped_days ] = $this->sync_steps( $trip_id, $track, $photos );
 
 		$segments = Geo::split_segments( $track );
 		$route    = $this->simplify_route( $segments );
@@ -109,9 +109,10 @@ class TripSync {
 		update_post_meta( $trip_id, Trips::META_SYNCED, time() );
 
 		return [
-			'new_steps' => $new_steps,
-			'points'    => count( $points ),
-			'photos'    => count( $photos ),
+			'new_steps'    => $new_steps,
+			'skipped_days' => $skipped_days,
+			'points'       => count( $points ),
+			'photos'       => count( $photos ),
 		];
 	}
 
@@ -143,9 +144,11 @@ class TripSync {
 
 	/**
 	 * Create a draft step for each new day with favourites, and position every step.
-	 * Returns the number of steps created.
+	 *
+	 * @return array{0: int, 1: int} Steps created, and days with favourites skipped
+	 *                               because their step is in the trash.
 	 */
-	private function sync_steps( int $trip_id, array $track, array $photos ): int {
+	private function sync_steps( int $trip_id, array $track, array $photos ): array {
 		$radius = (float) Settings::get( 'place_radius_km' ) * 1000;
 		$by_day = [];
 		foreach ( $photos as $photo ) {
@@ -165,11 +168,16 @@ class TripSync {
 		$taken = [];
 		foreach ( $steps as $step ) {
 			$taken[ Trips::day( $step ) ] = true;
-		}
-		foreach ( array_merge( $steps, $binned ) as $step ) {
 			$day = (string) get_post_meta( $step->ID, Trips::META_DAY, true );
 			if ( '' !== $day ) {
 				$taken[ $day ] = true;
+			}
+		}
+		$in_trash = [];
+		foreach ( $binned as $step ) {
+			$day = (string) get_post_meta( $step->ID, Trips::META_DAY, true );
+			if ( '' !== $day ) {
+				$in_trash[ $day ] = true;
 			}
 		}
 
@@ -180,9 +188,14 @@ class TripSync {
 
 		$first   = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$created = 0;
+		$skipped = 0;
 		foreach ( $by_day as $day => $day_photos ) {
 			$favourites = array_values( array_filter( $day_photos, fn( $p ) => ! empty( $p['fav'] ) ) );
 			if ( isset( $taken[ $day ] ) || ! $favourites ) {
+				continue;
+			}
+			if ( isset( $in_trash[ $day ] ) ) {
+				++$skipped;
 				continue;
 			}
 			$places = Days::places( $favourites, $radius );
@@ -210,7 +223,7 @@ class TripSync {
 			$this->place_step( get_post( $step_id ), $day_photos, $track );
 			++$created;
 		}
-		return $created;
+		return [ $created, $skipped ];
 	}
 
 	/**

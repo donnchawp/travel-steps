@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,9 @@ If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawa
 Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends your Immich API key and the date range or album id. The trip edit page also lists your Immich albums. Photos on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
 
 == Changelog ==
+
+= 0.2.2 =
+* The button under a step's photos says how many more it shows ("Show 2 more photos"), instead of counting the photos already on screen too.
 
 = 0.2.1 =
 * Dates sent to Dawarich are URL-encoded, so servers read the "+00:00" time zone correctly instead of as a space.

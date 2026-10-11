@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Travel Steps
  * Description: Document trips Polarsteps-style: photos from Immich, your route from Dawarich or the photos themselves, and the story in WordPress posts.
- * Version: 0.2.1
+ * Version: 0.2.2
  * Requires at least: 6.5
  * Requires PHP: 8.0
  * Author: Donncha
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TRAVEL_STEPS_VERSION', '0.2.1' );
+define( 'TRAVEL_STEPS_VERSION', '0.2.2' );
 define( 'TRAVEL_STEPS_PLUGIN_FILE', __FILE__ );
 define( 'TRAVEL_STEPS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TRAVEL_STEPS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

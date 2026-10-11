@@ -14,7 +14,9 @@ include __DIR__ . '/_header.php';
 ?>
 <div class="ts-page ts-narrow">
 	<h1><?php echo esc_html( $page_title ); ?></h1>
-	<?php if ( isset( $_GET['saved'] ) ) : ?>
+	<?php if ( isset( $_GET['invalid'] ) && in_array( 'home', explode( ',', sanitize_text_field( wp_unslash( $_GET['invalid'] ) ) ), true ) ) : ?>
+		<p class="ts-notice is-error"><?php esc_html_e( 'Home location not saved: it needs both a latitude and a longitude in decimal degrees, like 51.8985 and -8.4756 (west and south are negative). You can also paste a "51.8985, -8.4756" pair from a map into either field. Everything else was saved.', 'travel-steps' ); ?></p>
+	<?php elseif ( isset( $_GET['saved'] ) ) : ?>
 		<p class="ts-notice"><?php esc_html_e( 'Settings saved.', 'travel-steps' ); ?></p>
 	<?php endif; ?>
 
@@ -72,6 +74,7 @@ include __DIR__ . '/_header.php';
 		<fieldset>
 			<legend><?php esc_html_e( 'Privacy', 'travel-steps' ); ?></legend>
 			<p class="ts-muted"><?php esc_html_e( 'Route points and photos near home are left out of every trip.', 'travel-steps' ); ?></p>
+			<p class="ts-muted"><?php esc_html_e( 'To find your home’s coordinates, right-click it in Google Maps (long-press in the app) and click the numbers at the top of the menu to copy them. On openstreetmap.org, right-click and choose “Show address”; the numbers appear in the search box. Paste the pair into either field.', 'travel-steps' ); ?></p>
 			<div class="ts-form-row">
 				<label>
 					<span><?php esc_html_e( 'Home latitude', 'travel-steps' ); ?></span>

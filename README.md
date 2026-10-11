@@ -78,7 +78,7 @@ Then activate the plugin and open `/travel-steps/settings`:
 
 - **Dawarich** (optional): URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network) plus the API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations: the route joins where photos were taken in straight lines, dashed where they're over 20 km apart; the distance is measured along those lines, so a winding drive comes out short and a flight counts; photos without GPS stay unplaced, and a day without any located photo has no marker.
 - **Immich**: falls back to the URL and key from *Media Picker for Immich* when that's configured. The key needs `asset.read`, `asset.view` and `album.read`.
-- **Home**: set coordinates and a radius to keep your home off every map.
+- **Home**: set coordinates and a radius to keep your home off every map. Right-click your home in Google Maps and click the coordinates to copy them, then paste the pair into either field.
 
 ## Development
 

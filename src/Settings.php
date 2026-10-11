@@ -74,20 +74,31 @@ class Settings {
 		}
 		check_admin_referer( 'travel_steps_settings' );
 
-		update_option( self::OPTION, self::sanitize( wp_unslash( $_POST ), self::all() ), false );
-		wp_safe_redirect( add_query_arg( 'saved', '1', App::url( 'settings' ) ) );
+		$errors = [];
+		update_option( self::OPTION, self::sanitize( wp_unslash( $_POST ), self::all(), $errors ), false );
+		$args = [ 'saved' => '1' ];
+		if ( $errors ) {
+			$args['invalid'] = implode( ',', $errors );
+		}
+		wp_safe_redirect( add_query_arg( $args, App::url( 'settings' ) ) );
 		exit;
 	}
 
 	/**
-	 * The settings to store from a submitted form.
+	 * The settings to store from a submitted form. A field that can't be read keeps
+	 * its saved value and is named in $errors.
 	 */
-	public static function sanitize( array $input, array $existing ): array {
+	public static function sanitize( array $input, array $existing, array &$errors = [] ): array {
+		$home = self::home_input( (string) ( $input['home_lat'] ?? '' ), (string) ( $input['home_lon'] ?? '' ) );
+		if ( null === $home ) {
+			$errors[] = 'home';
+			$home     = [ $existing['home_lat'], $existing['home_lon'] ];
+		}
 		$new = [
 			'dawarich_url'     => esc_url_raw( trim( $input['dawarich_url'] ?? '' ) ),
 			'immich_url'       => esc_url_raw( trim( $input['immich_url'] ?? '' ) ),
-			'home_lat'         => self::coordinate( $input['home_lat'] ?? '', 90 ),
-			'home_lon'         => self::coordinate( $input['home_lon'] ?? '', 180 ),
+			'home_lat'         => $home[0],
+			'home_lon'         => $home[1],
 			'home_radius_km'   => max( 0, (float) ( $input['home_radius_km'] ?? 1 ) ),
 			'place_radius_km'  => max( 0.1, (float) ( $input['place_radius_km'] ?? 2 ) ),
 			'auto_pick'        => min( 50, max( 1, (int) ( $input['auto_pick'] ?? 8 ) ) ),
@@ -105,11 +116,25 @@ class Settings {
 		return $new;
 	}
 
-	private static function coordinate( $value, float $max ): string {
-		$value = trim( (string) $value );
-		if ( '' === $value || ! is_numeric( $value ) || abs( (float) $value ) > $max ) {
-			return '';
+	/**
+	 * Home as [ lat, lon ] decimal-degree strings, both '' to clear it, or null when it
+	 * can't be read. Either field takes a "lat, lon" pair as copied from a map.
+	 */
+	private static function home_input( string $lat, string $lon ): ?array {
+		$lat = trim( $lat );
+		$lon = trim( $lon );
+		foreach ( [ $lat, $lon ] as $field ) {
+			if ( preg_match( '/^(-?[\d.]+)\s*[,;\s]\s*(-?[\d.]+)$/', $field, $pair ) ) {
+				[ , $lat, $lon ] = $pair;
+				break;
+			}
 		}
-		return (string) (float) $value;
+		if ( '' === $lat && '' === $lon ) {
+			return [ '', '' ];
+		}
+		if ( ! is_numeric( $lat ) || ! is_numeric( $lon ) || abs( (float) $lat ) > 90 || abs( (float) $lon ) > 180 ) {
+			return null;
+		}
+		return [ (string) (float) $lat, (string) (float) $lon ];
 	}
 }

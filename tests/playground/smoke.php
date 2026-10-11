@@ -328,6 +328,21 @@ check( 'a blank key field keeps the saved key', 'dkey' === $kept['dawarich_key']
 $gone = TravelSteps\Settings::sanitize( [ 'dawarich_key' => '', 'dawarich_key_remove' => '1' ], $saved );
 check( 'remove clears a saved key, and only that one', '' === $gone['dawarich_key'] && 'ikey' === $gone['immich_key'], $gone );
 
+// Home: a "lat, lon" pair pasted from a map is split; anything else unreadable is an error.
+$saved  = array_merge( $saved, [ 'home_lat' => '53.3', 'home_lon' => '-6.2' ] );
+$errors = [];
+$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => ' 51.8985, -8.4756 ', 'home_lon' => '' ], $saved, $errors );
+check( 'pasted lat, lon pair is split', '51.8985' === $home['home_lat'] && '-8.4756' === $home['home_lon'] && ! $errors, [ $home['home_lat'], $home['home_lon'], $errors ] );
+$errors = [];
+$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '51°53′N', 'home_lon' => '8°28′W' ], $saved, $errors );
+check( 'unreadable home is an error and keeps the saved one', [ 'home' ] === $errors && '53.3' === $home['home_lat'] && '-6.2' === $home['home_lon'], [ $home['home_lat'], $home['home_lon'], $errors ] );
+$errors = [];
+$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '51.8985', 'home_lon' => '' ], $saved, $errors );
+check( 'half a home is an error', [ 'home' ] === $errors && '53.3' === $home['home_lat'], $errors );
+$errors = [];
+$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '', 'home_lon' => '' ], $saved, $errors );
+check( 'emptying both clears home', '' === $home['home_lat'] && '' === $home['home_lon'] && ! $errors, $errors );
+
 update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test', 'immich_key' => 'key' ] ) );
 // The trips list runs oldest first by start date, with undated drafts on top.
 $later   = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Later trip', 'post_status' => 'publish' ] );
@@ -351,6 +366,9 @@ check( 'no favourites: edit page explains why there are no steps', false !== str
 check( 'favourites present: no warning', false === strpos( $edit, 'is-warning' ) );
 wp_delete_post( $plain_id, true );
 
+$_GET = [ 'invalid' => 'home' ];
+check( 'settings page explains an unreadable home', false !== strpos( $render( 'settings.php', '' ), 'Home location not saved' ) );
+$_GET = [];
 $page = $render( 'settings.php', '' );
 check( 'remove checkbox only for a saved key', false !== strpos( $page, 'name="immich_key_remove"' ) && false === strpos( $page, 'name="dawarich_key_remove"' ), substr( $page, 0, 300 ) );
 $gone = '22222222-2222-4222-8222-222222222222';

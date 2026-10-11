@@ -310,6 +310,9 @@ check( 'scheduled trip: no warning, its steps go public with it', false === strp
 wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
+// Day 1 shows its two favourites; the expander holds only the other two.
+preg_match_all( '#<summary>\s*(.*?)\s*</summary>#s', $html, $summaries );
+check( 'expander counts only the photos it reveals', 'Show 2 more photos' === ( $summaries[1][0] ?? '' ), $summaries[1] );
 check( 'editor trip page: block editor opens in a new tab', 1 === preg_match( '/<a href="[^"]*post\.php\?post=\d+&(amp;|#038;)?action=edit" target="_blank" rel="noopener">/', $html ) );
 check( 'editor trip page: photo grid under heading', preg_match( '/Sintra<\/h2>.*?ts-photos/s', $html ) === 1 );
 wp_set_current_user( 0 );

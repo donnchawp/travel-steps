@@ -134,7 +134,7 @@
 	let openers = [];
 	let current = -1;
 
-	// Only photos on screen: the ones inside a closed "Show all" don't count.
+	// Only photos on screen: the ones inside a closed "Show more" don't count.
 	function visibleOpeners() {
 		return Array.from( root.querySelectorAll( '.ts-photo-open' ) ).filter( ( b ) => null !== b.offsetParent );
 	}

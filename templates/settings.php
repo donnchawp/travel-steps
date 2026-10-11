@@ -102,7 +102,7 @@ include __DIR__ . '/_header.php';
 
 		<fieldset>
 			<legend><?php esc_html_e( 'Photos', 'travel-steps' ); ?></legend>
-			<p class="ts-muted"><?php esc_html_e( 'Favourite photos in Immich to choose what each step shows. A step with no favourites gets an automatic pick spread across your time there, one per burst. Pin or hide photos on the trip page to adjust. The rest stay behind "Show all". Star ratings are ignored.', 'travel-steps' ); ?></p>
+			<p class="ts-muted"><?php esc_html_e( 'Favourite photos in Immich to choose what each step shows. A step with no favourites gets an automatic pick spread across your time there, one per burst. Pin or hide photos on the trip page to adjust. The rest stay behind "Show more". Star ratings are ignored.', 'travel-steps' ); ?></p>
 			<label>
 				<span><?php esc_html_e( 'Photos to pick for steps without favourites', 'travel-steps' ); ?></span>
 				<input type="number" min="1" max="50" name="auto_pick" value="<?php echo esc_attr( $settings['auto_pick'] ); ?>">

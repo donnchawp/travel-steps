@@ -162,13 +162,14 @@ include __DIR__ . '/_header.php';
 							<details class="ts-more-photos">
 								<summary>
 									<?php
-									$total = count( $groups['shown'] ) + count( $more );
+									// Count what opening it reveals: the photos already shown stay where they are.
+									$count = count( $more );
 									echo esc_html(
 										$groups['shown']
 											/* translators: %s: number of photos */
-											? sprintf( _n( 'Show all %s photo', 'Show all %s photos', $total, 'travel-steps' ), number_format_i18n( $total ) )
+											? sprintf( _n( 'Show %s more photo', 'Show %s more photos', $count, 'travel-steps' ), number_format_i18n( $count ) )
 											/* translators: %s: number of photos */
-											: sprintf( _n( 'Show %s hidden photo', 'Show %s hidden photos', $total, 'travel-steps' ), number_format_i18n( $total ) )
+											: sprintf( _n( 'Show %s hidden photo', 'Show %s hidden photos', $count, 'travel-steps' ), number_format_i18n( $count ) )
 									);
 									?>
 								</summary>

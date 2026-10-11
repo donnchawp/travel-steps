@@ -23,7 +23,8 @@ include __DIR__ . '/_header.php';
 		<?php wp_nonce_field( 'travel_steps_settings' ); ?>
 
 		<fieldset>
-			<legend><?php esc_html_e( 'Dawarich', 'travel-steps' ); ?></legend>
+			<legend><?php esc_html_e( 'Dawarich (optional)', 'travel-steps' ); ?></legend>
+			<p class="ts-muted"><?php esc_html_e( 'Your location history draws the route between photos. Without it, the route joins the places your photos were taken, so stretches without photos are straight lines and the distance comes out short.', 'travel-steps' ); ?></p>
 			<label>
 				<span><?php esc_html_e( 'URL (as seen from the WordPress server)', 'travel-steps' ); ?></span>
 				<input type="url" name="dawarich_url" value="<?php echo esc_attr( $settings['dawarich_url'] ); ?>">
@@ -33,6 +34,12 @@ include __DIR__ . '/_header.php';
 				<input type="password" name="dawarich_key" autocomplete="off" placeholder="<?php echo $settings['dawarich_key'] ? esc_attr__( '•••••• saved – leave blank to keep', 'travel-steps' ) : ''; ?>">
 				<small class="ts-muted"><?php esc_html_e( 'Find it in Dawarich under Settings → Account.', 'travel-steps' ); ?></small>
 			</label>
+			<?php if ( $settings['dawarich_key'] ) : ?>
+				<label class="ts-check">
+					<input type="checkbox" name="dawarich_key_remove" value="1">
+					<span><?php esc_html_e( 'Remove the saved key', 'travel-steps' ); ?></span>
+				</label>
+			<?php endif; ?>
 		</fieldset>
 
 		<fieldset>
@@ -54,6 +61,12 @@ include __DIR__ . '/_header.php';
 					?>
 				</small>
 			</label>
+			<?php if ( $settings['immich_key'] ) : ?>
+				<label class="ts-check">
+					<input type="checkbox" name="immich_key_remove" value="1">
+					<span><?php esc_html_e( 'Remove the saved key', 'travel-steps' ); ?></span>
+				</label>
+			<?php endif; ?>
 		</fieldset>
 
 		<fieldset>

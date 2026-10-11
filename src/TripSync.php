@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Pulls a trip's route from Dawarich and photos from Immich, then creates steps.
+ * Pulls a trip's route from Dawarich, if set up, and photos from Immich, then creates steps.
  *
  * A step is a day: each day with favourites gets a draft step, seeded once with a
  * heading and a place tag per place. After that the step is yours: sync never touches its title,
@@ -58,7 +58,7 @@ class TripSync {
 		[ $start, $end ] = $range;
 		$home            = Settings::home();
 
-		$points = $this->dawarich->points( $start, $end );
+		$points = $this->dawarich->configured() ? $this->dawarich->points( $start, $end ) : [];
 		if ( is_wp_error( $points ) ) {
 			return $points;
 		}
@@ -91,10 +91,7 @@ class TripSync {
 		update_post_meta( $trip_id, Trips::META_ROUTE, wp_slash( wp_json_encode( $route ) ) );
 		update_post_meta( $trip_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( $photos ) ) );
 
-		$distance = 0.0;
-		foreach ( $segments as $segment ) {
-			$distance += Geo::track_length( $segment );
-		}
+		$distance = Geo::track_length( $track );
 		$countries = array_values( array_unique( array_filter( array_merge( array_column( $track, 4 ), array_column( $photos, 'country' ) ) ) ) );
 		update_post_meta(
 			$trip_id,

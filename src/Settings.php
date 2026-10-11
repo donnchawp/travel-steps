@@ -74,9 +74,16 @@ class Settings {
 		}
 		check_admin_referer( 'travel_steps_settings' );
 
-		$existing = self::all();
-		$input    = wp_unslash( $_POST );
-		$new      = [
+		update_option( self::OPTION, self::sanitize( wp_unslash( $_POST ), self::all() ), false );
+		wp_safe_redirect( add_query_arg( 'saved', '1', App::url( 'settings' ) ) );
+		exit;
+	}
+
+	/**
+	 * The settings to store from a submitted form.
+	 */
+	public static function sanitize( array $input, array $existing ): array {
+		$new = [
 			'dawarich_url'     => esc_url_raw( trim( $input['dawarich_url'] ?? '' ) ),
 			'immich_url'       => esc_url_raw( trim( $input['immich_url'] ?? '' ) ),
 			'home_lat'         => self::coordinate( $input['home_lat'] ?? '', 90 ),
@@ -85,15 +92,17 @@ class Settings {
 			'place_radius_km'  => max( 0.1, (float) ( $input['place_radius_km'] ?? 2 ) ),
 			'auto_pick'        => min( 50, max( 1, (int) ( $input['auto_pick'] ?? 8 ) ) ),
 		];
-		// Keys are write-only in the form: an empty field keeps the stored key.
+		// Keys are write-only in the form: an empty field keeps the stored key, unless
+		// it's ticked for removal.
 		foreach ( [ 'dawarich_key', 'immich_key' ] as $key ) {
-			$value       = trim( sanitize_text_field( $input[ $key ] ?? '' ) );
-			$new[ $key ] = '' !== $value ? $value : $existing[ $key ];
+			$value = trim( sanitize_text_field( $input[ $key ] ?? '' ) );
+			if ( '' !== $value ) {
+				$new[ $key ] = $value;
+			} else {
+				$new[ $key ] = empty( $input[ $key . '_remove' ] ) ? $existing[ $key ] : '';
+			}
 		}
-
-		update_option( self::OPTION, $new, false );
-		wp_safe_redirect( add_query_arg( 'saved', '1', App::url( 'settings' ) ) );
-		exit;
+		return $new;
 	}
 
 	private static function coordinate( $value, float $max ): string {

@@ -2,7 +2,7 @@
 
 A Polarsteps-style travel journal for your own WordPress, built with [WpApp](https://github.com/akirk/wp-app):
 
-- **Route** from [Dawarich](https://dawarich.app) location history
+- **Route** from [Dawarich](https://dawarich.app) location history, or from where your photos were taken
 - **Photos** from [Immich](https://immich.app), served through WordPress, so Immich stays private
 - **Story** in WordPress: every step is a post you write in the block editor
 
@@ -10,11 +10,11 @@ A Polarsteps-style travel journal for your own WordPress, built with [WpApp](htt
 
 A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A **step** (`ts_step` post, child of the trip) is a day. **Sync**:
 
-1. Fetches your Dawarich points for those dates and drops anything near home.
+1. If Dawarich is set up, fetches your points for those dates and drops anything near home.
 2. Fetches the album's photos, or all photos taken during those dates if there's no album. Photos without GPS get the position you were at when you took them. A camera that records no time zone gets the offset of the nearest phone photo that does (or the site's), so abroad its photos aren't hours off. Photos are kept by the local date they were taken, so the first morning and last evening of a trip in another time zone aren't cut off.
 3. Creates a **draft step for each day with favourites**. The day is the local date the photos were taken (Immich's `localDateTime`).
 4. Groups each new day's favourites into **places**. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a **place tag** (`ts_place`) for each. Each place also gets an empty paragraph to write in and a **Trip photos** block. The title lists them: "Lisbon, Sintra".
-5. Simplifies the route, splits it at big jumps (flights, ferries) and caches it on the trip.
+5. Simplifies the route (your Dawarich points, or else the photos with GPS in time order), splits it at big jumps (flights, ferries) and caches it on the trip. The distance follows the whole track, jumps included, but skips any fix you'd have had to travel faster than 1,080 km/h to reach: that's a GPS glitch, not a plane.
 
 Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position.
 
@@ -76,7 +76,7 @@ composer install --no-dev
 
 Then activate the plugin and open `/travel-steps/settings`:
 
-- **Dawarich**: URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network) plus the API key from Dawarich → Settings → Account.
+- **Dawarich** (optional): URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network) plus the API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations: the route joins where photos were taken in straight lines, dashed where they're over 20 km apart; the distance is measured along those lines, so a winding drive comes out short and a flight counts; photos without GPS stay unplaced, and a day without any located photo has no marker.
 - **Immich**: falls back to the URL and key from *Media Picker for Immich* when that's configured. The key needs `asset.read`, `asset.view` and `album.read`.
 - **Home**: set coordinates and a radius to keep your home off every map.
 

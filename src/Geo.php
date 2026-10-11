@@ -140,10 +140,23 @@ class Geo {
 		return abs( $points[ $best ][2] - $t ) <= $max_gap ? $best : null;
 	}
 
-	public static function track_length( array $points ): float {
+	/**
+	 * Metres along a track of [ lat, lon, timestamp ] fixes, gaps included: a flight
+	 * with the phone off counts as a straight line. A fix you'd have needed to outrun
+	 * an airliner to reach is a GPS glitch, and is skipped.
+	 */
+	public static function track_length( array $points, float $max_speed_ms = 300 ): float {
 		$total = 0.0;
-		for ( $i = 1, $n = count( $points ); $i < $n; $i++ ) {
-			$total += self::distance( $points[ $i - 1 ][0], $points[ $i - 1 ][1], $points[ $i ][0], $points[ $i ][1] );
+		$prev  = null;
+		foreach ( $points as $p ) {
+			if ( $prev ) {
+				$metres = self::distance( $prev[0], $prev[1], $p[0], $p[1] );
+				if ( $metres > $max_speed_ms * max( 1, $p[2] - $prev[2] ) ) {
+					continue;
+				}
+				$total += $metres;
+			}
+			$prev = $p;
 		}
 		return $total;
 	}

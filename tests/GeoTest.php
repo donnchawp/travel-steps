@@ -27,6 +27,11 @@ check( 'corner kept', 3 === count( Geo::simplify( $corner, 10 ) ) );
 // Split at a flight-sized gap.
 $flight = [ [ 53.42, -6.27, 0 ], [ 53.43, -6.26, 60 ], [ 40.47, -3.56, 9000 ], [ 40.46, -3.57, 9060 ] ];
 check( 'flight splits route into 2 segments', 2 === count( Geo::split_segments( $flight ) ) );
+$len = Geo::track_length( $flight );
+check( 'track length counts the flight (Dublin-Madrid ~1450km)', $len > 1400000 && $len < 1500000 );
+$glitch = [ [ 53.42, -6.27, 0 ], [ 53.43, -6.26, 60 ], [ 51.50, -0.12, 90 ], [ 53.44, -6.25, 120 ] ];
+$len    = Geo::track_length( $glitch );
+check( 'track length skips a fix faster than a plane (Dublin-London in 30s)', $len < 5000 );
 
 // Nearest in time.
 check( 'nearest_in_time finds closest', 1 === Geo::nearest_in_time( $flight, 70, 3600 ) );

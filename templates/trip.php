@@ -105,6 +105,15 @@ include __DIR__ . '/_header.php';
 		</div>
 
 		<div class="ts-timeline">
+			<?php $unseen = $can_edit ? View::unseen_steps( $trip, $steps ) : 0; ?>
+			<?php if ( $unseen ) : ?>
+				<p class="ts-notice is-warning">
+					<?php echo esc_html( View::draft_notice( $unseen ) ); ?>
+					<?php if ( current_user_can( Trips::capability() ) ) : ?>
+						<a href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a>
+					<?php endif; ?>
+				</p>
+			<?php endif; ?>
 			<?php if ( trim( $trip->post_content ) ) : ?>
 				<div class="ts-intro ts-content"><?php echo apply_filters( 'the_content', $trip->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core content filter. ?></div>
 			<?php endif; ?>

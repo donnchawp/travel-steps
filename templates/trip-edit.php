@@ -8,6 +8,7 @@ use TravelSteps\App;
 use TravelSteps\DawarichClient;
 use TravelSteps\ImmichClient;
 use TravelSteps\Trips;
+use TravelSteps\View;
 
 $slug = (string) get_query_var( 'slug' );
 $trip = $slug ? Trips::find_by_slug( $slug ) : null;
@@ -23,6 +24,7 @@ $synced  = (int) $meta( Trips::META_SYNCED );
 $error   = $meta( Trips::META_ERROR );
 $stats   = $trip_id ? get_post_meta( $trip_id, Trips::META_STATS, true ) : [];
 $steps   = $trip_id ? Trips::steps( $trip_id, true ) : [];
+$photos  = $synced && ! $steps ? Trips::photos( $trip_id ) : [];
 
 $page_title = $trip ? sprintf( /* translators: %s: trip title */ __( 'Edit %s', 'travel-steps' ), get_the_title( $trip ) ) : __( 'New trip', 'travel-steps' );
 include __DIR__ . '/_header.php';
@@ -55,6 +57,23 @@ include __DIR__ . '/_header.php';
 		</p>
 	<?php elseif ( $error ) : ?>
 		<p class="ts-notice is-error"><?php echo esc_html( sprintf( /* translators: %s: error message */ __( 'Sync failed: %s', 'travel-steps' ), $error ) ); ?></p>
+	<?php endif; ?>
+	<?php $unseen = $trip ? View::unseen_steps( $trip, $steps ) : 0; ?>
+	<?php if ( $unseen ) : ?>
+		<p class="ts-notice is-warning"><?php echo esc_html( View::draft_notice( $unseen ) ); ?></p>
+	<?php endif; ?>
+	<?php if ( $photos && ! array_filter( array_column( $photos, 'fav' ) ) ) : ?>
+		<p class="ts-notice is-warning">
+			<?php
+			echo esc_html(
+				sprintf(
+					/* translators: %s: number of photos */
+					_n( 'None of the %s photo is a favourite in Immich, so sync made no steps. Favourite the photos you want to show, then sync again.', 'None of the %s photos is a favourite in Immich, so sync made no steps. Favourite the photos you want to show, then sync again.', count( $photos ), 'travel-steps' ),
+					number_format_i18n( count( $photos ) )
+				)
+			);
+			?>
+		</p>
 	<?php endif; ?>
 
 	<form class="ts-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -141,8 +160,10 @@ include __DIR__ . '/_header.php';
 				if ( $synced ) {
 					/* translators: 1: time since sync, 2: location points, 3: photos */
 					echo esc_html( sprintf( __( 'Last synced %1$s ago: %2$s location points, %3$s photos.', 'travel-steps' ), human_time_diff( $synced ), number_format_i18n( $stats['points'] ?? 0 ), number_format_i18n( $stats['photos'] ?? 0 ) ) );
-				} else {
+				} elseif ( ( new DawarichClient() )->configured() ) {
 					esc_html_e( 'Not synced yet. Syncing pulls your route from Dawarich and photos from Immich, and adds a draft step for each day with favourites.', 'travel-steps' );
+				} else {
+					esc_html_e( 'Not synced yet. Syncing pulls photos from Immich, maps the trip from where they were taken, and adds a draft step for each day with favourites.', 'travel-steps' );
 				}
 				?>
 			</p>

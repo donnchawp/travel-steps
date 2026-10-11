@@ -114,6 +114,24 @@ $r = $sync->sync( $trip_id );
 check( 'concurrent sync refused', is_wp_error( $r ) && 'travel_steps_sync_running' === $r->get_error_code() );
 delete_option( 'travel_steps_sync_lock_' . $trip_id );
 
+// Without Dawarich, the photos' own positions make the route.
+$solo_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Photos only', 'post_status' => 'draft' ] );
+update_post_meta( $solo_id, Trips::META_START, '2025-05-01' );
+update_post_meta( $solo_id, Trips::META_END, '2025-05-03' );
+$r = ( new TripSync( new DawarichClient( 'http://x', '' ), $immich ) )->sync( $solo_id );
+check( 'sync works without a Dawarich key', ! is_wp_error( $r ) && 2 === $r['new_steps'] && 0 === $r['points'], is_wp_error( $r ) ? $r->get_error_message() : $r );
+$solo_route = json_decode( (string) get_post_meta( $solo_id, Trips::META_ROUTE, true ), true );
+check( 'route drawn from photo positions', is_array( $solo_route ) && count( array_merge( ...$solo_route ) ) >= 5, $solo_route );
+$solo_stats = get_post_meta( $solo_id, Trips::META_STATS, true );
+// Lisbon → Sintra → Faro is about 25 + 200 km in straight lines, all of it gaps over 20 km.
+check( 'distance counts the gaps between photos',( $solo_stats['distance_km'] ?? 0 ) >= 200, $solo_stats );
+$solo_steps = Trips::steps( $solo_id, true );
+check( 'steps placed from photo GPS', '38.7139' === (string) get_post_meta( $solo_steps[0]->ID ?? 0, Trips::META_LAT, true ) );
+check( 'countries come from photos', [ 'Portugal' ] === ( $solo_stats['countries'] ?? null ) );
+foreach ( array_merge( $solo_steps, [ get_post( $solo_id ) ] ) as $post ) {
+	wp_delete_post( $post->ID, true );
+}
+
 // REST: publish the steps, keep the trip a draft.
 wp_publish_post( $d1->ID );
 wp_publish_post( $d2->ID );
@@ -253,6 +271,11 @@ check( 'edit page says how many days were skipped for the trash', false !== strp
 check( 'edit page notes the sync limits', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'at most 20,000 photos and 500,000 location points' ), '' );
 check( 'edit page renders step list', false !== strpos( $edit, 'ts-step-list' ), [ 'len' => strlen( $edit ), 'notfound' => false !== strpos( $edit, 'Trip not found' ), 'nosteps' => false !== strpos( $edit, 'No steps yet' ), 'panel' => substr_count( $edit, 'ts-panel' ), 'tail' => substr( preg_replace( '/\s+/', ' ', strip_tags( substr( $edit, strpos( $edit, '<main' ) ?: 0 ) ) ), 0, 900 ) ] );
 $html = $render( 'trip.php', (string) $trip_id );
+check( 'published trip: no draft warning', false === strpos( $html . $edit, 'This trip is a draft' ) );
+wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'draft' ] );
+check( 'draft trip with published steps: trip page warns', false !== strpos( $render( 'trip.php', (string) $trip_id ), 'This trip is a draft' ) );
+check( 'draft trip with published steps: edit page warns', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'This trip is a draft' ) );
+wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
 check( 'editor trip page: block editor opens in a new tab', 1 === preg_match( '/<a href="[^"]*post\.php\?post=\d+&(amp;|#038;)?action=edit" target="_blank" rel="noopener">/', $html ) );
@@ -298,7 +321,38 @@ check( 'albums request gives up quickly', ( $album_calls[0] ?? 99 ) <= 5, $album
 ( new ImmichClient( 'http://other.test', 'key' ) )->albums();
 check( 'another Immich server is asked separately', 2 === count( $album_calls ), $album_calls );
 
+// Keys are write-only: blank keeps the saved one, and only "Remove" clears it.
+$saved = array_merge( TravelSteps\Settings::all(), [ 'dawarich_key' => 'dkey', 'immich_key' => 'ikey' ] );
+$kept  = TravelSteps\Settings::sanitize( [ 'dawarich_key' => '', 'immich_key' => 'new' ], $saved );
+check( 'a blank key field keeps the saved key', 'dkey' === $kept['dawarich_key'] && 'new' === $kept['immich_key'], $kept );
+$gone = TravelSteps\Settings::sanitize( [ 'dawarich_key' => '', 'dawarich_key_remove' => '1' ], $saved );
+check( 'remove clears a saved key, and only that one', '' === $gone['dawarich_key'] && 'ikey' === $gone['immich_key'], $gone );
+
 update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test', 'immich_key' => 'key' ] ) );
+// The trips list runs oldest first by start date, with undated drafts on top.
+$later   = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Later trip', 'post_status' => 'publish' ] );
+$earlier = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Earlier trip', 'post_status' => 'publish' ] );
+$undated = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Undated trip', 'post_status' => 'draft' ] );
+update_post_meta( $later, Trips::META_START, '2026-09-13' );
+update_post_meta( $earlier, Trips::META_START, '2026-09-04' );
+$list  = $render( 'index.php', '' );
+$order = array_map( fn( $t ) => strpos( $list, $t ), [ 'Undated trip', 'Earlier trip', 'Later trip' ] );
+check( 'trips list: undated, then oldest start first', ! in_array( false, $order, true ) && $order === array_values( array_unique( $order ) ) && $order[0] < $order[1] && $order[1] < $order[2], $order );
+foreach ( [ $later, $earlier, $undated ] as $id ) {
+	wp_delete_post( $id, true );
+}
+
+// A synced trip whose photos have no favourites says why it has no steps.
+$plain_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'No favourites', 'post_status' => 'draft' ] );
+update_post_meta( $plain_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 1, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', false ), row( 2, '2025-05-01', '10:00', 38.7, -9.1, 'Lisbon', false ) ] ) ) );
+update_post_meta( $plain_id, Trips::META_SYNCED, time() );
+$page = $render( 'trip-edit.php', (string) $plain_id );
+check( 'no favourites: edit page explains why there are no steps', false !== strpos( $page, 'None of the 2 photos' ), substr( $page, strpos( $page, '<h1' ) ?: 0, 600 ) );
+check( 'favourites present: no warning', false === strpos( $edit, 'is-warning' ) );
+wp_delete_post( $plain_id, true );
+
+$page = $render( 'settings.php', '' );
+check( 'remove checkbox only for a saved key', false !== strpos( $page, 'name="immich_key_remove"' ) && false === strpos( $page, 'name="dawarich_key_remove"' ), substr( $page, 0, 300 ) );
 $gone = '22222222-2222-4222-8222-222222222222';
 update_post_meta( $trip_id, Trips::META_ALBUM, $gone );
 wp_set_current_user( 1 );

@@ -19,6 +19,13 @@ class DawarichClient {
 	}
 
 	/**
+	 * Dawarich is optional: without it, trips are mapped from their photos' locations.
+	 */
+	public function configured(): bool {
+		return '' !== $this->api_key;
+	}
+
+	/**
 	 * All location points between two unix timestamps, oldest first.
 	 *
 	 * @return array<int, array{0: float, 1: float, 2: int, 3: string, 4: string}>|\WP_Error

@@ -223,6 +223,7 @@ $_GET = [ 'synced' => '1', 'new_steps' => '0', 'skipped_days' => '3' ];
 $notice = $render( 'trip-edit.php', (string) $trip_id );
 $_GET   = [];
 check( 'edit page says how many days were skipped for the trash', false !== strpos( $notice, '3 days with favourites were skipped' ) && false !== strpos( $notice, 'post_status=trash' ), substr( $notice, strpos( $notice, 'ts-notice' ) ?: 0, 400 ) );
+check( 'edit page notes the sync limits', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'at most 20,000 photos and 500,000 location points' ), '' );
 check( 'edit page renders step list', false !== strpos( $edit, 'ts-step-list' ), [ 'len' => strlen( $edit ), 'notfound' => false !== strpos( $edit, 'Trip not found' ), 'nosteps' => false !== strpos( $edit, 'No steps yet' ), 'panel' => substr_count( $edit, 'ts-panel' ), 'tail' => substr( preg_replace( '/\s+/', ' ', strip_tags( substr( $edit, strpos( $edit, '<main' ) ?: 0 ) ) ), 0, 900 ) ] );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );

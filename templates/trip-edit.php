@@ -5,6 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 use TravelSteps\App;
+use TravelSteps\DawarichClient;
 use TravelSteps\ImmichClient;
 use TravelSteps\Trips;
 
@@ -151,6 +152,18 @@ include __DIR__ . '/_header.php';
 				<?php wp_nonce_field( 'travel_steps_sync' ); ?>
 				<button type="submit" class="ts-button ts-button-secondary"><?php esc_html_e( 'Sync now', 'travel-steps' ); ?></button>
 			</form>
+			<p class="ts-muted">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: 1: maximum photos, 2: maximum location points */
+						__( 'Sync uses at most %1$s photos and %2$s location points per trip, and ignores the rest without warning. A trip with that many photos would be far too big to show online anyway: pick an album, or split the trip.', 'travel-steps' ),
+						number_format_i18n( ImmichClient::PAGE_SIZE * ImmichClient::MAX_PAGES ),
+						number_format_i18n( DawarichClient::PER_PAGE * DawarichClient::MAX_PAGES )
+					)
+				);
+				?>
+			</p>
 		</section>
 
 		<section class="ts-panel">

@@ -135,6 +135,18 @@ update_post_meta( $solo_id, Trips::META_START, '2025-05-01' );
 update_post_meta( $solo_id, Trips::META_END, '2025-05-03' );
 $r = ( new TripSync( new DawarichClient( 'http://x', '' ), $immich ) )->sync( $solo_id );
 check( 'sync works without a Dawarich key', ! is_wp_error( $r ) && 2 === $r['new_steps'] && 0 === $r['points'], is_wp_error( $r ) ? $r->get_error_message() : $r );
+
+// Dawarich gets times it can read back: an unencoded "+00:00" means " 00:00" in a query string.
+$asked   = '';
+$capture = function ( $preempt, $args, $url ) use ( &$asked ) {
+	$asked = $url;
+	return [ 'headers' => [], 'body' => '[]', 'response' => [ 'code' => 200, 'message' => 'OK' ], 'cookies' => [], 'filename' => null ];
+};
+add_filter( 'pre_http_request', $capture, 10, 3 );
+( new DawarichClient( 'http://dawarich.test', 'k' ) )->points( 1749427200, 1749513600 );
+remove_filter( 'pre_http_request', $capture, 10 );
+parse_str( (string) wp_parse_url( $asked, PHP_URL_QUERY ), $sent );
+check( 'Dawarich times survive URL decoding', 1749427200 === strtotime( $sent['start_at'] ?? '' ) && 1749513600 === strtotime( $sent['end_at'] ?? '' ), $asked );
 $solo_route = json_decode( (string) get_post_meta( $solo_id, Trips::META_ROUTE, true ), true );
 check( 'route drawn from photo positions', is_array( $solo_route ) && count( array_merge( ...$solo_route ) ) >= 5, $solo_route );
 $solo_stats = get_post_meta( $solo_id, Trips::META_STATS, true );

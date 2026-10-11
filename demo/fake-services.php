@@ -308,8 +308,8 @@ function immich( string $path, array $args ) {
 }
 
 /**
- * Query parameters, decoded without turning "+" into a space: Travel Steps sends
- * ISO 8601 times such as 2025-06-09T08:00:00+00:00 unencoded.
+ * Query parameters, decoded without turning "+" into a space: Travel Steps 0.2.0
+ * and earlier send ISO 8601 times such as 2025-06-09T08:00:00+00:00 unencoded.
  */
 function query( string $path ): array {
 	$params = [];

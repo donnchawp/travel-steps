@@ -40,10 +40,11 @@ class DawarichClient {
 		$points = [];
 		$page   = 1;
 		do {
+			// add_query_arg() doesn't encode values, and a bare "+" in "+00:00" reads as a space.
 			$url      = add_query_arg(
 				[
-					'start_at' => gmdate( 'c', $start ),
-					'end_at'   => gmdate( 'c', $end ),
+					'start_at' => rawurlencode( gmdate( 'c', $start ) ),
+					'end_at'   => rawurlencode( gmdate( 'c', $end ) ),
 					'order'    => 'asc',
 					'page'     => $page,
 					'per_page' => self::PER_PAGE,

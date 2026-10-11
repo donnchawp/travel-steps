@@ -13,6 +13,9 @@ namespace TravelSteps;
 class Days {
 	const ANCHOR_PREFIX = 'ts-place-';
 
+	// How far, in local time, a photo with a time zone can lend it to one without.
+	const ZONE_BORROW_MAX_S = 36 * 3600;
+
 	/**
 	 * The local date a photo was taken: Immich's localDateTime is the wall-clock time
 	 * written as if it were UTC. Without it, use $tz.
@@ -22,6 +25,45 @@ class Days {
 			return $m[0];
 		}
 		return ( new \DateTimeImmutable( '@' . $t ) )->setTimezone( $tz )->format( 'Y-m-d' );
+	}
+
+	/**
+	 * Fix the instants of photos Immich has no time zone for. Immich stores those (a
+	 * camera without GPS or an offset tag) as their wall-clock time written as UTC, so
+	 * abroad they're hours off. Each borrows the UTC offset of the nearest photo, by
+	 * local time, that has a zone (usually a phone's), or else the site's zone.
+	 *
+	 * @param array $photos Rows with t, local (wall-clock time as if UTC) and zoned.
+	 * @return array The same rows with t fixed and local and zoned removed.
+	 */
+	public static function resolve_times( array $photos, \DateTimeZone $fallback ): array {
+		$zoned = [];
+		foreach ( $photos as $photo ) {
+			if ( $photo['zoned'] ) {
+				$zoned[] = [ $photo['local'], $photo['local'] - $photo['t'] ];
+			}
+		}
+
+		foreach ( $photos as &$photo ) {
+			if ( ! $photo['zoned'] ) {
+				$offset = null;
+				$best   = self::ZONE_BORROW_MAX_S;
+				foreach ( $zoned as [ $local, $zoned_offset ] ) {
+					$gap = abs( $local - $photo['local'] );
+					if ( $gap <= $best ) {
+						$best   = $gap;
+						$offset = $zoned_offset;
+					}
+				}
+				$photo['t'] = null === $offset
+					? ( new \DateTimeImmutable( gmdate( 'Y-m-d H:i:s', $photo['local'] ), $fallback ) )->getTimestamp()
+					: $photo['local'] - $offset;
+			}
+			unset( $photo['local'], $photo['zoned'] );
+		}
+		unset( $photo );
+
+		return $photos;
 	}
 
 	/**

@@ -28,7 +28,9 @@ class FakeDawarich extends DawarichClient {
 }
 class FakeImmich extends ImmichClient {
 	public array $rows = [];
+	public array $asked = [];
 	public function photos( int $start, int $end, string $album_id = '' ) {
+		$this->asked = [ $start, $end ];
 		return $this->rows;
 	}
 }
@@ -45,6 +47,7 @@ $immich->rows = [
 	row( 4, '2025-05-01', '14:20', 38.7976, -9.3885, 'Sintra', false ),
 	row( 5, '2025-05-02', '11:00', 37.0194, -7.9304, 'Faro', true ),
 	row( 6, '2025-05-03', '10:00', 37.0194, -7.9304, 'Faro', false ), // No favourites that day.
+	row( 7, '2025-04-30', '20:00', 38.7139, -9.1394, 'Lisbon', true ),  // Before the trip.
 ];
 
 wp_set_current_user( 1 );
@@ -58,6 +61,9 @@ check( 'first sync creates a step per day with favourites', ! is_wp_error( $r ) 
 
 $steps = Trips::steps( $trip_id, true );
 check( 'two steps', 2 === count( $steps ), count( $steps ) );
+[ $from, $to ] = Trips::range( $trip_id );
+check( 'photos asked for 14h either side of the trip', [ $from - 14 * HOUR_IN_SECONDS, $to + 14 * HOUR_IN_SECONDS ] === $immich->asked, [ $from, $to, $immich->asked ] );
+check( 'no photos kept from before the trip', ! in_array( row( 7, '2025-04-30', '20:00', 0, 0, '', 1 )['id'], array_column( Trips::photos( $trip_id ), 'id' ), true ) );
 $d1 = $steps[0]; $d2 = $steps[1] ?? null;
 check( 'steps are drafts', 'draft' === $d1->post_status && 'draft' === $d2->post_status );
 check( 'day 1 title names both places', 'Lisbon, Sintra' === $d1->post_title, $d1->post_title );

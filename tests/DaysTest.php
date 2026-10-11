@@ -25,6 +25,48 @@ check( 'local day from localDateTime', '2025-05-01' === Days::local_day( '2025-0
 check( 'local day falls back to the site timezone', '2025-05-02' === Days::local_day( null, gmmktime( 23, 30, 0, 5, 1, 2025 ), $dublin ) );
 check( 'empty localDateTime falls back too', '2025-05-02' === Days::local_day( '', gmmktime( 23, 30, 0, 5, 1, 2025 ), $dublin ) );
 
+// Photo times: Immich stores a photo with no time zone (a camera without GPS or an
+// offset tag) as its wall-clock time written as UTC, so its instant is off by the local
+// offset. Borrow the offset from the nearest photo that has a zone, else the site's.
+function shot( string $id, string $local, ?int $offset_h ): array {
+	$wall = strtotime( $local . ' UTC' );
+	return [ 'id' => $id, 't' => null === $offset_h ? $wall : $wall - $offset_h * 3600, 'local' => $wall, 'zoned' => null !== $offset_h ];
+}
+$tokyo = Days::resolve_times(
+	[
+		shot( 'phone', '2025-05-01 09:00', 9 ),     // Phone with GPS: Immich knows it's Tokyo.
+		shot( 'camera', '2025-05-01 10:00', null ), // Camera, no zone.
+	],
+	$dublin
+);
+$by_id = array_column( $tokyo, null, 'id' );
+check( 'zoned photo keeps its time', gmmktime( 0, 0, 0, 5, 1, 2025 ) === $by_id['phone']['t'] );
+check( 'unzoned photo borrows the nearest zoned offset', gmmktime( 1, 0, 0, 5, 1, 2025 ) === $by_id['camera']['t'] );
+check( 'helper fields are dropped', ! isset( $by_id['camera']['local'] ) && ! isset( $by_id['camera']['zoned'] ) );
+
+// Two zones in one trip: each camera shot takes the offset of the closest phone shot.
+$flight = array_column(
+	Days::resolve_times(
+		[
+			shot( 'p1', '2025-05-01 09:00', 1 ),  // Lisbon (WEST, UTC+1).
+			shot( 'c1', '2025-05-01 11:00', null ),
+			shot( 'p2', '2025-05-02 20:00', 9 ),  // Tokyo.
+			shot( 'c2', '2025-05-02 19:00', null ),
+		],
+		$dublin
+	),
+	null,
+	'id'
+);
+check( 'camera in Lisbon uses the Lisbon offset', gmmktime( 10, 0, 0, 5, 1, 2025 ) === $flight['c1']['t'] );
+check( 'camera in Tokyo uses the Tokyo offset', gmmktime( 10, 0, 0, 5, 2, 2025 ) === $flight['c2']['t'] );
+
+// No zoned photo near enough: the site time zone, DST included (Dublin is UTC+1 in May).
+$alone = Days::resolve_times( [ shot( 'c', '2025-05-01 10:00', null ) ], $dublin );
+check( 'unzoned photo alone uses the site zone', gmmktime( 9, 0, 0, 5, 1, 2025 ) === $alone[0]['t'] );
+$far = array_column( Days::resolve_times( [ shot( 'p', '2025-05-01 09:00', 9 ), shot( 'c', '2025-05-05 10:00', null ) ], $dublin ), null, 'id' );
+check( 'a zoned photo days away is ignored', gmmktime( 9, 0, 0, 5, 5, 2025 ) === $far['c']['t'] );
+
 // Day numbers are calendar arithmetic, so DST changes don't shift them.
 check( 'first day is day 1', 1 === Days::day_number( '2025-03-29', '2025-03-29' ) );
 check( 'day after the clocks change is day 3', 3 === Days::day_number( '2025-03-29', '2025-03-31' ) );

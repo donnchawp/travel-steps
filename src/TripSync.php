@@ -17,6 +17,8 @@ class TripSync {
 	const ROUTE_TOLERANCE_M = 25;
 	const ROUTE_MAX_POINTS  = 8000;
 	const PHOTO_MAX_GAP_S   = HOUR_IN_SECONDS;
+	// The widest UTC offset: a photo taken on a trip day can be this far outside it in the site's zone.
+	const ZONE_MARGIN_S     = 14 * HOUR_IN_SECONDS;
 
 	private DawarichClient $dawarich;
 	private ImmichClient $immich;
@@ -62,10 +64,14 @@ class TripSync {
 		}
 		$points = Geo::exclude_near( $points, $home );
 
-		$photos = $this->immich->photos( $start, $end, (string) get_post_meta( $trip_id, Trips::META_ALBUM, true ) );
+		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
+		$photos = $this->immich->photos( $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S, (string) get_post_meta( $trip_id, Trips::META_ALBUM, true ) );
 		if ( is_wp_error( $photos ) ) {
 			return $photos;
 		}
+		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
+		$last   = (string) get_post_meta( $trip_id, Trips::META_END, true );
+		$photos = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
 		$photos = $this->locate_photos( $photos, $points, $home );
 
 		// No location history for these dates? Fall back to the photos' own positions.

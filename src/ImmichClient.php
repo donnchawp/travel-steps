@@ -110,6 +110,7 @@ class ImmichClient {
 			}
 		}
 
+		$photos = Days::resolve_times( $photos, wp_timezone() );
 		usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
 		return $photos;
 	}
@@ -124,6 +125,7 @@ class ImmichClient {
 		if ( false === $time ) {
 			return null;
 		}
+		$local  = isset( $asset['localDateTime'] ) ? strtotime( $asset['localDateTime'] ) : false;
 		$width  = (int) ( $asset['width'] ?? $exif['exifImageWidth'] ?? 0 );
 		$height = (int) ( $asset['height'] ?? $exif['exifImageHeight'] ?? 0 );
 		// EXIF dimensions are pre-rotation.
@@ -134,6 +136,9 @@ class ImmichClient {
 			'id'      => (string) $asset['id'],
 			't'       => $time,
 			'day'     => Days::local_day( $asset['localDateTime'] ?? null, $time, wp_timezone() ),
+			// Without a zone, Immich's time is wall-clock time as UTC; resolve_times() fixes it.
+			'local'   => false === $local ? $time : $local,
+			'zoned'   => ! empty( $exif['timeZone'] ),
 			'lat'     => isset( $exif['latitude'] ) ? (float) $exif['latitude'] : null,
 			'lon'     => isset( $exif['longitude'] ) ? (float) $exif['longitude'] : null,
 			'w'       => $width,

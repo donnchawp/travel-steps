@@ -157,14 +157,43 @@ class RestController {
 			file_put_contents( $cache['file'], $image['body'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 			file_put_contents( $cache['file'] . '.type', $image['type'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		}
-		$type = is_readable( $cache['file'] . '.type' ) ? trim( (string) file_get_contents( $cache['file'] . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$etag = '"' . md5( $asset . '/' . $size . '/' . filemtime( $cache['file'] ) ) . '"';
+		header( 'Cache-Control: ' . self::photo_cache_control( $is_public ) );
+		header( 'ETag: ' . $etag );
+		header( 'X-Content-Type-Options: nosniff' );
+		// Revalidation runs the access check above every time, but costs no image bytes.
+		if ( self::not_modified( $etag, (string) ( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			status_header( 304 );
+			exit;
+		}
 
+		$type = is_readable( $cache['file'] . '.type' ) ? trim( (string) file_get_contents( $cache['file'] . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		header( 'Content-Type: ' . ( preg_match( '#^image/[a-z0-9.+-]+$#', $type ) ? $type : 'image/jpeg' ) );
 		header( 'Content-Length: ' . filesize( $cache['file'] ) );
-		header( 'Cache-Control: ' . ( $is_public ? 'public, max-age=604800, immutable' : 'private, max-age=3600' ) );
-		header( 'X-Content-Type-Options: nosniff' );
 		readfile( $cache['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 		exit;
+	}
+
+	/**
+	 * Unpublishing a step or hiding a photo has to reach shared caches (CDNs, proxies)
+	 * soon, so they keep a public photo 5 minutes; browsers, which already have it, an
+	 * hour. Photos of drafts never go into a shared cache.
+	 */
+	public static function photo_cache_control( bool $is_public ): string {
+		return $is_public ? 'public, max-age=3600, s-maxage=300' : 'private, max-age=3600';
+	}
+
+	/**
+	 * Whether an If-None-Match header names $etag (weak or strong, or *).
+	 */
+	public static function not_modified( string $etag, string $if_none_match ): bool {
+		foreach ( explode( ',', $if_none_match ) as $tag ) {
+			$tag = trim( $tag );
+			if ( '*' === $tag || ( '' !== $tag && preg_replace( '#^W/#', '', $tag ) === $etag ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

@@ -136,6 +136,13 @@ $data = $trip->get_data();
 check( 'trip API: markers 1a/1b for the two places', [ '1a', '1b' ] === array_column( $data['markers'] ?? [], 'label' ), $data );
 check( 'trip API: no per-photo data', ! isset( $data['steps'] ) );
 
+// Photo caching: shared caches must drop a photo soon after it's unpublished or hidden.
+$public = TravelSteps\RestController::photo_cache_control( true );
+check( 'public photos are not cached as immutable', false === strpos( $public, 'immutable' ), $public );
+check( 'shared caches keep public photos 5 minutes at most', 1 === preg_match( '/s-maxage=(\d+)/', $public, $m ) && (int) $m[1] <= 300, $public );
+check( 'draft photos stay out of shared caches', 0 === strpos( TravelSteps\RestController::photo_cache_control( false ), 'private' ) );
+check( 'revalidation matches the ETag', TravelSteps\RestController::not_modified( '"abc"', 'W/"abc", "def"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '"abd"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '' ) );
+
 // Story rendering: photos under the heading they belong to.
 $by_step = Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) );
 ob_start();

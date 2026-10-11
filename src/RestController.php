@@ -147,31 +147,66 @@ class RestController {
 		$hidden = in_array( $asset, Trips::hidden( $trip_id ), true );
 
 		$is_public = 'publish' === get_post_status( $trip_id ) && ! $hidden;
-		$cache     = self::cache_file( $asset, $size );
-		if ( ! is_readable( $cache['file'] ) ) {
-			$image = ( new ImmichClient() )->thumbnail( $asset, $size );
-			if ( is_wp_error( $image ) ) {
-				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
-			}
-			wp_mkdir_p( dirname( $cache['file'] ) );
-			file_put_contents( $cache['file'], $image['body'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents( $cache['file'] . '.type', $image['type'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		}
-		$etag = '"' . md5( $asset . '/' . $size . '/' . filemtime( $cache['file'] ) ) . '"';
-		header( 'Cache-Control: ' . self::photo_cache_control( $is_public ) );
-		header( 'ETag: ' . $etag );
-		header( 'X-Content-Type-Options: nosniff' );
+		// An asset's thumbnail doesn't change, so its tag needn't depend on the cache file.
+		$etag = '"' . md5( $asset . '/' . $size ) . '"';
 		// Revalidation runs the access check above every time, but costs no image bytes.
-		if ( self::not_modified( $etag, (string) ( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if ( self::not_modified( $etag, (string) $request->get_header( 'if_none_match' ) ) ) {
+			self::send_cache_headers( $is_public, $etag );
 			status_header( 304 );
 			exit;
 		}
 
-		$type = is_readable( $cache['file'] . '.type' ) ? trim( (string) file_get_contents( $cache['file'] . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		header( 'Content-Type: ' . ( preg_match( '#^image/[a-z0-9.+-]+$#', $type ) ? $type : 'image/jpeg' ) );
+		$cache = self::cache_file( $asset, $size );
+		if ( ! is_readable( $cache['file'] ) ) {
+			$image = ( new ImmichClient() )->thumbnail( $asset, $size );
+			if ( is_wp_error( $image ) || '' === $image['body'] ) {
+				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
+			}
+			// Serve what we fetched even if it couldn't be cached.
+			self::store_cached( $cache['file'], $image['body'], $image['type'] );
+			self::send_cache_headers( $is_public, $etag );
+			self::send_type( $image['type'] );
+			header( 'Content-Length: ' . strlen( $image['body'] ) );
+			echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			exit;
+		}
+
+		self::send_cache_headers( $is_public, $etag );
+		self::send_type( is_readable( $cache['file'] . '.type' ) ? trim( (string) file_get_contents( $cache['file'] . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		header( 'Content-Length: ' . filesize( $cache['file'] ) );
 		readfile( $cache['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 		exit;
+	}
+
+	// Only for a photo actually served, so errors don't land in shared caches.
+	private static function send_cache_headers( bool $is_public, string $etag ): void {
+		header( 'Cache-Control: ' . self::photo_cache_control( $is_public ) );
+		header( 'ETag: ' . $etag );
+		header( 'X-Content-Type-Options: nosniff' );
+	}
+
+	private static function send_type( string $type ): void {
+		header( 'Content-Type: ' . ( preg_match( '#^image/[a-z0-9.+-]+$#', $type ) ? $type : 'image/jpeg' ) );
+	}
+
+	/**
+	 * Cache a thumbnail so it's never seen half-written: each file is written under a
+	 * temporary name and renamed into place, the type first, so a reader that finds the
+	 * image also finds its type. An empty thumbnail isn't cached.
+	 */
+	public static function store_cached( string $file, string $body, string $type ): bool {
+		if ( '' === $body ) {
+			return false;
+		}
+		wp_mkdir_p( dirname( $file ) );
+		foreach ( [ $file . '.type' => $type, $file => $body ] as $path => $data ) {
+			$tmp = $path . '.' . wp_generate_password( 8, false ) . '.tmp';
+			if ( strlen( $data ) !== file_put_contents( $tmp, $data ) || ! rename( $tmp, $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.WP.AlternativeFunctions.rename_rename
+				wp_delete_file( $tmp );
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

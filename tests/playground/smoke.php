@@ -143,6 +143,12 @@ check( 'shared caches keep public photos 5 minutes at most', 1 === preg_match( '
 check( 'draft photos stay out of shared caches', 0 === strpos( TravelSteps\RestController::photo_cache_control( false ), 'private' ) );
 check( 'revalidation matches the ETag', TravelSteps\RestController::not_modified( '"abc"', 'W/"abc", "def"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '"abd"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '' ) );
 
+// Thumbnail cache: written whole or not at all.
+$file = get_temp_dir() . 'ts-cache-test/ab/abc';
+check( 'cache stores a thumbnail', TravelSteps\RestController::store_cached( $file, 'IMAGE', 'image/webp' ) && 'IMAGE' === file_get_contents( $file ) && 'image/webp' === file_get_contents( $file . '.type' ) );
+check( 'cache leaves no temporary files', [] === glob( dirname( $file ) . '/*.tmp' ) );
+check( 'cache skips an empty thumbnail', ! TravelSteps\RestController::store_cached( $file . '-empty', '', 'image/webp' ) && ! file_exists( $file . '-empty' ) );
+
 // Story rendering: photos under the heading they belong to.
 $by_step = Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) );
 ob_start();

@@ -12,13 +12,9 @@ A Polarsteps-style travel journal: photos from Immich, an optional route from Da
 
 == Description ==
 
-Travel Steps turns a trip into a map, a timeline and a story on your own WordPress site.
+Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app) and are served through WordPress, so Immich stays private.
 
-* **Route** from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken.
-* **Photos** from [Immich](https://immich.app), served through WordPress so Immich stays private.
-* **Story** in the block editor: each day with favourite photos becomes a draft step you write up and publish.
-
-Sync creates a draft step for every day with favourites, with a heading and a Trip photos block for each place you visited. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map.
+Sync creates a draft step for every day with favourite photos, with a heading and a Trip photos block for each place you visited. You write each step up in the block editor and publish it. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map.
 
 Requires an Immich server reachable from your WordPress server; Dawarich is optional. Creating and syncing trips needs the `manage_options` capability by default.
 
@@ -32,15 +28,21 @@ Requires an Immich server reachable from your WordPress server; Dawarich is opti
 
 Travel Steps connects to three services. The plugin sends nothing anywhere else: Leaflet, the map library, ships with the plugin.
 
-**OpenStreetMap map tiles.** The map on each trip page loads its background images from the OpenStreetMap Foundation's tile servers (`tile.openstreetmap.org`). The visitor's browser requests the tiles directly, so the OpenStreetMap Foundation receives the visitor's IP address, browser user agent, the trip page's address (as the referrer) and which part of the map they view. This happens whenever someone opens a trip page. Map data © OpenStreetMap contributors.
+= OpenStreetMap map tiles =
+
+The map on each trip page loads its background images from the OpenStreetMap Foundation's tile servers (`tile.openstreetmap.org`). The visitor's browser requests the tiles directly, so the OpenStreetMap Foundation receives the visitor's IP address, browser user agent, the trip page's address (as the referrer) and which part of the map they view. This happens whenever someone opens a trip page. Map data © OpenStreetMap contributors.
 
 * [Tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
 * [Terms of use](https://osmfoundation.org/wiki/Terms_of_Use)
 * [Privacy policy](https://osmfoundation.org/wiki/Privacy_Policy)
 
-**Dawarich** (your own server, optional). If you configure it, when you sync a trip your WordPress server asks the Dawarich server you configure for the location points between the trip's dates, sending your Dawarich API key and the date range. Nothing is sent to Dawarich at any other time, and visitors never contact it. Dawarich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [dawarich.app](https://dawarich.app).
+= Dawarich (your own server, optional) =
 
-**Immich** (your own server). When you sync a trip, your WordPress server asks the Immich server you configure for the photos taken during the trip (or in the album you chose), sending your Immich API key and the date range or album id. The trip edit page lists your Immich albums, and photos shown on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
+If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawarich server for the location points between the trip's dates. It sends your Dawarich API key and the date range. Nothing is sent to Dawarich at any other time, and visitors never contact it. Dawarich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [dawarich.app](https://dawarich.app).
+
+= Immich (your own server) =
+
+Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends your Immich API key and the date range or album id. The trip edit page also lists your Immich albums. Photos on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
 
 == Changelog ==
 

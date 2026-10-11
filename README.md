@@ -1,21 +1,23 @@
 # Travel Steps
 
-A Polarsteps-style travel journal for your own WordPress, built with [WpApp](https://github.com/akirk/wp-app):
+A Polarsteps-style travel journal for your own WordPress, built with [WpApp](https://github.com/akirk/wp-app). The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app) and are served through WordPress, so Immich stays private. Every step is a post you write in the block editor.
 
-- **Route** from [Dawarich](https://dawarich.app) location history, or from where your photos were taken
-- **Photos** from [Immich](https://immich.app), served through WordPress, so Immich stays private
-- **Story** in WordPress: every step is a post you write in the block editor
+## Demo
 
-**[Try the demo in WordPress Playground](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/donnchawp/travel-steps/master/demo/blueprint.json)**: a week in the west of Ireland, in your browser, with nothing to install. Stand-in Immich and Dawarich servers feed the real sync, and the photos come from [Unsplash](https://unsplash.com), credited in each caption. You're logged in as an admin, so you can pin, hide and choose photos, edit the days in the block editor, and sync again.
+[Try it in WordPress Playground](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/donnchawp/travel-steps/master/demo/blueprint.json). The demo is a week in the west of Ireland that runs in your browser, with nothing to install. Stand-in Immich and Dawarich servers feed the real sync. You're logged in as an admin, so you can pin, hide and choose photos, edit the days in the block editor, and sync again.
+
+[![The demo trip: a header photo of the Cliffs of Moher above the trip's dates and stats, a map of the route from Dublin round the west coast to Kerry, and the first day's story with a photo of Temple Bar.](.github/demo-screenshot.jpg)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/donnchawp/travel-steps/master/demo/blueprint.json)
+
+<sub>Demo photos from [Unsplash](https://unsplash.com), each credited in its caption; in the screenshot, the Cliffs of Moher by [Jarek Skowron](https://unsplash.com/photos/Zf9bvJ6182k) and Temple Bar by [Sarah](https://unsplash.com/photos/-ABmxr3Yo4Y). Map © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.</sub>
 
 ## How it works
 
-A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A **step** (`ts_step` post, child of the trip) is a day. **Sync**:
+A trip (a `ts_trip` post) has a date range and, optionally, an Immich album. A step (a `ts_step` post, child of the trip) is one day. Sync works like this:
 
 1. If Dawarich is set up, fetches your points for those dates and drops anything near home, and GPS glitches: any fix you'd have had to travel faster than 1,080 km/h to reach.
 2. Fetches the album's photos, or all photos taken during those dates if there's no album. Photos without GPS get the position you were at when you took them. A camera that records no time zone gets the offset of the nearest phone photo that does (or the site's), so abroad its photos aren't hours off. Photos are kept by the local date they were taken, so the first morning and last evening of a trip in another time zone aren't cut off.
-3. Creates a **draft step for each day with favourites**. The day is the local date the photos were taken (Immich's `localDateTime`).
-4. Groups each new day's favourites into **places**. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a **place tag** (`ts_place`) for each. Each place also gets an empty paragraph to write in and a **Trip photos** block. The title lists them: "Lisbon, Sintra".
+3. Creates a draft step for each day with favourites. The day is the local date the photos were taken (Immich's `localDateTime`).
+4. Groups each new day's favourites into places. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a place tag (`ts_place`) for each. Each place also gets an empty paragraph to write in and a Trip photos block. The title lists the places: "Lisbon, Sintra".
 5. Simplifies the route (your Dawarich points, or else the photos with GPS in time order), splits it at big jumps (flights, ferries) and caches it on the trip. A track made from photos loses its GPS glitches too. The distance follows the whole track, jumps included, so flights count.
 
 Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position.
@@ -26,18 +28,18 @@ Publish the days you want shown. Draft steps and their photos stay private, but 
 
 A step shows photos from its date. Favourites in Immich decide which:
 
-- **A step with favourites** shows exactly those.
-- **A step without favourites** (one you added by hand) gets an automatic pick (8 by default), spread across the day. Bursts of shots taken seconds apart count as one.
-- **Pin** a photo on the trip page to always show it, or **Hide** it to never show it. Press the button again to undo.
+- A step with favourites shows exactly those.
+- A step without favourites (one you added by hand) gets an automatic pick (8 by default), spread across the day. Bursts of shots taken seconds apart count as one.
+- On the trip page, **Pin** a photo to always show it, or **Hide** it to never show it. Press the button again to undo.
 - **Cover** makes a photo the trip's header image; press it again to go back to the automatic choice (the first landscape favourite on a published step). A chosen cover is public with the trip, even if its step isn't.
-- **Everything else** stays behind a collapsed "Show all N photos".
-- **Days without a step** show no photos at all.
-- **Screenshots** and other images with no camera make/model in EXIF are skipped at sync, unless favourited.
-- **Star ratings are ignored**, since they're often a Lightroom workflow rather than a quality score.
+- Everything else stays behind a collapsed "Show all N photos".
+- Days without a step show no photos at all.
+- Sync skips screenshots and other images with no camera make or model in EXIF, unless they're favourites.
+- Star ratings are ignored, since they often belong to a Lightroom workflow rather than rating quality.
 
 Shown photos sit under the place heading they belong to. Each seeded heading carries an anchor with its start time (`id="ts-place-<unix>"`) and owns the photos taken from then until the next heading. Rename the headings, write between them, or add your own. Delete one and its photos join the section above. Favourites added later appear in the right section without sync touching the story.
 
-The **Trip photos** block marks where a section's photos go and previews them in the block editor. Move it to put text after the photos, or insert one under a heading of a step made before the block existed. A section without one gets its photos after its text. Only the first block in a section shows photos.
+The Trip photos block marks where a section's photos go and previews them in the block editor. Move it to put text after the photos, or insert one under a heading of a step made before the block existed. A section without one gets its photos after its text. Only the first block in a section shows photos.
 
 Grids load a 640 px (short side) copy of Immich's preview, made once and cached; a photo shown on its own, and the lightbox, use the full preview.
 
@@ -78,9 +80,9 @@ composer install --no-dev
 
 Then activate the plugin and open `/travel-steps/settings`:
 
-- **Dawarich** (optional): URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network) plus the API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations: the route joins where photos were taken in straight lines, dashed where they're over 20 km apart; the distance is measured along those lines, so a winding drive comes out short and a flight counts; photos without GPS stay unplaced, and a day without any located photo has no marker.
-- **Immich**: falls back to the URL and key from *Media Picker for Immich* when that's configured. The key needs `asset.read`, `asset.view` and `album.read`.
-- **Home**: set coordinates and a radius to keep your home off every map. Right-click your home in Google Maps and click the coordinates to copy them, then paste the pair into either field.
+- Dawarich (optional): the URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network), and the API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations. The route joins the places photos were taken with straight lines, dashed where they're over 20 km apart, and the distance is measured along those lines, so a winding drive comes out short and a flight counts. Photos without GPS stay unplaced, and a day without any located photo has no marker.
+- Immich: falls back to the URL and key from *Media Picker for Immich* when that's configured. The key needs `asset.read`, `asset.view` and `album.read`.
+- Home: coordinates and a radius to keep your home off every map. Right-click your home in Google Maps and click the coordinates to copy them, then paste the pair into either field.
 
 ## Development
 
@@ -107,7 +109,7 @@ make deploy-dry   # what would be copied and deleted
 make deploy       # composer install --no-dev, then rsync --delete
 ```
 
-- It copies your **working tree**, not the last commit, so uncommitted changes go too.
+- It copies your working tree, not the last commit, so uncommitted changes go too.
 - `tests/`, the Makefiles and all dotfiles (`.git`, `.gitignore`, `.github` in dependencies) stay behind. `vendor/` goes, with runtime dependencies only.
 - `make dist` builds the same files into `dist/travel-steps.zip`, ready to upload or run through Plugin Check.
 - `--delete` removes files on the server that aren't in your copy, so keep nothing else in the plugin folder there.

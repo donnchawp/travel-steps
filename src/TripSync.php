@@ -58,11 +58,13 @@ class TripSync {
 		[ $start, $end ] = $range;
 		$home            = Settings::home();
 
-		$points = $this->dawarich->configured() ? $this->dawarich->points( $start, $end ) : [];
+		$points = $this->dawarich->points( $start, $end );
 		if ( is_wp_error( $points ) ) {
 			return $points;
 		}
-		$points = Geo::exclude_near( $points, $home );
+		// Glitches first: the fixes at home are the witnesses that give away a bad one
+		// the morning you leave.
+		$points = Geo::exclude_near( Geo::drop_glitches( $points ), $home );
 
 		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
 		$photos = $this->immich->photos( $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S, (string) get_post_meta( $trip_id, Trips::META_ALBUM, true ) );
@@ -82,22 +84,21 @@ class TripSync {
 					$track[] = [ $photo['lat'], $photo['lon'], $photo['t'], $photo['city'], $photo['country'] ];
 				}
 			}
+			$track = Geo::drop_glitches( $track );
 		}
 
 		[ $new_steps, $skipped_days ] = $this->sync_steps( $trip_id, $track, $photos );
 
-		$segments = Geo::split_segments( $track );
-		$route    = $this->simplify_route( $segments );
+		$route = $this->simplify_route( Geo::split_segments( $track ) );
 		update_post_meta( $trip_id, Trips::META_ROUTE, wp_slash( wp_json_encode( $route ) ) );
 		update_post_meta( $trip_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( $photos ) ) );
 
-		$distance = Geo::track_length( $track );
 		$countries = array_values( array_unique( array_filter( array_merge( array_column( $track, 4 ), array_column( $photos, 'country' ) ) ) ) );
 		update_post_meta(
 			$trip_id,
 			Trips::META_STATS,
 			[
-				'distance_km' => round( $distance / 1000 ),
+				'distance_km' => round( Geo::track_length( $track ) / 1000 ),
 				'points'      => count( $points ),
 				'photos'      => count( $photos ),
 				'countries'   => $countries,

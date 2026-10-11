@@ -14,7 +14,7 @@ include __DIR__ . '/_header.php';
 ?>
 <div class="ts-page ts-narrow">
 	<h1><?php echo esc_html( $page_title ); ?></h1>
-	<?php if ( isset( $_GET['invalid'] ) && in_array( 'home', explode( ',', sanitize_text_field( wp_unslash( $_GET['invalid'] ) ) ), true ) ) : ?>
+	<?php if ( isset( $_GET['invalid'] ) && 'home' === $_GET['invalid'] ) : ?>
 		<p class="ts-notice is-error"><?php esc_html_e( 'Home location not saved: it needs both a latitude and a longitude in decimal degrees, like 51.8985 and -8.4756 (west and south are negative). You can also paste a "51.8985, -8.4756" pair from a map into either field. Everything else was saved.', 'travel-steps' ); ?></p>
 	<?php elseif ( isset( $_GET['saved'] ) ) : ?>
 		<p class="ts-notice"><?php esc_html_e( 'Settings saved.', 'travel-steps' ); ?></p>

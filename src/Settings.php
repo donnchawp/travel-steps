@@ -76,10 +76,7 @@ class Settings {
 
 		$errors = [];
 		update_option( self::OPTION, self::sanitize( wp_unslash( $_POST ), self::all(), $errors ), false );
-		$args = [ 'saved' => '1' ];
-		if ( $errors ) {
-			$args['invalid'] = implode( ',', $errors );
-		}
+		$args = in_array( 'home', $errors, true ) ? [ 'invalid' => 'home' ] : [ 'saved' => '1' ];
 		wp_safe_redirect( add_query_arg( $args, App::url( 'settings' ) ) );
 		exit;
 	}

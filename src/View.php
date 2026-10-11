@@ -36,18 +36,15 @@ class View {
 	}
 
 	/**
-	 * Published steps nobody else can see because their trip isn't public. A private
-	 * trip is hidden on purpose, and a scheduled one goes public by itself, so neither
-	 * counts.
+	 * A warning for editors when published steps can't be seen because their trip isn't
+	 * public, else ''. A private trip is hidden on purpose, and a scheduled one goes
+	 * public by itself, so neither needs it.
 	 */
-	public static function unseen_steps( \WP_Post $trip, array $steps ): int {
-		if ( in_array( $trip->post_status, [ 'publish', 'private', 'future' ], true ) ) {
-			return 0;
+	public static function unseen_notice( \WP_Post $trip, array $steps ): string {
+		$unseen = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
+		if ( ! $unseen || in_array( $trip->post_status, [ 'publish', 'private', 'future' ], true ) ) {
+			return '';
 		}
-		return count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
-	}
-
-	public static function draft_notice( int $unseen ): string {
 		return sprintf(
 			/* translators: %s: number of published steps */
 			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $unseen, 'travel-steps' ),

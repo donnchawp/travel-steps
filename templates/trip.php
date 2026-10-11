@@ -105,10 +105,10 @@ include __DIR__ . '/_header.php';
 		</div>
 
 		<div class="ts-timeline">
-			<?php $unseen = $can_edit ? View::unseen_steps( $trip, $steps ) : 0; ?>
+			<?php $unseen = $can_edit ? View::unseen_notice( $trip, $steps ) : ''; ?>
 			<?php if ( $unseen ) : ?>
 				<p class="ts-notice is-warning">
-					<?php echo esc_html( View::draft_notice( $unseen ) ); ?>
+					<?php echo esc_html( $unseen ); ?>
 					<?php if ( current_user_can( Trips::capability() ) ) : ?>
 						<a href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a>
 					<?php endif; ?>

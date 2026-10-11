@@ -37,6 +37,21 @@ class FakeDawarich extends DawarichClient {
 		return $pts;
 	}
 }
+// At home in Lisbon (with one bad fix half an hour before leaving), then off to Sintra.
+class HomeDawarich extends DawarichClient {
+	public function points( int $start, int $end ) {
+		$pts = [];
+		for ( $t = $start; $t < $start + 6 * HOUR_IN_SECONDS; $t += 600 ) {
+			$pts[] = [ 38.7139, -9.1394, $t, 'Lisbon', 'Portugal' ];
+		}
+		$pts[] = [ 40.4168, -3.7038, $t - 1800 + 60, 'Madrid', 'Spain' ];
+		usort( $pts, fn( $a, $b ) => $a[2] <=> $b[2] );
+		for ( $i = 1; $i <= 12; $i++ ) {
+			$pts[] = [ 38.7139 + $i * 0.007, -9.1394 - $i * 0.021, $t + $i * 600, 'Sintra', 'Portugal' ];
+		}
+		return $pts;
+	}
+}
 class FakeImmich extends ImmichClient {
 	public array $rows = [];
 	public array $asked = [];
@@ -270,7 +285,7 @@ $_GET   = [];
 check( 'edit page says how many days were skipped for the trash', false !== strpos( $notice, '3 days with favourites were skipped' ) && false !== strpos( $notice, 'post_status=trash' ), substr( $notice, strpos( $notice, 'ts-notice' ) ?: 0, 400 ) );
 $limits = $render( 'trip-edit.php', (string) $trip_id );
 check( 'edit page notes the sync limits', false !== strpos( $limits, 'at most 20,000 photos per trip' ), '' );
-check( 'without Dawarich, no location points are mentioned', false === strpos( $limits, 'location points' ) );
+check( 'without Dawarich, the limits leave out location points', false === strpos( $limits, 'location points per trip' ) && false !== strpos( $limits, 'far too big to show online' ) );
 check( 'edit page renders step list', false !== strpos( $edit, 'ts-step-list' ), [ 'len' => strlen( $edit ), 'notfound' => false !== strpos( $edit, 'Trip not found' ), 'nosteps' => false !== strpos( $edit, 'No steps yet' ), 'panel' => substr_count( $edit, 'ts-panel' ), 'tail' => substr( preg_replace( '/\s+/', ' ', strip_tags( substr( $edit, strpos( $edit, '<main' ) ?: 0 ) ) ), 0, 900 ) ] );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'published trip: no draft warning', false === strpos( $html . $edit, 'This trip isn’t public' ) );
@@ -371,6 +386,20 @@ check( 'trips list: undated, then oldest start first', ! in_array( false, $order
 foreach ( [ $later, $earlier, $undated ] as $id ) {
 	wp_delete_post( $id, true );
 }
+
+// A bad fix just before leaving home is caught: the home fixes around it are witnesses.
+$home_before = get_option( TravelSteps\Settings::OPTION );
+update_option( TravelSteps\Settings::OPTION, array_merge( (array) $home_before, [ 'home_lat' => '38.7139', 'home_lon' => '-9.1394', 'home_radius_km' => 1 ] ) );
+$away_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Day trip', 'post_status' => 'draft' ] );
+update_post_meta( $away_id, Trips::META_START, '2025-05-01' );
+update_post_meta( $away_id, Trips::META_END, '2025-05-01' );
+$r          = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $immich ) )->sync( $away_id );
+$away_stats = get_post_meta( $away_id, Trips::META_STATS, true );
+check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'Portugal' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
+foreach ( array_merge( Trips::steps( $away_id, true ), [ get_post( $away_id ) ] ) as $post ) {
+	wp_delete_post( $post->ID, true );
+}
+update_option( TravelSteps\Settings::OPTION, $home_before );
 
 // A synced trip whose photos have no favourites says why it has no steps.
 $plain_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'No favourites', 'post_status' => 'draft' ] );

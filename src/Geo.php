@@ -141,41 +141,54 @@ class Geo {
 	}
 
 	/**
-	 * Metres along a track of [ lat, lon, timestamp ] fixes, gaps included: a flight
-	 * with the phone off counts as a straight line. A fix that you couldn't have
-	 * reached, without outrunning an airliner, from at least half of the two fixes
-	 * on either side of it is a GPS glitch, and is skipped. Comparing with neighbours
-	 * on both sides catches a bad first fix, or one after a long gap, which a check
-	 * against the previous fix alone would accept and then reject the real track.
+	 * Metres along a track, gaps included: a flight with the phone off counts as a
+	 * straight line.
 	 */
-	public static function track_length( array $points, float $max_speed_ms = 300 ): float {
-		$points = array_values( $points );
-		$count  = count( $points );
-		$total  = 0.0;
-		$prev   = null;
-		for ( $i = 0; $i < $count; $i++ ) {
-			$p     = $points[ $i ];
-			$votes = 0;
-			$agree = 0;
-			for ( $j = max( 0, $i - 2 ); $j <= min( $count - 1, $i + 2 ); $j++ ) {
-				if ( $j === $i ) {
-					continue;
-				}
-				$q = $points[ $j ];
-				++$votes;
-				if ( self::distance( $p[0], $p[1], $q[0], $q[1] ) <= $max_speed_ms * max( 1, abs( $q[2] - $p[2] ) ) ) {
-					++$agree;
-				}
-			}
-			// Losing a real fix costs metres; keeping a bad one costs thousands of km.
-			if ( $votes && $agree * 2 <= $votes ) {
-				continue;
-			}
-			if ( $prev ) {
-				$total += self::distance( $prev[0], $prev[1], $p[0], $p[1] );
-			}
-			$prev = $p;
+	public static function track_length( array $points ): float {
+		$total = 0.0;
+		for ( $i = 1, $n = count( $points ); $i < $n; $i++ ) {
+			$total += self::distance( $points[ $i - 1 ][0], $points[ $i - 1 ][1], $points[ $i ][0], $points[ $i ][1] );
 		}
 		return $total;
+	}
+
+	/**
+	 * Drop GPS glitches from a track of [ lat, lon, timestamp ] fixes: any fix you
+	 * couldn't have reached, without outrunning an airliner, from most of the two fixes
+	 * on either side of it. Asking neighbours on both sides catches a bad first fix,
+	 * or one after a long gap, which a check against the previous fix alone would
+	 * accept before rejecting the real track after it.
+	 */
+	public static function drop_glitches( array $points, float $max_speed_ms = 300 ): array {
+		$points = array_values( $points );
+		$count  = count( $points );
+		if ( $count < 3 ) {
+			return $points; // Two fixes that disagree don't say which is wrong.
+		}
+		// $reach[ $k ][ $i ]: whether fixes $i and $i + $k can both be real.
+		$reach = [ 1 => [], 2 => [] ];
+		foreach ( [ 1, 2 ] as $k ) {
+			for ( $i = 0; $i + $k < $count; $i++ ) {
+				[ $a, $b ]        = [ $points[ $i ], $points[ $i + $k ] ];
+				$reach[ $k ][ $i ] = self::distance( $a[0], $a[1], $b[0], $b[1] ) <= $max_speed_ms * max( 1, abs( $b[2] - $a[2] ) );
+			}
+		}
+		$kept = [];
+		foreach ( $points as $i => $point ) {
+			$votes = 0;
+			$agree = 0;
+			foreach ( [ $reach[1][ $i - 1 ] ?? null, $reach[1][ $i ] ?? null, $reach[2][ $i - 2 ] ?? null, $reach[2][ $i ] ?? null ] as $vote ) {
+				if ( null !== $vote ) {
+					++$votes;
+					$agree += (int) $vote;
+				}
+			}
+			// A tie among four drops the fix: two fixes before a long gap vouch for
+			// anything. Losing a real fix there costs metres; a bad one, thousands of km.
+			if ( $agree * 2 > $votes || ( $agree * 2 === $votes && $votes < 4 ) ) {
+				$kept[] = $point;
+			}
+		}
+		return $kept;
 	}
 }

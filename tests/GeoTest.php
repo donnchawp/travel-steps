@@ -30,7 +30,7 @@ check( 'flight splits route into 2 segments', 2 === count( Geo::split_segments( 
 $len = Geo::track_length( $flight );
 check( 'track length counts the flight (Dublin-Madrid ~1450km)', $len > 1400000 && $len < 1500000 );
 $glitch = [ [ 53.42, -6.27, 0 ], [ 53.43, -6.26, 60 ], [ 51.50, -0.12, 90 ], [ 53.44, -6.25, 120 ] ];
-$len    = Geo::track_length( $glitch );
+$len    = Geo::track_length( Geo::drop_glitches( $glitch ) );
 check( 'track length skips a fix faster than a plane (Dublin-London in 30s)', $len < 5000 );
 
 // A 6 km walk over 2 hours, one fix every 10 minutes along a line.
@@ -40,17 +40,29 @@ for ( $i = 0; $i <= 12; $i++ ) {
 }
 $clean = Geo::track_length( $walk );
 check( 'walk measures about 6km', $clean > 5500 && $clean < 6500 );
-$len = Geo::track_length( array_merge( [ [ 0.0, 0.0, 99990 ] ], $walk ) );
+check( 'a clean walk keeps every fix', count( $walk ) === count( Geo::drop_glitches( $walk ) ) );
+$len = Geo::track_length( Geo::drop_glitches( array_merge( [ [ 0.0, 0.0, 99990 ] ], $walk ) ) );
 check( 'a bad first fix doesn\'t drop the walk', abs( $len - $clean ) < 1000 );
 $overnight = array_merge( [ [ 53.35, -6.30, 50000 ] ], [ [ 0.0, 0.0, 99990 ] ], $walk );
-$len       = Geo::track_length( $overnight );
+$len       = Geo::track_length( Geo::drop_glitches( $overnight ) );
 check( 'a bad fix after an overnight gap isn\'t counted', abs( $len - $clean ) < 1000 );
 $cluster = $walk;
 array_splice( $cluster, 6, 0, [ [ 0.0, 0.0, 103610 ], [ 0.0, 0.0, 103620 ] ] );
-$len = Geo::track_length( $cluster );
+$len = Geo::track_length( Geo::drop_glitches( $cluster ) );
 check( 'two bad fixes in a row aren\'t counted', abs( $len - $clean ) < 1000 );
-$len = Geo::track_length( array_merge( $walk, [ [ 0.0, 0.0, 107300 ] ] ) );
+$len = Geo::track_length( Geo::drop_glitches( array_merge( $walk, [ [ 0.0, 0.0, 107300 ] ] ) ) );
 check( 'a bad last fix isn\'t counted', abs( $len - $clean ) < 1000 );
+$mid  = $walk;
+array_splice( $mid, 6, 0, [ [ 0.0, 0.0, 103610 ] ] );
+check( 'exactly the bad fix is dropped', $walk === Geo::drop_glitches( $mid ) );
+$a = [ 53.35, -6.30, 0 ];
+$b = [ 53.36, -6.30, 600 ];
+$g = [ 0.0, 0.0, 300 ];
+check( 'no fixes, no glitches', [] === Geo::drop_glitches( [] ) );
+check( 'one fix is kept', [ $a ] === Geo::drop_glitches( [ $a ] ) );
+check( 'two fixes that disagree are both kept: no way to tell which is wrong', [ $a, $g ] === Geo::drop_glitches( [ $a, $g ] ) );
+check( 'a glitch between two fixes is dropped, the fixes kept', [ $a, $b ] === Geo::drop_glitches( [ $a, $g, $b ] ) );
+check( 'a first fix next to a glitch is kept', [ $a, $b, [ 53.37, -6.30, 1200 ] ] === Geo::drop_glitches( [ $a, $g, $b, [ 53.37, -6.30, 1200 ] ] ) );
 
 // Nearest in time.
 check( 'nearest_in_time finds closest', 1 === Geo::nearest_in_time( $flight, 70, 3600 ) );

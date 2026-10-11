@@ -32,8 +32,9 @@ class DawarichClient {
 	 *         Rows of [ lat, lon, timestamp, city, country ].
 	 */
 	public function points( int $start, int $end ) {
-		if ( '' === $this->api_key ) {
-			return new \WP_Error( 'travel_steps_no_dawarich_key', __( 'No Dawarich API key configured.', 'travel-steps' ) );
+		// No location history without Dawarich; sync maps trips from photos instead.
+		if ( ! $this->configured() ) {
+			return [];
 		}
 
 		$points = [];

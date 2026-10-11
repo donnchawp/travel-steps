@@ -193,6 +193,32 @@ global $wpdb;
 $wpdb->update( $wpdb->posts, [ 'post_name' => (string) $draft ], [ 'ID' => $year ] ); // A slug saved before this fix.
 clean_post_cache( $year );
 check( 'an existing all-digit slug still finds its trip', $year === Trips::find_by_slug( (string) $draft )?->ID );
+
+// Edit page: the album list is quick, cached, and never drops a saved album.
+$album_calls = [];
+add_filter( 'pre_http_request', function ( $pre, $args, $url ) use ( &$album_calls ) {
+	if ( false === strpos( $url, '/api/albums' ) ) {
+		return $pre;
+	}
+	$album_calls[] = $args['timeout'];
+	$body          = [ [ 'id' => '11111111-1111-4111-8111-111111111111', 'albumName' => 'Portugal', 'assetCount' => 3 ] ];
+	return [ 'headers' => [], 'body' => wp_json_encode( $body ), 'response' => [ 'code' => 200, 'message' => 'OK' ], 'cookies' => [], 'filename' => null ];
+}, 10, 3 );
+$client = new ImmichClient( 'http://immich.test', 'key' );
+$first  = $client->albums();
+$client->albums();
+check( 'albums are listed', ! is_wp_error( $first ) && 'Portugal' === $first[0]['name'], $first );
+check( 'albums are asked for once, then cached', 1 === count( $album_calls ), $album_calls );
+check( 'albums request gives up quickly', ( $album_calls[0] ?? 99 ) <= 5, $album_calls );
+( new ImmichClient( 'http://other.test', 'key' ) )->albums();
+check( 'another Immich server is asked separately', 2 === count( $album_calls ), $album_calls );
+
+update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test', 'immich_key' => 'key' ] ) );
+$gone = '22222222-2222-4222-8222-222222222222';
+update_post_meta( $trip_id, Trips::META_ALBUM, $gone );
+wp_set_current_user( 1 );
+$edit = $render( 'trip-edit.php', (string) $trip_id );
+check( 'a saved album missing from Immich stays selected', 1 === preg_match( '/<option value="' . $gone . '"[^>]*selected/', $edit ), substr( $edit, strpos( $edit, '<select name="album"' ) ?: 0, 600 ) );
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

@@ -78,6 +78,16 @@ include __DIR__ . '/_header.php';
 			<?php else : ?>
 				<select name="album">
 					<option value=""><?php esc_html_e( 'All photos taken during the trip', 'travel-steps' ); ?></option>
+					<?php
+					// An album Immich no longer lists (deleted, or not visible to this key) stays
+					// selected, so saving the form for something else doesn't drop it.
+					$saved_album = $meta( Trips::META_ALBUM );
+					if ( $saved_album && ! in_array( $saved_album, array_column( $albums, 'id' ), true ) ) :
+						?>
+						<option value="<?php echo esc_attr( $saved_album ); ?>" selected>
+							<?php echo esc_html( sprintf( /* translators: %s: Immich album id */ __( 'Album not found in Immich (%s)', 'travel-steps' ), $saved_album ) ); ?>
+						</option>
+					<?php endif; ?>
 					<?php foreach ( $albums as $album ) : ?>
 						<option value="<?php echo esc_attr( $album['id'] ); ?>" <?php selected( $meta( Trips::META_ALBUM ), $album['id'] ); ?>>
 							<?php echo esc_html( sprintf( '%s (%s)', $album['name'], number_format_i18n( $album['count'] ) ) ); ?>

@@ -10,6 +10,10 @@ class ImmichClient {
 	const PAGE_SIZE = 1000;
 	const MAX_PAGES = 20;
 	const SIZES     = [ 'thumbnail', 'preview' ];
+	// The edit page lists albums on every load, so a slow Immich mustn't hold it up.
+	const ALBUMS_TIMEOUT_S = 5;
+	const ALBUMS_TTL_S     = 5 * MINUTE_IN_SECONDS;
+	const ALBUMS_ERROR_S   = MINUTE_IN_SECONDS;
 
 	private string $base_url;
 	private string $api_key;
@@ -22,7 +26,7 @@ class ImmichClient {
 	/**
 	 * @return array|\WP_Error Decoded JSON.
 	 */
-	private function request( string $endpoint, string $method = 'GET', ?array $body = null ) {
+	private function request( string $endpoint, string $method = 'GET', ?array $body = null, int $timeout = 60 ) {
 		if ( '' === $this->api_key ) {
 			return new \WP_Error( 'travel_steps_no_immich_key', __( 'No Immich API key configured.', 'travel-steps' ) );
 		}
@@ -33,7 +37,7 @@ class ImmichClient {
 				'Accept'       => 'application/json',
 				'Content-Type' => 'application/json',
 			],
-			'timeout' => 60,
+			'timeout' => $timeout,
 		];
 		if ( null !== $body ) {
 			$args['body'] = wp_json_encode( $body );
@@ -52,11 +56,21 @@ class ImmichClient {
 	}
 
 	/**
+	 * Albums by name, cached for a few minutes per server and key. A failure is cached
+	 * too, briefly, so an unresponsive Immich costs one short wait, not one per page load.
+	 *
 	 * @return array<int, array{id: string, name: string, count: int}>|\WP_Error
 	 */
 	public function albums() {
-		$albums = $this->request( '/api/albums' );
+		$key    = 'travel_steps_albums_' . md5( $this->base_url . '|' . $this->api_key );
+		$cached = get_transient( $key );
+		if ( is_array( $cached ) ) {
+			return isset( $cached['error'] ) ? new \WP_Error( 'travel_steps_immich_error', $cached['error'] ) : $cached['albums'];
+		}
+
+		$albums = $this->request( '/api/albums', 'GET', null, self::ALBUMS_TIMEOUT_S );
 		if ( is_wp_error( $albums ) ) {
+			set_transient( $key, [ 'error' => $albums->get_error_message() ], self::ALBUMS_ERROR_S );
 			return $albums;
 		}
 		$out = [];
@@ -68,6 +82,7 @@ class ImmichClient {
 			];
 		}
 		usort( $out, fn( $a, $b ) => strcasecmp( $a['name'], $b['name'] ) );
+		set_transient( $key, [ 'albums' => $out ], self::ALBUMS_TTL_S );
 		return $out;
 	}
 

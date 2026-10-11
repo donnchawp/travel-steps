@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,6 +43,13 @@ Travel Steps connects to three services. The plugin sends nothing anywhere else:
 **Immich** (your own server). When you sync a trip, your WordPress server asks the Immich server you configure for the photos taken during the trip (or in the album you chose), sending your Immich API key and the date range or album id. The trip edit page lists your Immich albums, and photos shown on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
 
 == Changelog ==
+
+= 0.2.0 =
+* Dawarich is optional: without it, trips are mapped from where their photos were taken.
+* Distance includes flights, and GPS glitches are dropped from the route, distance and countries.
+* Settings: remove a saved API key, and paste a "latitude, longitude" pair for home. Unreadable home coordinates show an error instead of being cleared.
+* Warnings when a synced trip has no favourite photos, and when published steps are hidden because their trip isn't public.
+* The trips list runs oldest first by start date.
 
 = 0.1.0 =
 * First release.

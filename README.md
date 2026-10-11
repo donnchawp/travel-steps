@@ -103,7 +103,8 @@ make deploy       # composer install --no-dev, then rsync --delete
 ```
 
 - It copies your **working tree**, not the last commit, so uncommitted changes go too.
-- `tests/`, `.git`, the Makefiles and `.gitignore` stay behind. `vendor/` goes, with runtime dependencies only.
+- `tests/`, the Makefiles and all dotfiles (`.git`, `.gitignore`, `.github` in dependencies) stay behind. `vendor/` goes, with runtime dependencies only.
+- `make dist` builds the same files into `dist/travel-steps.zip`, ready to upload or run through Plugin Check.
 - `--delete` removes files on the server that aren't in your copy, so keep nothing else in the plugin folder there.
 - `vendor/composer/installed.php` is copied every time: Composer writes the current commit into it.
 - If `vendor/` ever goes missing on the server, the plugin stands down and shows admins a notice instead of breaking the site.

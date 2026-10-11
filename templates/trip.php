@@ -106,7 +106,7 @@ include __DIR__ . '/_header.php';
 
 		<div class="ts-timeline">
 			<?php if ( trim( $trip->post_content ) ) : ?>
-				<div class="ts-intro ts-content"><?php echo apply_filters( 'the_content', $trip->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core content filter. ?></div>
+				<div class="ts-intro ts-content"><?php echo apply_filters( 'the_content', $trip->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core content filter. ?></div>
 			<?php endif; ?>
 
 			<?php if ( ! $steps ) : ?>

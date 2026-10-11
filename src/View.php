@@ -144,7 +144,7 @@ class View {
 	private static function render_blocks( array $blocks ): void {
 		$html = trim( serialize_blocks( $blocks ) );
 		if ( '' !== $html ) {
-			echo '<div class="ts-content">' . apply_filters( 'the_content', $html ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core content filter.
+			echo '<div class="ts-content">' . apply_filters( 'the_content', $html ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core content filter.
 		}
 	}
 

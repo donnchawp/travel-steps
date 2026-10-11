@@ -2,9 +2,10 @@
 -include Makefile.local
 
 PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
-RSYNC      := rsync -av --delete --exclude .git --exclude .gitignore --exclude .DS_Store --exclude tests --exclude Makefile --exclude Makefile.local
+# Dotfiles (.git, .github in dependencies…), tests and build files stay behind: Plugin Check rejects hidden files.
+RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude Makefile --exclude Makefile.local --exclude dist
 
-.PHONY: help test smoke check deploy deploy-dry deploy-dest
+.PHONY: help test smoke check deploy deploy-dry deploy-dest dist
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-11s %s\n", $$1, $$2}'
@@ -37,6 +38,13 @@ deploy-dry: deploy-dest ## Show what deploy would copy and delete
 
 deploy-dest:
 	@test -n "$(DEPLOY_DEST)" || { echo "Set DEPLOY_DEST in Makefile.local or on the command line (make deploy DEPLOY_DEST=host:/path/)"; exit 1; }
+
+dist: ## Build dist/travel-steps.zip: the plugin as installed, with runtime deps only
+	composer install --no-dev
+	rm -rf dist && mkdir -p dist/travel-steps
+	$(RSYNC) --quiet ./ dist/travel-steps/
+	cd dist && zip -qr travel-steps.zip travel-steps && rm -rf travel-steps
+	@echo dist/travel-steps.zip
 
 vendor/autoload.php:
 	composer install --no-dev

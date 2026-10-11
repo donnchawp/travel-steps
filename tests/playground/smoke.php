@@ -175,6 +175,18 @@ wp_set_current_user( 0 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );
 check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) );
+
+// All-digit slugs would read as post IDs in trip URLs.
+wp_set_current_user( 1 );
+$year = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => '2025', 'post_status' => 'publish' ] );
+check( 'a trip titled 2025 gets a slug that is not all digits', ! ctype_digit( get_post( $year )->post_name ), get_post( $year )->post_name );
+check( 'its URL finds it', $year === Trips::find_by_slug( basename( Trips::url( get_post( $year ) ) ) )?->ID, Trips::url( get_post( $year ) ) );
+$draft = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'No slug yet', 'post_status' => 'draft' ] );
+check( 'a draft without a slug is found by ID', $draft === Trips::find_by_slug( (string) $draft )?->ID );
+global $wpdb;
+$wpdb->update( $wpdb->posts, [ 'post_name' => (string) $draft ], [ 'ID' => $year ] ); // A slug saved before this fix.
+clean_post_cache( $year );
+check( 'an existing all-digit slug still finds its trip', $year === Trips::find_by_slug( (string) $draft )?->ID );
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

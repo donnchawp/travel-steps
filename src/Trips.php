@@ -107,11 +107,6 @@ class Trips {
 	}
 
 	public static function find_by_slug( string $slug ): ?\WP_Post {
-		// Drafts have no slug until published, so their URLs use the post ID.
-		if ( ctype_digit( $slug ) ) {
-			$post = get_post( (int) $slug );
-			return $post && self::TRIP === $post->post_type ? $post : null;
-		}
 		$posts = get_posts(
 			[
 				'post_type'      => self::TRIP,
@@ -120,7 +115,27 @@ class Trips {
 				'posts_per_page' => 1,
 			]
 		);
-		return $posts[0] ?? null;
+		if ( $posts ) {
+			return $posts[0];
+		}
+		// A trip without a slug has its post ID in its URL. New slugs are never all
+		// digits (see unique_slug()), but ones saved earlier might be, so they win.
+		if ( ctype_digit( $slug ) ) {
+			$post = get_post( (int) $slug );
+			return $post && self::TRIP === $post->post_type ? $post : null;
+		}
+		return null;
+	}
+
+	/**
+	 * Keep trip slugs from being all digits, which would read as a post ID in the URL:
+	 * a trip called "2025" gets "trip-2025".
+	 */
+	public static function unique_slug( string $slug, $post_id, $post_status, $post_type, $post_parent ): string {
+		if ( self::TRIP !== $post_type || ! ctype_digit( $slug ) ) {
+			return $slug;
+		}
+		return wp_unique_post_slug( 'trip-' . $slug, $post_id, $post_status, $post_type, $post_parent );
 	}
 
 	/**

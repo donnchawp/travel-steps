@@ -47,6 +47,7 @@ class App extends BaseApp {
 		add_action( 'admin_post_travel_steps_add_step', [ $trips, 'handle_add_step' ] );
 		add_action( 'admin_post_travel_steps_settings', [ Settings::class, 'handle_save' ] );
 		add_action( 'rest_api_init', [ new RestController(), 'register_routes' ] );
+		add_filter( 'wp_unique_post_slug', [ Trips::class, 'unique_slug' ], 10, 5 );
 
 		parent::init();
 

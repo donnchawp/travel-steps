@@ -72,4 +72,6 @@ make test    # standalone: geometry, local days and places, photo selection
 make smoke   # end-to-end in WordPress Playground with fake Dawarich/Immich clients
 ```
 
+To copy the plugin to a server, put `DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps/` in `Makefile.local` (ignored by git) and run `make deploy-dry`, then `make deploy`.
+
 `make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections and the trip pages.

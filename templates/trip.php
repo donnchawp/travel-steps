@@ -21,7 +21,8 @@ $by_step  = Trips::photos_by_step( $trip->ID, $steps );
 $pinned   = array_flip( Trips::pinned( $trip->ID ) );
 
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
-$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_edit ) {
+$cover_id     = Trips::cover( $trip->ID );
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_edit, $cover_id ) {
 	?>
 	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
 		<button type="button" class="ts-photo-open"
@@ -41,6 +42,7 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 				<?php endif; ?>
 				<button type="button" class="ts-photo-state" data-set="pinned" aria-pressed="<?php echo 'pinned' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Always show this photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Pin', 'travel-steps' ); ?></button>
 				<button type="button" class="ts-photo-state" data-set="hidden" aria-pressed="<?php echo 'hidden' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Never show this photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Hide', 'travel-steps' ); ?></button>
+				<button type="button" class="ts-photo-cover" aria-pressed="<?php echo $cover_id === $photo['id'] ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Use as the trip’s header photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Cover', 'travel-steps' ); ?></button>
 			</span>
 		<?php endif; ?>
 	</figure>

@@ -167,14 +167,18 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 	position: absolute;
 	top: 6px;
 	right: 6px;
+	left: 6px;
 	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
 	gap: 4px;
+	pointer-events: none; /* Clicks between the buttons open the photo. */
 	align-items: center;
 	opacity: 0;
 	transition: opacity .15s;
 }
 .ts-photo:hover .ts-photo-tools, .ts-photo-tools:focus-within, .ts-photo.is-pinned .ts-photo-tools, .ts-photo.is-hidden .ts-photo-tools { opacity: 1; }
-.ts-photo-state, .ts-photo-fav {
+.ts-photo-state, .ts-photo-cover, .ts-photo-fav {
 	padding: .15rem .5rem;
 	border: 0;
 	border-radius: 999px;
@@ -184,8 +188,9 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 	font-size: .75rem;
 	line-height: 1.4;
 }
-.ts-photo-state { cursor: pointer; }
-.ts-photo-state[aria-pressed="true"] { background: var(--ts-accent); }
+.ts-photo-state, .ts-photo-cover { cursor: pointer; }
+.ts-photo-tools > * { pointer-events: auto; }
+.ts-photo-state[aria-pressed="true"], .ts-photo-cover[aria-pressed="true"] { background: var(--ts-accent); }
 .ts-photo-fav { color: #ff7a9c; }
 
 .ts-more-photos { margin-top: .75rem; }

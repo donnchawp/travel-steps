@@ -64,10 +64,15 @@ class View {
 	}
 
 	/**
-	 * Cover image: the first landscape favourite shown on a published step, else the
-	 * first landscape photo shown there.
+	 * Cover image: the photo chosen for it, else the first landscape favourite shown on
+	 * a published step, else the first landscape photo shown there.
 	 */
 	public static function cover_url( int $trip_id, string $size = 'preview' ): string {
+		$authed = 'publish' !== get_post_status( $trip_id );
+		$chosen = Trips::cover( $trip_id );
+		if ( '' !== $chosen ) {
+			return RestController::photo_url( $trip_id, $chosen, $size, $authed );
+		}
 		$shown = [];
 		foreach ( Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) ) as $groups ) {
 			$shown = array_merge( $shown, $groups['shown'] );
@@ -78,7 +83,7 @@ class View {
 		if ( ! $photo ) {
 			return '';
 		}
-		return RestController::photo_url( $trip_id, $photo['id'], $size, 'publish' !== get_post_status( $trip_id ) );
+		return RestController::photo_url( $trip_id, $photo['id'], $size, $authed );
 	}
 
 	/**

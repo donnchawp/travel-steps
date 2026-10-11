@@ -45,6 +45,23 @@ class RestController {
 		);
 		register_rest_route(
 			self::NS,
+			'/trips/(?P<id>\d+)/cover',
+			[
+				'methods'             => 'POST',
+				'callback'            => [ $this, 'set_cover' ],
+				'permission_callback' => fn( $request ) => Trips::TRIP === get_post_type( (int) $request['id'] ) && current_user_can( 'edit_post', (int) $request['id'] ),
+				'args'                => [
+					// An asset id, or empty to go back to the automatic cover.
+					'asset' => [
+						'type'     => 'string',
+						'required' => true,
+						'pattern'  => '^([a-f0-9-]{36})?$',
+					],
+				],
+			]
+		);
+		register_rest_route(
+			self::NS,
 			'/trips/(?P<id>\d+)/photo/(?P<asset>[a-f0-9-]{36})',
 			[
 				'methods'             => 'GET',
@@ -128,6 +145,29 @@ class RestController {
 			[
 				'asset' => $asset,
 				'state' => $state,
+			]
+		);
+	}
+
+	/**
+	 * Choose the trip's header photo from its own photos, or clear it.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function set_cover( \WP_REST_Request $request ) {
+		$trip_id = (int) $request['id'];
+		$asset   = (string) $request['asset'];
+		if ( '' === $asset ) {
+			delete_post_meta( $trip_id, Trips::META_COVER );
+		} elseif ( in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true ) ) {
+			update_post_meta( $trip_id, Trips::META_COVER, $asset );
+		} else {
+			return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
+		}
+		return new \WP_REST_Response(
+			[
+				'asset' => Trips::cover( $trip_id ),
+				'url'   => View::cover_url( $trip_id ),
 			]
 		);
 	}

@@ -150,6 +150,39 @@ $data = $trip->get_data();
 check( 'trip API: markers 1a/1b for the two places', [ '1a', '1b' ] === array_column( $data['markers'] ?? [], 'label' ), $data );
 check( 'trip API: no per-photo data', ! isset( $data['steps'] ) );
 
+// Renders a whole template, as the app would for that URL.
+$render = function ( $tpl, $slug ) {
+	set_query_var( 'slug', $slug );
+	ob_start();
+	include '/wordpress/wp-content/plugins/travel-steps/templates/' . $tpl;
+	return ob_get_clean();
+};
+
+// Cover: an editor can pick any of the trip's photos; it's then public with the trip.
+$faro  = row( 5, '2025-05-02', '11:00', 0, 0, '', 1 )['id']; // On day 2, a draft step.
+$lis   = row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'];
+$cover = function ( $asset ) use ( $trip_id ) {
+	$req = new WP_REST_Request( 'POST', '/travel-steps/v1/trips/' . $trip_id . '/cover' );
+	$req->set_param( 'asset', $asset );
+	return rest_do_request( $req );
+};
+check( 'cover: automatic is the first shown landscape favourite', false !== strpos( View::cover_url( $trip_id ), $lis ) );
+check( 'cover: visitors may not choose one', $cover( $faro )->get_status() >= 400 );
+wp_set_current_user( 1 );
+$res = $cover( $faro );
+check( 'cover: an editor chooses a photo', 200 === $res->get_status() && false !== strpos( $res->get_data()['url'] ?? '', $faro ), [ $res->get_status(), $res->get_data() ] );
+check( 'cover: the header uses it', false !== strpos( View::cover_url( $trip_id ), $faro ) );
+check( 'cover: only the trip’s own photos', 400 === $cover( '99999999-9999-4999-8999-999999999999' )->get_status() );
+wp_set_current_user( 0 );
+check( 'cover: visitors can load the chosen cover', isset( Trips::viewable_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
+wp_set_current_user( 1 );
+$html = $render( 'trip.php', (string) $trip_id );
+check( 'cover: its button is pressed on the trip page', 1 === preg_match( '/data-asset="' . $faro . '"[^>]*>(?:(?!<\/figure>).)*ts-photo-cover[^>]*aria-pressed="true"/s', $html ) );
+$res = $cover( '' );
+check( 'cover: pressing again goes back to automatic', 200 === $res->get_status() && false !== strpos( View::cover_url( $trip_id ), $lis ) );
+wp_set_current_user( 0 );
+check( 'cover: an unchosen draft photo is private again', ! isset( Trips::viewable_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
+
 // Photo caching: shared caches must drop a photo soon after it's unpublished or hidden.
 $public = TravelSteps\RestController::photo_cache_control( true );
 check( 'public photos are not cached as immutable', false === strpos( $public, 'immutable' ), $public );
@@ -210,12 +243,6 @@ check( 'photos block renders nothing for visitors outside the trip page', '' ===
 wp_set_current_user( 1 );
 
 // Full templates render without errors.
-$render = function ( $tpl, $slug ) {
-	set_query_var( 'slug', $slug );
-	ob_start();
-	include '/wordpress/wp-content/plugins/travel-steps/templates/' . $tpl;
-	return ob_get_clean();
-};
 wp_publish_post( $d2->ID );
 wp_set_current_user( 1 );
 $edit = $render( 'trip-edit.php', (string) $trip_id );

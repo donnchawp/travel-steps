@@ -201,4 +201,43 @@
 			} );
 		} );
 	} );
+
+	/* ---------- Cover photo (editors) ---------- */
+
+	function setHero( url ) {
+		const hero = root.querySelector( '.ts-hero' );
+		let img = hero.querySelector( '.ts-hero-img' );
+		if ( url && ! img ) {
+			img = document.createElement( 'img' );
+			img.className = 'ts-hero-img';
+			img.alt = '';
+			hero.prepend( img );
+		}
+		if ( url ) {
+			img.src = url;
+		} else if ( img ) {
+			img.remove();
+		}
+		hero.classList.toggle( 'has-cover', !! url );
+	}
+
+	root.querySelectorAll( '.ts-photo-cover' ).forEach( ( btn ) => {
+		btn.addEventListener( 'click', () => {
+			// Pressing the chosen cover again goes back to the automatic one.
+			const asset = 'true' === btn.getAttribute( 'aria-pressed' ) ? '' : btn.closest( '.ts-photo' ).dataset.asset;
+			btn.disabled = true;
+			api( '/cover', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( { asset } ),
+			} ).then( ( result ) => {
+				root.querySelectorAll( '.ts-photo-cover' ).forEach( ( b ) => {
+					b.setAttribute( 'aria-pressed', result.asset && b.closest( '.ts-photo' ).dataset.asset === result.asset ? 'true' : 'false' );
+				} );
+				setHero( result.url );
+			} ).finally( () => {
+				btn.disabled = false;
+			} );
+		} );
+	} );
 }() );

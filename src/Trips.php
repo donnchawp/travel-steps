@@ -25,6 +25,7 @@ class Trips {
 	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see ImmichClient::normalise) + step.
 	const META_HIDDEN = '_ts_hidden';      // array of hidden Immich asset ids.
 	const META_PINNED = '_ts_pinned';      // array of Immich asset ids always shown.
+	const META_COVER  = '_ts_cover';       // Immich asset id chosen for the header, else automatic.
 	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries.
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
@@ -224,6 +225,14 @@ class Trips {
 		return is_array( $hidden ) ? $hidden : [];
 	}
 
+	/**
+	 * The photo chosen for the trip's header, if it's still one of the trip's photos.
+	 */
+	public static function cover( int $trip_id ): string {
+		$asset = (string) get_post_meta( $trip_id, self::META_COVER, true );
+		return '' !== $asset && in_array( $asset, array_column( self::photos( $trip_id ), 'id' ), true ) ? $asset : '';
+	}
+
 	public static function pinned( int $trip_id ): array {
 		$pinned = get_post_meta( $trip_id, self::META_PINNED, true );
 		return is_array( $pinned ) ? $pinned : [];
@@ -279,6 +288,11 @@ class Trips {
 			foreach ( array_merge( $groups['shown'], $groups['rest'] ) as $photo ) {
 				$ids[ $photo['id'] ] = true;
 			}
+		}
+		// The chosen cover is public with the trip, whichever step it's from.
+		$cover = self::cover( $trip->ID );
+		if ( '' !== $cover ) {
+			$ids[ $cover ] = true;
 		}
 		return $ids;
 	}

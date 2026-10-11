@@ -340,6 +340,21 @@ wp_set_current_user( $contributor );
 check( 'the capability can be widened with a filter', current_user_can( Trips::capability() ) );
 remove_all_filters( 'travel_steps_capability' );
 wp_set_current_user( 1 );
+
+// Suggested privacy policy text, shown under Settings → Privacy.
+require_once ABSPATH . 'wp-admin/includes/misc.php';
+require_once ABSPATH . 'wp-admin/includes/class-wp-privacy-policy-content.php';
+check( 'privacy policy suggestion is hooked', false !== has_action( 'admin_init', [ TravelSteps\App::class, 'suggest_privacy_policy' ] ) );
+// WordPress only accepts suggestions in wp-admin during admin_init.
+require_once ABSPATH . 'wp-admin/includes/class-wp-screen.php';
+require_once ABSPATH . 'wp-admin/includes/screen.php';
+$GLOBALS['current_screen'] = WP_Screen::get( 'dashboard' );
+$GLOBALS['wp_current_filter'][] = 'admin_init';
+TravelSteps\App::suggest_privacy_policy();
+array_pop( $GLOBALS['wp_current_filter'] );
+$GLOBALS['current_screen'] = null;
+$suggested = implode( ' ', wp_list_pluck( WP_Privacy_Policy_Content::get_suggested_policy_text(), 'policy_text' ) );
+check( 'privacy policy suggestion names OpenStreetMap', false !== strpos( $suggested, 'OpenStreetMap' ) && false !== strpos( $suggested, 'osmfoundation.org/wiki/Privacy_Policy' ), substr( $suggested, 0, 200 ) );
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

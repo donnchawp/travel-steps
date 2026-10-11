@@ -49,12 +49,30 @@ class App extends BaseApp {
 		add_action( 'admin_post_travel_steps_settings', [ Settings::class, 'handle_save' ] );
 		add_action( 'rest_api_init', [ new RestController(), 'register_routes' ] );
 		add_filter( 'wp_unique_post_slug', [ Trips::class, 'unique_slug' ], 10, 5 );
+		add_action( 'admin_init', [ self::class, 'suggest_privacy_policy' ] );
 
 		parent::init();
 
 		// See cook-app: BaseApp defers setup_menu() to an init callback at the
 		// priority we're currently inside, so it would never run.
 		$this->setup_menu();
+	}
+
+	/**
+	 * Text for Settings → Privacy, which site owners can copy into their privacy policy.
+	 */
+	public static function suggest_privacy_policy(): void {
+		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) {
+			return;
+		}
+		$text  = '<p>' . esc_html__( 'Trip pages show a map whose background images come from the OpenStreetMap Foundation’s tile servers. When you view a trip, your browser requests those images directly, so the OpenStreetMap Foundation receives your IP address, browser details, the address of the trip page and the part of the map you look at.', 'travel-steps' ) . '</p>';
+		$text .= '<p>' . sprintf(
+			/* translators: %s: link to the OpenStreetMap Foundation privacy policy */
+			esc_html__( 'See the OpenStreetMap Foundation’s privacy policy: %s', 'travel-steps' ),
+			'<a href="https://osmfoundation.org/wiki/Privacy_Policy">https://osmfoundation.org/wiki/Privacy_Policy</a>'
+		) . '</p>';
+		$text .= '<p>' . esc_html__( 'Photos on trip pages are served by this site. Published trips show the route travelled, with the area around the author’s home left out.', 'travel-steps' ) . '</p>';
+		wp_add_privacy_policy_content( __( 'Travel Steps', 'travel-steps' ), wp_kses_post( $text ) );
 	}
 
 	protected function setup_database(): void {

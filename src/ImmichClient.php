@@ -133,6 +133,7 @@ class ImmichClient {
 		return [
 			'id'      => (string) $asset['id'],
 			't'       => $time,
+			'day'     => Days::local_day( $asset['localDateTime'] ?? null, $time, wp_timezone() ),
 			'lat'     => isset( $exif['latitude'] ) ? (float) $exif['latitude'] : null,
 			'lon'     => isset( $exif['longitude'] ) ? (float) $exif['longitude'] : null,
 			'w'       => $width,

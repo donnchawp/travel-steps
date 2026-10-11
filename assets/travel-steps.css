@@ -144,6 +144,9 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-step.is-active .ts-step-marker { background: var(--ts-accent); color: var(--ts-accent-ink); }
 .ts-step-meta { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin: .3rem 0 0; color: var(--ts-muted); font-size: .85rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
 .ts-step h2 { margin: .1rem 0 .5rem; font-size: 1.5rem; }
+.ts-places { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0 0 .75rem; padding: 0; list-style: none; }
+.ts-places li { padding: .1rem .55rem; border-radius: 999px; background: var(--ts-line); font-size: .8rem; }
+.ts-content h2[id^="ts-place-"] { scroll-margin-top: 1rem; }
 .ts-content > :first-child { margin-top: 0; }
 .ts-content img { max-width: 100%; height: auto; }
 .ts-step-actions { font-size: .9rem; }
@@ -192,9 +195,11 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-pin span {
 	display: grid;
 	place-items: center;
-	width: 30px;
+	min-width: 30px;
 	height: 30px;
-	border-radius: 50%;
+	padding: 0 4px;
+	box-sizing: border-box;
+	border-radius: 15px;
 	background: #fff;
 	box-shadow: 0 0 0 2px var(--ts-accent), 0 2px 6px rgba(0, 0, 0, .3);
 	color: var(--ts-accent);

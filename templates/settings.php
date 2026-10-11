@@ -76,18 +76,12 @@ include __DIR__ . '/_header.php';
 		</fieldset>
 
 		<fieldset>
-			<legend><?php esc_html_e( 'Step detection', 'travel-steps' ); ?></legend>
-			<p class="ts-muted"><?php esc_html_e( 'A step is suggested wherever you stayed within this radius for at least this long.', 'travel-steps' ); ?></p>
-			<div class="ts-form-row">
-				<label>
-					<span><?php esc_html_e( 'Radius (m)', 'travel-steps' ); ?></span>
-					<input type="number" min="50" name="stay_radius_m" value="<?php echo esc_attr( $settings['stay_radius_m'] ); ?>">
-				</label>
-				<label>
-					<span><?php esc_html_e( 'Minimum stay (minutes)', 'travel-steps' ); ?></span>
-					<input type="number" min="10" name="stay_min_minutes" value="<?php echo esc_attr( $settings['stay_min_minutes'] ); ?>">
-				</label>
-			</div>
+			<legend><?php esc_html_e( 'Steps', 'travel-steps' ); ?></legend>
+			<p class="ts-muted"><?php esc_html_e( 'Each day with favourites becomes a draft step. Favourites further apart than this, in different towns, start a new place: a heading in the story and a place tag.', 'travel-steps' ); ?></p>
+			<label>
+				<span><?php esc_html_e( 'Place radius (km)', 'travel-steps' ); ?></span>
+				<input type="number" step="0.1" min="0.1" name="place_radius_km" value="<?php echo esc_attr( $settings['place_radius_km'] ); ?>">
+			</label>
 		</fieldset>
 
 		<fieldset>

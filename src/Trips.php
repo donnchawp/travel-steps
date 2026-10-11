@@ -13,8 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * trip, so its story can be written in the block editor.
  */
 class Trips {
-	const TRIP = 'ts_trip';
-	const STEP = 'ts_step';
+	const TRIP  = 'ts_trip';
+	const STEP  = 'ts_step';
+	const PLACE = 'ts_place';
 
 	// Trip meta.
 	const META_START  = '_ts_start';       // Y-m-d, site timezone.
@@ -28,11 +29,11 @@ class Trips {
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
 
-	// Step meta.
-	const META_LAT      = '_ts_lat';
-	const META_LON      = '_ts_lon';
-	const META_DEPARTED = '_ts_departed';  // unix. Arrival is the step's post date.
-	const META_AUTO     = '_ts_auto';      // 1 when created by sync.
+	// Step meta. A step is a day: the date part of its post date.
+	const META_LAT  = '_ts_lat';
+	const META_LON  = '_ts_lon';
+	const META_DAY  = '_ts_day';   // Y-m-d sync created the step for; kept even if you move it.
+	const META_AUTO = '_ts_auto';  // 1 when created by sync.
 
 	public static function register_post_types(): void {
 		register_post_type(
@@ -65,14 +66,33 @@ class Trips {
 				'show_ui'      => true,
 				'show_in_menu' => 'edit.php?post_type=' . self::TRIP,
 				'show_in_rest' => true,
+				// Core REST would otherwise serve published steps of draft trips to anyone.
+				'rest_controller_class' => StepsRestController::class,
 				'supports'     => [ 'title', 'editor', 'custom-fields' ],
+				'taxonomies'   => [ self::PLACE ],
 				'rewrite'      => false,
 			]
 		);
+		register_taxonomy(
+			self::PLACE,
+			self::STEP,
+			[
+				'labels'            => [
+					'name'          => __( 'Places', 'travel-steps' ),
+					'singular_name' => __( 'Place', 'travel-steps' ),
+				],
+				'public'            => false,
+				'show_ui'           => true,
+				'show_admin_column' => true,
+				// Needed for the block editor's panel; reads are limited to editors.
+				'show_in_rest'      => true,
+				'rest_controller_class' => PlacesRestController::class,
+				'rewrite'           => false,
+			]
+		);
 
-		// Exposed over REST so the step can be repositioned programmatically. A step's
-		// arrival time is its post date, which is editable in the block editor.
-		foreach ( [ self::META_LAT => 'number', self::META_LON => 'number', self::META_DEPARTED => 'integer' ] as $key => $type ) {
+		// Exposed over REST so the step can be repositioned programmatically.
+		foreach ( [ self::META_LAT => 'number', self::META_LON => 'number' ] as $key => $type ) {
 			register_post_meta(
 				self::STEP,
 				$key,
@@ -119,7 +139,28 @@ class Trips {
 	}
 
 	public static function arrived( \WP_Post $step ): int {
-		return (int) strtotime( $step->post_date_gmt . ' UTC' );
+		return (int) strtotime( get_gmt_from_date( $step->post_date ) . ' UTC' );
+	}
+
+	/**
+	 * The day a step covers (Y-m-d): the date part of its post date.
+	 */
+	public static function day( \WP_Post $step ): string {
+		return substr( $step->post_date, 0, 10 );
+	}
+
+	/**
+	 * Steps shown on the trip page: published ones, plus drafts and unplaced steps for editors.
+	 *
+	 * @return \WP_Post[]
+	 */
+	public static function timeline_steps( \WP_Post $trip, bool $can_edit ): array {
+		return array_values(
+			array_filter(
+				self::steps( $trip->ID, $can_edit ),
+				fn( $step ) => $can_edit || '' !== get_post_meta( $step->ID, self::META_LAT, true )
+			)
+		);
 	}
 
 	/**
@@ -174,19 +215,57 @@ class Trips {
 	}
 
 	/**
-	 * Photos per step, split into shown / rest / hidden by Selection.
+	 * The local day a photo row was taken. Rows synced before days existed lack it.
+	 */
+	public static function photo_day( array $photo ): string {
+		return $photo['day'] ?? Days::local_day( null, (int) $photo['t'], wp_timezone() );
+	}
+
+	/**
+	 * Photos per step, matched by day and split into shown / rest / hidden by
+	 * Selection. Photos from days without one of $steps aren't included.
 	 *
+	 * @param \WP_Post[] $steps
 	 * @return array<int, array{shown: array, rest: array, hidden: array}> Keyed by step id.
 	 */
-	public static function photos_by_step( int $trip_id ): array {
+	public static function photos_by_step( int $trip_id, array $steps ): array {
+		$step_for_day = [];
+		foreach ( $steps as $step ) {
+			$step_for_day[ self::day( $step ) ] ??= $step->ID;
+		}
 		$grouped = [];
 		foreach ( self::photos( $trip_id ) as $photo ) {
-			$grouped[ (int) ( $photo['step'] ?? 0 ) ][] = $photo;
+			$step_id = $step_for_day[ self::photo_day( $photo ) ] ?? 0;
+			if ( $step_id ) {
+				$grouped[ $step_id ][] = $photo;
+			}
 		}
 		$pinned = self::pinned( $trip_id );
 		$hidden = self::hidden( $trip_id );
 		$limit  = (int) Settings::get( 'auto_pick' );
 		return array_map( fn( $photos ) => Selection::for_step( $photos, $pinned, $hidden, $limit ), $grouped );
+	}
+
+	/**
+	 * Asset ids the current user may fetch: for the public, only non-hidden photos of
+	 * published steps; editors get every synced photo.
+	 *
+	 * @return array<string, true>
+	 */
+	public static function viewable_photo_ids( \WP_Post $trip ): array {
+		if ( current_user_can( 'edit_post', $trip->ID ) ) {
+			return array_fill_keys( array_column( self::photos( $trip->ID ), 'id' ), true );
+		}
+		if ( ! self::can_view( $trip ) ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( self::photos_by_step( $trip->ID, self::steps( $trip->ID ) ) as $groups ) {
+			foreach ( array_merge( $groups['shown'], $groups['rest'] ) as $photo ) {
+				$ids[ $photo['id'] ] = true;
+			}
+		}
+		return $ids;
 	}
 
 	private function trip_from_request(): \WP_Post {

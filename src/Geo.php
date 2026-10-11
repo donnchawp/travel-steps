@@ -117,63 +117,6 @@ class Geo {
 	}
 
 	/**
-	 * Find places where the track lingered: runs of points staying within $radius_m of
-	 * their running centroid for at least $min_seconds. Consecutive stays at the same
-	 * place (a hotel either side of a day trip that never left the radius) are merged.
-	 *
-	 * @return array<int, array{lat: float, lon: float, arrived: int, departed: int, first: int, last: int}>
-	 *         first/last are indexes into $points.
-	 */
-	public static function detect_stays( array $points, float $radius_m, int $min_seconds ): array {
-		$stays = [];
-		$count = count( $points );
-		$i     = 0;
-		while ( $i < $count ) {
-			$lat_sum = $points[ $i ][0];
-			$lon_sum = $points[ $i ][1];
-			$n       = 1;
-			$j       = $i + 1;
-			while ( $j < $count ) {
-				$c_lat = $lat_sum / $n;
-				$c_lon = $lon_sum / $n;
-				if ( self::distance( $c_lat, $c_lon, $points[ $j ][0], $points[ $j ][1] ) > $radius_m ) {
-					break;
-				}
-				$lat_sum += $points[ $j ][0];
-				$lon_sum += $points[ $j ][1];
-				++$n;
-				++$j;
-			}
-			$last = $j - 1;
-			if ( $points[ $last ][2] - $points[ $i ][2] >= $min_seconds ) {
-				$stays[] = [
-					'lat'      => $lat_sum / $n,
-					'lon'      => $lon_sum / $n,
-					'arrived'  => $points[ $i ][2],
-					'departed' => $points[ $last ][2],
-					'first'    => $i,
-					'last'     => $last,
-				];
-				$i = $j;
-			} else {
-				++$i;
-			}
-		}
-
-		$merged = [];
-		foreach ( $stays as $stay ) {
-			$prev = end( $merged );
-			if ( $prev && self::distance( $prev['lat'], $prev['lon'], $stay['lat'], $stay['lon'] ) <= $radius_m ) {
-				$merged[ key( $merged ) ]['departed'] = $stay['departed'];
-				$merged[ key( $merged ) ]['last']     = $stay['last'];
-				continue;
-			}
-			$merged[] = $stay;
-		}
-		return $merged;
-	}
-
-	/**
 	 * Index of the point closest in time to $t (binary search), or null if none within $max_gap.
 	 */
 	public static function nearest_in_time( array $points, int $t, int $max_gap ): ?int {

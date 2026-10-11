@@ -8,30 +8,41 @@ A Polarsteps-style travel journal for your own WordPress, built with [WpApp](htt
 
 ## How it works
 
-A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. **Sync** then:
+A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A **step** (`ts_step` post, child of the trip) is a day. **Sync**:
 
 1. Fetches your Dawarich points for those dates and drops anything near home.
 2. Fetches the album's photos, or all photos taken during those dates if there's no album. Photos without GPS get the position you were at when you took them.
-3. Finds places where you stayed (by default within 300 m for 90+ minutes) and creates a **step** (`ts_step` post, child of the trip) for each new one. Steps are named after the city in the photos' EXIF or the Dawarich point data.
-4. Attaches each photo to the step you were at when you took it.
+3. Creates a **draft step for each day with favourites**. The day is the local date the photos were taken (Immich's `localDateTime`).
+4. Groups each new day's favourites into **places**. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a **place tag** (`ts_place`) for each. The title lists them: "Lisbon, Sintra".
 5. Simplifies the route, splits it at big jumps (flights, ferries) and caches it on the trip.
 
-Re-syncing is safe. It never changes a step's title or story, it doesn't recreate steps you've moved to the bin, and it only adjusts the time of steps it created itself.
+Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin. It only refreshes each step's map position.
+
+Publish the days you want shown. Draft steps, and their photos, stay private.
 
 ## Which photos are shown
 
-Favourites in Immich decide what each step shows:
+A step shows photos from its date. Favourites in Immich decide which:
 
 - **A step with favourites** shows exactly those.
-- **A step without favourites** gets an automatic pick (8 by default), spread across your time there. Bursts of shots taken seconds apart count as one.
+- **A step without favourites** (one you added by hand) gets an automatic pick (8 by default), spread across the day. Bursts of shots taken seconds apart count as one.
 - **Pin** a photo on the trip page to always show it, or **Hide** it to never show it. Press the button again to undo.
 - **Everything else** stays behind a collapsed "Show all N photos".
+- **Days without a step** show no photos at all.
 - **Screenshots** and other images with no camera make/model in EXIF are skipped at sync, unless favourited.
 - **Star ratings are ignored**, since they're often a Lightroom workflow rather than a quality score.
 
-Selection happens when the page loads, so pin and hide take effect immediately. New favourites need a re-sync.
+Shown photos sit under the place heading they belong to. Each seeded heading carries an anchor with its start time (`id="ts-place-<unix>"`) and owns the photos taken from then until the next heading. Rename the headings, write between them, or add your own. Delete one and its photos join the section above. Favourites added later appear in the right section without sync touching the story.
 
-A step's **arrival time is its post date**. To add a step by hand, click **Add step**, set the date in the block editor and write it up. The next sync places it on the map from where Dawarich says you were then.
+The map gets a marker per place heading (3a, 3b…), or one per step without headings, numbered by trip day.
+
+Selection happens when the page loads, so pin and hide take effect immediately. New favourites need a re-sync to be picked up, and only create a step for a day that doesn't have one yet.
+
+To add a step by hand, click **Add step**, set its date in the block editor and write it up. It shows that day's photos, and the next sync places it on the map.
+
+## Privacy
+
+Steps and places are in core REST for the block editor, but a step is only readable when its trip is (published, or you can edit it), and place terms only by editors. The photo proxy serves the public only photos shown on published steps of published trips.
 
 ## Pages
 
@@ -40,7 +51,7 @@ A step's **arrival time is its post date**. To add a step by hand, click **Add s
 | `/travel-steps/` | Everyone: published trips (editors also see drafts) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox. Editors can pin and hide photos. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Editors: dates, album, visibility, sync, step list |
-| `/travel-steps/settings` | Admins: Dawarich/Immich URLs and keys, home privacy zone, step detection |
+| `/travel-steps/settings` | Admins: Dawarich/Immich URLs and keys, home privacy zone, place radius |
 
 ## Setup
 
@@ -57,6 +68,8 @@ Then activate the plugin and open `/travel-steps/settings`:
 ## Development
 
 ```bash
-php tests/GeoTest.php        # geometry: distance, simplification, stay detection
-php tests/SelectionTest.php  # photo selection
+make test    # standalone: geometry, local days and places, photo selection
+make smoke   # end-to-end in WordPress Playground with fake Dawarich/Immich clients
 ```
+
+`make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections and the trip pages.

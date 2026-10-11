@@ -42,7 +42,7 @@ include __DIR__ . '/_header.php';
 			<?php
 			$new_steps = absint( $_GET['new_steps'] ?? 0 );
 			/* translators: %d: number of steps */
-			echo esc_html( sprintf( _n( 'Synced. %d new step found.', 'Synced. %d new steps found.', $new_steps, 'travel-steps' ), $new_steps ) );
+			echo esc_html( sprintf( _n( 'Synced. %d new draft step.', 'Synced. %d new draft steps.', $new_steps, 'travel-steps' ), $new_steps ) );
 			?>
 		</p>
 	<?php elseif ( $error ) : ?>
@@ -124,7 +124,7 @@ include __DIR__ . '/_header.php';
 					/* translators: 1: time since sync, 2: location points, 3: photos */
 					echo esc_html( sprintf( __( 'Last synced %1$s ago: %2$s location points, %3$s photos.', 'travel-steps' ), human_time_diff( $synced ), number_format_i18n( $stats['points'] ?? 0 ), number_format_i18n( $stats['photos'] ?? 0 ) ) );
 				} else {
-					esc_html_e( 'Not synced yet. Syncing pulls your route from Dawarich and photos from Immich, and suggests a step wherever you stayed a while.', 'travel-steps' );
+					esc_html_e( 'Not synced yet. Syncing pulls your route from Dawarich and photos from Immich, and adds a draft step for each day with favourites.', 'travel-steps' );
 				}
 				?>
 			</p>
@@ -147,14 +147,14 @@ include __DIR__ . '/_header.php';
 				</form>
 			</div>
 			<?php if ( ! $steps ) : ?>
-				<p class="ts-muted"><?php esc_html_e( 'No steps yet. Sync to find them, or add one by hand.', 'travel-steps' ); ?></p>
+				<p class="ts-muted"><?php esc_html_e( 'No steps yet. Favourite photos in Immich and sync, or add one by hand.', 'travel-steps' ); ?></p>
 			<?php else : ?>
-				<p class="ts-muted"><?php esc_html_e( 'Each step is a post: write its story in the block editor. Its date is when you arrived; steps without a location are placed from your Dawarich history at that time on the next sync. Move a step to the bin to drop it.', 'travel-steps' ); ?></p>
+				<p class="ts-muted"><?php esc_html_e( 'Each step is a day, written in the block editor. New steps are drafts with a heading per place; publish the ones you want shown. Photos from that date appear under the headings. Move a step to the bin to drop it; sync won\'t bring it back.', 'travel-steps' ); ?></p>
 				<ol class="ts-step-list">
 					<?php foreach ( $steps as $step ) : ?>
 						<li>
 							<a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>"><?php echo esc_html( get_the_title( $step ) ); ?></a>
-							<span class="ts-muted"><?php echo esc_html( wp_date( get_option( 'date_format' ) . ', ' . get_option( 'time_format' ), Trips::arrived( $step ) ) ); ?></span>
+							<span class="ts-muted"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></span>
 							<?php if ( 'publish' !== $step->post_status ) : ?>
 								<span class="ts-badge"><?php echo esc_html( get_post_status_object( $step->post_status )->label ?? $step->post_status ); ?></span>
 							<?php endif; ?>

@@ -3,6 +3,7 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+use TravelSteps\Days;
 use TravelSteps\RestController;
 use TravelSteps\Trips;
 use TravelSteps\View;
@@ -15,7 +16,8 @@ if ( ! $trip || ! Trips::can_view( $trip ) ) {
 
 $can_edit = current_user_can( 'edit_post', $trip->ID );
 $authed   = $can_edit || 'publish' !== $trip->post_status;
-$by_step  = Trips::photos_by_step( $trip->ID );
+$steps    = Trips::timeline_steps( $trip, $can_edit );
+$by_step  = Trips::photos_by_step( $trip->ID, $steps );
 $pinned   = array_flip( Trips::pinned( $trip->ID ) );
 
 $render_photo = function ( array $photo, string $state ) use ( $trip, $authed, $can_edit ) {
@@ -43,12 +45,17 @@ $render_photo = function ( array $photo, string $state ) use ( $trip, $authed, $
 	</figure>
 	<?php
 };
-$steps = array_values(
-	array_filter(
-		Trips::steps( $trip->ID, $can_edit ),
-		fn( $step ) => '' !== get_post_meta( $step->ID, Trips::META_LAT, true ) || $can_edit
-	)
-);
+$render_grid = function ( array $photos ) use ( $render_photo, $pinned ) {
+	?>
+	<div class="ts-photos<?php echo count( $photos ) === 1 ? ' is-single' : ''; ?>">
+		<?php
+		foreach ( $photos as $photo ) {
+			$render_photo( $photo, isset( $pinned[ $photo['id'] ] ) ? 'pinned' : 'default' );
+		}
+		?>
+	</div>
+	<?php
+};
 $cover = View::cover_url( $trip->ID, 'preview' );
 
 wp_app_enqueue_style( 'leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', [], null, 'travel-steps' );
@@ -103,44 +110,40 @@ include __DIR__ . '/_header.php';
 			<?php endif; ?>
 
 			<?php
-			$first_day = Trips::range( $trip->ID )[0] ?? 0;
+			$first_day = (string) get_post_meta( $trip->ID, Trips::META_START, true );
 			foreach ( $steps as $index => $step ) :
-				$arrived = Trips::arrived( $step );
-				$day     = $first_day ? (int) floor( ( $arrived - $first_day ) / DAY_IN_SECONDS ) + 1 : 0;
+				$day     = $first_day ? Days::day_number( $first_day, Trips::day( $step ) ) : 0;
+				$places  = get_the_terms( $step, Trips::PLACE );
 				$groups  = $by_step[ $step->ID ] ?? [ 'shown' => [], 'rest' => [], 'hidden' => [] ];
 				$more    = $can_edit ? array_merge( $groups['rest'], $groups['hidden'] ) : $groups['rest'];
 				?>
 				<section class="ts-step" id="step-<?php echo (int) $step->ID; ?>" data-step="<?php echo (int) $step->ID; ?>">
-					<div class="ts-step-marker" aria-hidden="true"><?php echo (int) $index + 1; ?></div>
+					<div class="ts-step-marker" aria-hidden="true"><?php echo (int) $day ?: (int) $index + 1; ?></div>
 					<div class="ts-step-body">
 						<p class="ts-step-meta">
 							<?php if ( $day > 0 ) : ?>
 								<?php /* translators: %d: day number of the trip */ ?>
 								<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps' ), $day ) ); ?></span>
 							<?php endif; ?>
-							<time datetime="<?php echo esc_attr( gmdate( 'c', $arrived ) ); ?>"><?php echo esc_html( wp_date( get_option( 'date_format' ) . ', ' . get_option( 'time_format' ), $arrived ) ); ?></time>
+							<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
 							<?php if ( 'publish' !== $step->post_status ) : ?>
 								<span class="ts-badge"><?php echo esc_html( get_post_status_object( $step->post_status )->label ?? $step->post_status ); ?></span>
 							<?php endif; ?>
 						</p>
 						<h2><?php echo esc_html( get_the_title( $step ) ); ?></h2>
-						<?php if ( trim( $step->post_content ) ) : ?>
-							<div class="ts-content"><?php echo apply_filters( 'the_content', $step->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core content filter. ?></div>
-						<?php elseif ( $can_edit ) : ?>
+						<?php if ( $places && ! is_wp_error( $places ) ) : ?>
+							<ul class="ts-places">
+								<?php foreach ( $places as $place ) : ?>
+									<li><?php echo esc_html( $place->name ); ?></li>
+								<?php endforeach; ?>
+							</ul>
+						<?php endif; ?>
+						<?php if ( ! wp_strip_all_tags( $step->post_content ) && $can_edit ) : ?>
 							<p class="ts-muted"><?php esc_html_e( 'No story yet.', 'travel-steps' ); ?></p>
 						<?php endif; ?>
+						<?php View::render_story( $step, $groups['shown'], $render_grid ); ?>
 						<?php if ( $can_edit ) : ?>
 							<p class="ts-step-actions"><a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>"><?php esc_html_e( 'Write in the block editor', 'travel-steps' ); ?></a></p>
-						<?php endif; ?>
-
-						<?php if ( $groups['shown'] ) : ?>
-							<div class="ts-photos<?php echo count( $groups['shown'] ) === 1 ? ' is-single' : ''; ?>">
-								<?php
-								foreach ( $groups['shown'] as $photo ) {
-									$render_photo( $photo, isset( $pinned[ $photo['id'] ] ) ? 'pinned' : 'default' );
-								}
-								?>
-							</div>
 						<?php endif; ?>
 						<?php if ( $more ) : ?>
 							<details class="ts-more-photos">

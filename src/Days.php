@@ -1,0 +1,143 @@
+<?php
+
+namespace TravelSteps;
+
+/**
+ * A step is a day. Within a day, favourites are grouped into places, which become
+ * headings in the step's story. Pure functions, no WordPress dependencies.
+ *
+ * Seeded headings carry an anchor holding the place's start time (ts-place-<unix>),
+ * so photos can be shown under the heading they belong to however the story is
+ * edited afterwards: each heading owns the photos taken from its time until the next.
+ */
+class Days {
+	const ANCHOR_PREFIX = 'ts-place-';
+
+	/**
+	 * The local date a photo was taken: Immich's localDateTime is the wall-clock time
+	 * written as if it were UTC. Without it, use $tz.
+	 */
+	public static function local_day( ?string $local_datetime, int $t, \DateTimeZone $tz ): string {
+		if ( $local_datetime && preg_match( '/^\d{4}-\d{2}-\d{2}/', $local_datetime, $m ) ) {
+			return $m[0];
+		}
+		return ( new \DateTimeImmutable( '@' . $t ) )->setTimezone( $tz )->format( 'Y-m-d' );
+	}
+
+	/**
+	 * Day N of a trip starting on $start (both Y-m-d); 0 for days before it.
+	 */
+	public static function day_number( string $start, string $day ): int {
+		$utc  = new \DateTimeZone( 'UTC' );
+		$diff = ( new \DateTimeImmutable( $day, $utc ) )->getTimestamp() - ( new \DateTimeImmutable( $start, $utc ) )->getTimestamp();
+		return max( 0, intdiv( $diff, 86400 ) + 1 );
+	}
+
+	/**
+	 * Group one day's favourites, sorted by time, into places. A new place starts when a
+	 * photo is more than $radius_m from the current place's centroid and isn't in the
+	 * same named city, so a day walking around one city stays one place. Photos without
+	 * a position join the current place.
+	 *
+	 * @return array<int, array{t: int, lat: ?float, lon: ?float, city: string}>
+	 */
+	public static function places( array $favourites, float $radius_m ): array {
+		$places = [];
+		$cur    = null;
+		foreach ( $favourites as $photo ) {
+			$located = null !== $photo['lat'];
+			$city    = (string) ( $photo['city'] ?? '' );
+			if ( $cur && $located && $cur['n'] ) {
+				$far       = Geo::distance( $cur['lat_sum'] / $cur['n'], $cur['lon_sum'] / $cur['n'], $photo['lat'], $photo['lon'] ) > $radius_m;
+				$same_city = '' !== $city && $city === $cur['city'];
+				if ( $far && ! $same_city ) {
+					$places[] = $cur;
+					$cur      = null;
+				}
+			}
+			if ( ! $cur ) {
+				$cur = [ 't' => $photo['t'], 'lat_sum' => 0.0, 'lon_sum' => 0.0, 'n' => 0, 'city' => '' ];
+			}
+			if ( $located ) {
+				$cur['lat_sum'] += $photo['lat'];
+				$cur['lon_sum'] += $photo['lon'];
+				++$cur['n'];
+			}
+			if ( '' === $cur['city'] && '' !== $city ) {
+				$cur['city'] = $city;
+			}
+		}
+		if ( $cur ) {
+			$places[] = $cur;
+		}
+
+		return array_map(
+			fn( $p ) => [
+				't'    => $p['t'],
+				'lat'  => $p['n'] ? $p['lat_sum'] / $p['n'] : null,
+				'lon'  => $p['n'] ? $p['lon_sum'] / $p['n'] : null,
+				'city' => $p['city'],
+			],
+			$places
+		);
+	}
+
+	/**
+	 * The day's named places in order, each once: "Lisbon, Sintra".
+	 */
+	public static function title( array $places, string $fallback ): string {
+		$names = array_values( array_unique( array_filter( array_column( $places, 'city' ) ) ) );
+		return $names ? implode( ', ', $names ) : $fallback;
+	}
+
+	/**
+	 * Block markup for a new step: a heading and an empty paragraph per place. A day
+	 * with one place gets none; the step title already names it.
+	 */
+	public static function seed_content( array $places, string $unnamed = 'Place' ): string {
+		if ( count( $places ) < 2 ) {
+			return '';
+		}
+		$blocks = [];
+		foreach ( $places as $place ) {
+			$name     = htmlspecialchars( '' !== $place['city'] ? $place['city'] : $unnamed, ENT_QUOTES, 'UTF-8' );
+			$blocks[] = "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\" id=\"" . self::ANCHOR_PREFIX . (int) $place['t'] . "\">{$name}</h2>\n<!-- /wp:heading -->";
+			$blocks[] = "<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->";
+		}
+		return implode( "\n\n", $blocks );
+	}
+
+	/**
+	 * Start time from a place heading's anchor, or null for any other markup.
+	 */
+	public static function place_anchor( string $html ): ?int {
+		return preg_match( '/\sid="' . self::ANCHOR_PREFIX . '(\d+)"/', $html, $m ) ? (int) $m[1] : null;
+	}
+
+	/**
+	 * Start times of the place headings in a story, in order of appearance.
+	 *
+	 * @return int[]
+	 */
+	public static function anchor_times( string $content ): array {
+		preg_match_all( '/\sid="' . self::ANCHOR_PREFIX . '(\d+)"/', $content, $m );
+		return array_map( 'intval', $m[1] );
+	}
+
+	/**
+	 * Which section a photo taken at $t belongs to: 0 before the first heading, then i
+	 * for the i-th heading (1-based) until the next one starts.
+	 *
+	 * @param int[] $starts Heading start times, ascending.
+	 */
+	public static function section_index( array $starts, int $t ): int {
+		$index = 0;
+		foreach ( $starts as $start ) {
+			if ( $t < $start ) {
+				break;
+			}
+			++$index;
+		}
+		return $index;
+	}
+}

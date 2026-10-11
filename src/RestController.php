@@ -25,7 +25,7 @@ class RestController {
 			[
 				'methods'             => 'POST',
 				'callback'            => [ $this, 'set_photo_state' ],
-				'permission_callback' => fn( $request ) => current_user_can( 'edit_post', (int) $request['id'] ),
+				'permission_callback' => fn( $request ) => Trips::TRIP === get_post_type( (int) $request['id'] ) && current_user_can( 'edit_post', (int) $request['id'] ),
 				'args'                => [
 					'asset' => [
 						'type'     => 'string',
@@ -79,59 +79,25 @@ class RestController {
 		$trip     = get_post( (int) $request['id'] );
 		$can_edit = current_user_can( 'edit_post', $trip->ID );
 		$route    = json_decode( (string) get_post_meta( $trip->ID, Trips::META_ROUTE, true ), true );
-		$pinned   = array_flip( Trips::pinned( $trip->ID ) );
+		$steps    = Trips::timeline_steps( $trip, $can_edit );
+		$by_step  = Trips::photos_by_step( $trip->ID, $steps );
 
-		$by_step = [];
-		foreach ( Trips::photos_by_step( $trip->ID ) as $step_id => $groups ) {
-			$sets = [ 'shown' => $groups['shown'], 'rest' => $groups['rest'] ];
-			if ( $can_edit ) {
-				$sets['hidden'] = $groups['hidden'];
-			}
-			foreach ( $sets as $set => $photos ) {
-				foreach ( $photos as $photo ) {
-					$by_step[ $step_id ][] = [
-						'id'      => $photo['id'],
-						'thumb'   => self::photo_url( $trip->ID, $photo['id'], 'thumbnail', $can_edit ),
-						'preview' => self::photo_url( $trip->ID, $photo['id'], 'preview', $can_edit ),
-						'w'       => $photo['w'],
-						'h'       => $photo['h'],
-						'lat'     => $photo['lat'],
-						'lon'     => $photo['lon'],
-						't'       => $photo['t'],
-						'caption' => $photo['caption'] ?? '',
-						'fav'     => ! empty( $photo['fav'] ),
-						'state'   => 'hidden' === $set ? 'hidden' : ( isset( $pinned[ $photo['id'] ] ) ? 'pinned' : 'default' ),
-						'shown'   => 'shown' === $set,
-					];
-				}
-			}
-		}
-
-		$steps = [];
-		foreach ( Trips::steps( $trip->ID, $can_edit ) as $step ) {
-			$lat = get_post_meta( $step->ID, Trips::META_LAT, true );
-			if ( '' === $lat ) {
-				continue;
-			}
-			$steps[] = [
-				'id'       => $step->ID,
-				'title'    => get_the_title( $step ),
-				'status'   => $step->post_status,
-				'lat'      => (float) $lat,
-				'lon'      => (float) get_post_meta( $step->ID, Trips::META_LON, true ),
-				'arrived'  => Trips::arrived( $step ),
-				'departed' => (int) get_post_meta( $step->ID, Trips::META_DEPARTED, true ),
-				'edit_url' => $can_edit ? get_edit_post_link( $step->ID, 'raw' ) : null,
-				'photos'   => $by_step[ $step->ID ] ?? [],
-			];
+		$first   = (string) get_post_meta( $trip->ID, Trips::META_START, true );
+		$markers = [];
+		foreach ( $steps as $index => $step ) {
+			// Same label as the timeline: the day number.
+			$number  = ( $first ? Days::day_number( $first, Trips::day( $step ) ) : 0 ) ?: $index + 1;
+			$groups  = $by_step[ $step->ID ] ?? [ 'shown' => [], 'rest' => [] ];
+			$photos  = array_merge( $groups['shown'], $groups['rest'] );
+			usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
+			$markers = array_merge( $markers, View::markers( $step, $photos, $number ) );
 		}
 
 		$response = new \WP_REST_Response(
 			[
 				'id'       => $trip->ID,
-				'title'    => get_the_title( $trip ),
 				'route'    => is_array( $route ) ? $route : [],
-				'steps'    => $steps,
+				'markers'  => $markers,
 				'can_edit' => $can_edit,
 			]
 		);
@@ -174,11 +140,11 @@ class RestController {
 		$asset   = (string) $request['asset'];
 		$size    = (string) $request['size'];
 
-		$belongs = in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true );
-		$hidden  = in_array( $asset, Trips::hidden( $trip_id ), true );
-		if ( ! $belongs || ( $hidden && ! current_user_can( 'edit_post', $trip_id ) ) ) {
+		// Only photos shown on a published step for the public; anything synced for editors.
+		if ( ! isset( Trips::viewable_photo_ids( get_post( $trip_id ) )[ $asset ] ) ) {
 			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
 		}
+		$hidden = in_array( $asset, Trips::hidden( $trip_id ), true );
 
 		$is_public = 'publish' === get_post_status( $trip_id ) && ! $hidden;
 		$cache     = self::cache_file( $asset, $size );

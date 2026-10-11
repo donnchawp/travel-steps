@@ -7,10 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Pulls a trip's route from Dawarich and photos from Immich, then creates or updates steps.
+ * Pulls a trip's route from Dawarich and photos from Immich, then creates steps.
  *
- * Steps you've written stay yours: sync never touches a step's title or content, and
- * only moves auto-created steps' times and positions.
+ * A step is a day: each day with favourites gets a draft step, seeded once with a
+ * heading and a place tag per place. After that the step is yours: sync never touches its title,
+ * story, date or status, only its map position.
  */
 class TripSync {
 	const ROUTE_TOLERANCE_M = 25;
@@ -29,6 +30,25 @@ class TripSync {
 	 * @return array{new_steps: int, points: int, photos: int}|\WP_Error
 	 */
 	public function sync( int $trip_id ) {
+		// add_option() is an atomic insert, so a double-clicked sync can't create a day twice.
+		$lock = 'travel_steps_sync_lock_' . $trip_id;
+		if ( ! add_option( $lock, time(), '', false ) ) {
+			if ( (int) get_option( $lock ) > time() - 10 * MINUTE_IN_SECONDS ) {
+				return new \WP_Error( 'travel_steps_sync_running', __( 'A sync of this trip is already running.', 'travel-steps' ) );
+			}
+			update_option( $lock, time(), false ); // Left behind by a sync that died.
+		}
+		try {
+			return $this->run( $trip_id );
+		} finally {
+			delete_option( $lock );
+		}
+	}
+
+	/**
+	 * @return array{new_steps: int, points: int, photos: int}|\WP_Error
+	 */
+	private function run( int $trip_id ) {
 		$range = Trips::range( $trip_id );
 		if ( ! $range ) {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
@@ -59,7 +79,6 @@ class TripSync {
 		}
 
 		$new_steps = $this->sync_steps( $trip_id, $track, $photos );
-		$photos    = $this->assign_photos( $trip_id, $photos );
 
 		$segments = Geo::split_segments( $track );
 		$route    = $this->simplify_route( $segments );
@@ -117,26 +136,18 @@ class TripSync {
 	}
 
 	/**
-	 * Detect stays and turn new ones into steps. Returns the number of steps created.
+	 * Create a draft step for each new day with favourites, and position every step.
+	 * Returns the number of steps created.
 	 */
 	private function sync_steps( int $trip_id, array $track, array $photos ): int {
-		$radius   = (float) Settings::get( 'stay_radius_m' );
-		$min_secs = (int) Settings::get( 'stay_min_minutes' ) * MINUTE_IN_SECONDS;
-		$stays    = Geo::detect_stays( $track, $radius, $min_secs );
-		$existing = Trips::steps( $trip_id, true );
-
-		// Place manual steps (no coordinates yet) where you were at their post date.
-		foreach ( $existing as $step ) {
-			if ( '' === get_post_meta( $step->ID, Trips::META_LAT, true ) ) {
-				$index = Geo::nearest_in_time( $track, Trips::arrived( $step ), 6 * HOUR_IN_SECONDS );
-				if ( null !== $index ) {
-					update_post_meta( $step->ID, Trips::META_LAT, $track[ $index ][0] );
-					update_post_meta( $step->ID, Trips::META_LON, $track[ $index ][1] );
-				}
-			}
+		$radius = (float) Settings::get( 'place_radius_km' ) * 1000;
+		$by_day = [];
+		foreach ( $photos as $photo ) {
+			$by_day[ $photo['day'] ][] = $photo;
 		}
 
-		// Steps you've binned still count as matches, so sync doesn't bring them back.
+		$steps = Trips::steps( $trip_id, true );
+		// Steps you've binned still hold their day, so sync doesn't bring them back.
 		$binned = get_posts(
 			[
 				'post_type'      => Trips::STEP,
@@ -145,126 +156,80 @@ class TripSync {
 				'posts_per_page' => -1,
 			]
 		);
+		$taken = [];
+		foreach ( $steps as $step ) {
+			$taken[ Trips::day( $step ) ] = true;
+		}
+		foreach ( array_merge( $steps, $binned ) as $step ) {
+			$day = (string) get_post_meta( $step->ID, Trips::META_DAY, true );
+			if ( '' !== $day ) {
+				$taken[ $day ] = true;
+			}
+		}
 
+		// Positions are derived data, so every step's is refreshed; titles and stories never are.
+		foreach ( $steps as $step ) {
+			$this->place_step( $step, $by_day[ Trips::day( $step ) ] ?? [], $track );
+		}
+
+		$first   = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$created = 0;
-		foreach ( $stays as $stay ) {
-			$match = $this->matching_step( array_merge( $existing, $binned ), $stay, $radius );
-			if ( $match && 'trash' === $match->post_status ) {
+		foreach ( $by_day as $day => $day_photos ) {
+			$favourites = array_values( array_filter( $day_photos, fn( $p ) => ! empty( $p['fav'] ) ) );
+			if ( isset( $taken[ $day ] ) || ! $favourites ) {
 				continue;
 			}
-			if ( $match ) {
-				if ( get_post_meta( $match->ID, Trips::META_AUTO, true ) ) {
-					$this->set_step_time( $match->ID, $stay['arrived'] );
-					update_post_meta( $match->ID, Trips::META_DEPARTED, $stay['departed'] );
-				}
-				continue;
-			}
-
+			$places = Days::places( $favourites, $radius );
+			$date   = $day . ' 12:00:00';
 			$step_id = wp_insert_post(
 				[
-					'post_type'   => Trips::STEP,
-					'post_parent' => $trip_id,
-					'post_title'  => $this->place_name( $stay, $track, $photos ),
-					'post_status' => 'publish',
+					'post_type'     => Trips::STEP,
+					'post_parent'   => $trip_id,
+					/* translators: %d: day number of the trip */
+					'post_title'    => Days::title( $places, sprintf( __( 'Day %d', 'travel-steps' ), Days::day_number( $first, $day ) ) ),
+					'post_content'  => Days::seed_content( $places, __( 'Somewhere new', 'travel-steps' ) ),
+					'post_status'   => 'draft',
+					'post_date'     => $date,
+					'post_date_gmt' => get_gmt_from_date( $date ),
+					'edit_date'     => true,
 				],
 				true
 			);
 			if ( is_wp_error( $step_id ) ) {
 				continue;
 			}
-			$this->set_step_time( $step_id, $stay['arrived'] );
-			update_post_meta( $step_id, Trips::META_LAT, round( $stay['lat'], 6 ) );
-			update_post_meta( $step_id, Trips::META_LON, round( $stay['lon'], 6 ) );
-			update_post_meta( $step_id, Trips::META_DEPARTED, $stay['departed'] );
+			update_post_meta( $step_id, Trips::META_DAY, $day );
 			update_post_meta( $step_id, Trips::META_AUTO, 1 );
-			$existing[] = get_post( $step_id );
+			wp_set_object_terms( $step_id, array_values( array_unique( array_filter( array_column( $places, 'city' ) ) ) ), Trips::PLACE );
+			$this->place_step( get_post( $step_id ), $day_photos, $track );
 			++$created;
 		}
 		return $created;
 	}
 
-	private function set_step_time( int $step_id, int $arrived ): void {
-		wp_update_post(
-			[
-				'ID'            => $step_id,
-				'post_date_gmt' => gmdate( 'Y-m-d H:i:s', $arrived ),
-				'post_date'     => wp_date( 'Y-m-d H:i:s', $arrived ),
-				'edit_date'     => true,
-			]
-		);
-	}
-
 	/**
-	 * An existing step close to the stay in both place and time.
+	 * Put a step at its day's first located favourite, else its first located photo,
+	 * else wherever Dawarich says you were around its post date.
 	 */
-	private function matching_step( array $steps, array $stay, float $radius ): ?\WP_Post {
-		foreach ( $steps as $step ) {
-			$lat = get_post_meta( $step->ID, Trips::META_LAT, true );
-			if ( '' === $lat ) {
-				continue;
+	private function place_step( \WP_Post $step, array $day_photos, array $track ): void {
+		$located    = array_values( array_filter( $day_photos, fn( $p ) => null !== $p['lat'] ) );
+		$favourites = array_values( array_filter( $located, fn( $p ) => ! empty( $p['fav'] ) ) );
+		$photo      = $favourites[0] ?? $located[0] ?? null;
+		if ( $photo ) {
+			[ $lat, $lon ] = [ $photo['lat'], $photo['lon'] ];
+		} else {
+			$index = Geo::nearest_in_time( $track, Trips::arrived( $step ), 12 * HOUR_IN_SECONDS );
+			if ( null === $index ) {
+				return;
 			}
-			$near    = Geo::distance( (float) $lat, (float) get_post_meta( $step->ID, Trips::META_LON, true ), $stay['lat'], $stay['lon'] ) <= 2 * $radius;
-			$arrived = Trips::arrived( $step );
-			$during  = $arrived >= $stay['arrived'] - 3 * HOUR_IN_SECONDS && $arrived <= $stay['departed'] + 3 * HOUR_IN_SECONDS;
-			if ( $near && $during ) {
-				return $step;
-			}
+			[ $lat, $lon ] = [ $track[ $index ][0], $track[ $index ][1] ];
 		}
-		return null;
+		update_post_meta( $step->ID, Trips::META_LAT, round( $lat, 6 ) );
+		update_post_meta( $step->ID, Trips::META_LON, round( $lon, 6 ) );
 	}
 
 	/**
-	 * Name a stay after the most common city among its photos, then its location points.
-	 */
-	private function place_name( array $stay, array $track, array $photos ): string {
-		$names = [];
-		foreach ( $photos as $photo ) {
-			if ( $photo['t'] >= $stay['arrived'] && $photo['t'] <= $stay['departed'] && $photo['city'] ) {
-				$names[] = $photo['city'];
-			}
-		}
-		if ( ! $names ) {
-			for ( $i = $stay['first']; $i <= $stay['last']; $i++ ) {
-				if ( ! empty( $track[ $i ][3] ) ) {
-					$names[] = $track[ $i ][3];
-				}
-			}
-		}
-		if ( $names ) {
-			$counts = array_count_values( $names );
-			arsort( $counts );
-			return (string) array_key_first( $counts );
-		}
-		/* translators: %s: date */
-		return sprintf( __( 'Stop on %s', 'travel-steps' ), wp_date( get_option( 'date_format' ), $stay['arrived'] ) );
-	}
-
-	/**
-	 * Attach each photo to the step you were at when you took it: the latest step that
-	 * started before the photo (Polarsteps-style), or the first step for earlier photos.
-	 */
-	private function assign_photos( int $trip_id, array $photos ): array {
-		$steps = array_values(
-			array_filter(
-				Trips::steps( $trip_id, true ),
-				fn( $s ) => '' !== get_post_meta( $s->ID, Trips::META_LAT, true )
-			)
-		);
-		$times = array_map( [ Trips::class, 'arrived' ], $steps );
-
-		foreach ( $photos as &$photo ) {
-			$photo['step'] = $steps ? $steps[0]->ID : 0;
-			foreach ( $times as $i => $arrived ) {
-				if ( $arrived <= $photo['t'] ) {
-					$photo['step'] = $steps[ $i ]->ID;
-				}
-			}
-		}
-		return $photos;
-	}
-
-	/**
-	 * Simplify each segment, tightening the tolerance until the route fits the budget.
+	 * Simplify each segment, loosening the tolerance until the route fits the budget.
 	 *
 	 * @return array<int, array<int, array{0: float, 1: float}>>
 	 */

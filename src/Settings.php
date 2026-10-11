@@ -18,8 +18,7 @@ class Settings {
 		'home_lat'          => '',
 		'home_lon'          => '',
 		'home_radius_km'    => 1,
-		'stay_radius_m'     => 300,
-		'stay_min_minutes'  => 90,
+		'place_radius_km'   => 2,
 		'auto_pick'         => 8,
 	];
 
@@ -83,8 +82,7 @@ class Settings {
 			'home_lat'         => self::coordinate( $input['home_lat'] ?? '', 90 ),
 			'home_lon'         => self::coordinate( $input['home_lon'] ?? '', 180 ),
 			'home_radius_km'   => max( 0, (float) ( $input['home_radius_km'] ?? 1 ) ),
-			'stay_radius_m'    => max( 50, (int) ( $input['stay_radius_m'] ?? 300 ) ),
-			'stay_min_minutes' => max( 10, (int) ( $input['stay_min_minutes'] ?? 90 ) ),
+			'place_radius_km'  => max( 0.1, (float) ( $input['place_radius_km'] ?? 2 ) ),
 			'auto_pick'        => min( 50, max( 1, (int) ( $input['auto_pick'] ?? 8 ) ) ),
 		];
 		// Keys are write-only in the form: an empty field keeps the stored key.

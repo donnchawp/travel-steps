@@ -20,13 +20,15 @@
 	/* ---------- Map ---------- */
 
 	const mapEl = document.getElementById( 'ts-map' );
-	const markers = new Map();
+	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	let map = null;
 
-	function stepIcon( n, active ) {
+	function stepIcon( label, active ) {
+		const span = document.createElement( 'span' );
+		span.textContent = label;
 		return L.divIcon( {
 			className: 'ts-pin' + ( active ? ' is-active' : '' ),
-			html: '<span>' + n + '</span>',
+			html: span,
 			iconSize: [ 30, 30 ],
 			iconAnchor: [ 15, 15 ],
 		} );
@@ -56,17 +58,21 @@
 			}
 		} );
 
-		trip.steps.forEach( ( step, i ) => {
-			const marker = L.marker( [ step.lat, step.lon ], { icon: stepIcon( i + 1, false ), title: step.title } )
+		( trip.markers || [] ).forEach( ( m ) => {
+			const marker = L.marker( [ m.lat, m.lon ], { icon: stepIcon( m.label, false ), title: m.title } )
 				.addTo( map )
 				.on( 'click', () => {
-					const el = document.getElementById( 'step-' + step.id );
+					const el = document.getElementById( m.anchor ) || document.getElementById( 'step-' + m.step );
 					if ( el ) {
 						el.scrollIntoView( { behavior: 'smooth', block: 'start' } );
 					}
 				} );
-			markers.set( String( step.id ), { marker, n: i + 1 } );
-			bounds.extend( [ step.lat, step.lon ] );
+			const key = String( m.step );
+			if ( ! markers.has( key ) ) {
+				markers.set( key, [] );
+			}
+			markers.get( key ).push( { marker, label: m.label } );
+			bounds.extend( [ m.lat, m.lon ] );
 		} );
 
 		if ( bounds.isValid() ) {
@@ -82,20 +88,21 @@
 		if ( id === activeStep ) {
 			return;
 		}
-		if ( activeStep && markers.has( activeStep ) ) {
-			const prev = markers.get( activeStep );
-			prev.marker.setIcon( stepIcon( prev.n, false ) ).setZIndexOffset( 0 );
-		}
+		( markers.get( activeStep ) || [] ).forEach( ( m ) => {
+			m.marker.setIcon( stepIcon( m.label, false ) ).setZIndexOffset( 0 );
+		} );
 		activeStep = id;
 		document.querySelectorAll( '.ts-step.is-active' ).forEach( ( el ) => el.classList.remove( 'is-active' ) );
 		const section = document.getElementById( 'step-' + id );
 		if ( section ) {
 			section.classList.add( 'is-active' );
 		}
-		if ( markers.has( id ) ) {
-			const cur = markers.get( id );
-			cur.marker.setIcon( stepIcon( cur.n, true ) ).setZIndexOffset( 1000 );
-			map.panTo( cur.marker.getLatLng(), { animate: true } );
+		const current = markers.get( id ) || [];
+		current.forEach( ( m ) => {
+			m.marker.setIcon( stepIcon( m.label, true ) ).setZIndexOffset( 1000 );
+		} );
+		if ( current.length ) {
+			map.panTo( current[ 0 ].marker.getLatLng(), { animate: true } );
 		}
 	}
 

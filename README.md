@@ -78,6 +78,33 @@ make test    # standalone: geometry, local days and places, photo selection
 make smoke   # end-to-end in WordPress Playground with fake Dawarich/Immich clients
 ```
 
-To copy the plugin to a server, put `DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps/` in `Makefile.local` (ignored by git) and run `make deploy-dry`, then `make deploy`.
-
 `make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections and the trip pages.
+
+## Deploying
+
+Copy the plugin to a server with rsync over SSH. Put the destination in `Makefile.local`, which git ignores:
+
+```make
+DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps/
+```
+
+```bash
+make deploy-dry   # what would be copied and deleted
+make deploy       # composer install --no-dev, then rsync --delete
+```
+
+- It copies your **working tree**, not the last commit, so uncommitted changes go too.
+- `tests/`, `.git`, the Makefiles and `.gitignore` stay behind. `vendor/` goes, with runtime dependencies only.
+- `--delete` removes files on the server that aren't in your copy, so keep nothing else in the plugin folder there.
+- `vendor/composer/installed.php` is copied every time: Composer writes the current commit into it.
+- If `vendor/` ever goes missing on the server, the plugin stands down and shows admins a notice instead of breaking the site.
+
+## Proxies and caches
+
+If an authentication proxy guards the whole site, trips aren't public until it lets these paths through:
+
+- `/travel-steps/*`: the trip pages. The new, edit and settings routes still need a WordPress login with the right capability (`edit_posts`, `manage_options`).
+- `/wp-json/travel-steps/v1/*`: map data and photos, each checked against the trip's visibility
+- `/wp-content/plugins/travel-steps/*`: scripts, styles and Leaflet
+
+Photos come from `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}`. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them 5 minutes; drafts and editor URLs are `private`. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users: editors see drafts and editing tools.

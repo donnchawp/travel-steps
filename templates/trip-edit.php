@@ -25,6 +25,7 @@ $error   = $meta( Trips::META_ERROR );
 $stats   = $trip_id ? get_post_meta( $trip_id, Trips::META_STATS, true ) : [];
 $steps   = $trip_id ? Trips::steps( $trip_id, true ) : [];
 $photos  = $synced && ! $steps ? Trips::photos( $trip_id ) : [];
+$located = ( new DawarichClient() )->configured();
 
 $page_title = $trip ? sprintf( /* translators: %s: trip title */ __( 'Edit %s', 'travel-steps' ), get_the_title( $trip ) ) : __( 'New trip', 'travel-steps' );
 include __DIR__ . '/_header.php';
@@ -65,13 +66,17 @@ include __DIR__ . '/_header.php';
 	<?php if ( $photos && ! array_filter( array_column( $photos, 'fav' ) ) ) : ?>
 		<p class="ts-notice is-warning">
 			<?php
-			echo esc_html(
-				sprintf(
-					/* translators: %s: number of photos */
-					_n( 'None of the %s photo is a favourite in Immich, so sync made no steps. Favourite the photos you want to show, then sync again.', 'None of the %s photos is a favourite in Immich, so sync made no steps. Favourite the photos you want to show, then sync again.', count( $photos ), 'travel-steps' ),
-					number_format_i18n( count( $photos ) )
-				)
-			);
+			if ( 1 === count( $photos ) ) {
+				esc_html_e( 'The trip’s only photo isn’t a favourite in Immich, so sync made no steps. Favourite it, then sync again.', 'travel-steps' );
+			} else {
+				echo esc_html(
+					sprintf(
+						/* translators: %s: number of photos, always more than one */
+						__( 'None of the %s photos is a favourite in Immich, so sync made no steps. Favourite the photos you want to show, then sync again.', 'travel-steps' ),
+						number_format_i18n( count( $photos ) )
+					)
+				);
+			}
 			?>
 		</p>
 	<?php endif; ?>
@@ -157,10 +162,13 @@ include __DIR__ . '/_header.php';
 			<h2><?php esc_html_e( 'Sync', 'travel-steps' ); ?></h2>
 			<p class="ts-muted">
 				<?php
-				if ( $synced ) {
+				if ( $synced && $located ) {
 					/* translators: 1: time since sync, 2: location points, 3: photos */
 					echo esc_html( sprintf( __( 'Last synced %1$s ago: %2$s location points, %3$s photos.', 'travel-steps' ), human_time_diff( $synced ), number_format_i18n( $stats['points'] ?? 0 ), number_format_i18n( $stats['photos'] ?? 0 ) ) );
-				} elseif ( ( new DawarichClient() )->configured() ) {
+				} elseif ( $synced ) {
+					/* translators: 1: time since sync, 2: photos */
+					echo esc_html( sprintf( __( 'Last synced %1$s ago: %2$s photos.', 'travel-steps' ), human_time_diff( $synced ), number_format_i18n( $stats['photos'] ?? 0 ) ) );
+				} elseif ( $located ) {
 					esc_html_e( 'Not synced yet. Syncing pulls your route from Dawarich and photos from Immich, and adds a draft step for each day with favourites.', 'travel-steps' );
 				} else {
 					esc_html_e( 'Not synced yet. Syncing pulls photos from Immich, maps the trip from where they were taken, and adds a draft step for each day with favourites.', 'travel-steps' );
@@ -175,13 +183,20 @@ include __DIR__ . '/_header.php';
 			</form>
 			<p class="ts-muted">
 				<?php
+				$max_photos = number_format_i18n( ImmichClient::PAGE_SIZE * ImmichClient::MAX_PAGES );
 				echo esc_html(
-					sprintf(
-						/* translators: 1: maximum photos, 2: maximum location points */
-						__( 'Sync uses at most %1$s photos and %2$s location points per trip, and ignores the rest without warning. A trip with that many photos would be far too big to show online anyway: pick an album, or split the trip.', 'travel-steps' ),
-						number_format_i18n( ImmichClient::PAGE_SIZE * ImmichClient::MAX_PAGES ),
-						number_format_i18n( DawarichClient::PER_PAGE * DawarichClient::MAX_PAGES )
-					)
+					$located
+						? sprintf(
+							/* translators: 1: maximum photos, 2: maximum location points */
+							__( 'Sync uses at most %1$s photos and %2$s location points per trip, and ignores the rest without warning. A trip with that many photos would be far too big to show online anyway: pick an album, or split the trip.', 'travel-steps' ),
+							$max_photos,
+							number_format_i18n( DawarichClient::PER_PAGE * DawarichClient::MAX_PAGES )
+						)
+						: sprintf(
+							/* translators: %s: maximum photos */
+							__( 'Sync uses at most %s photos per trip, and ignores the rest without warning. A trip with that many photos would be far too big to show online anyway: pick an album, or split the trip.', 'travel-steps' ),
+							$max_photos
+						)
 				);
 				?>
 			</p>

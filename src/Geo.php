@@ -142,19 +142,37 @@ class Geo {
 
 	/**
 	 * Metres along a track of [ lat, lon, timestamp ] fixes, gaps included: a flight
-	 * with the phone off counts as a straight line. A fix you'd have needed to outrun
-	 * an airliner to reach is a GPS glitch, and is skipped.
+	 * with the phone off counts as a straight line. A fix that you couldn't have
+	 * reached, without outrunning an airliner, from at least half of the two fixes
+	 * on either side of it is a GPS glitch, and is skipped. Comparing with neighbours
+	 * on both sides catches a bad first fix, or one after a long gap, which a check
+	 * against the previous fix alone would accept and then reject the real track.
 	 */
 	public static function track_length( array $points, float $max_speed_ms = 300 ): float {
-		$total = 0.0;
-		$prev  = null;
-		foreach ( $points as $p ) {
-			if ( $prev ) {
-				$metres = self::distance( $prev[0], $prev[1], $p[0], $p[1] );
-				if ( $metres > $max_speed_ms * max( 1, $p[2] - $prev[2] ) ) {
+		$points = array_values( $points );
+		$count  = count( $points );
+		$total  = 0.0;
+		$prev   = null;
+		for ( $i = 0; $i < $count; $i++ ) {
+			$p     = $points[ $i ];
+			$votes = 0;
+			$agree = 0;
+			for ( $j = max( 0, $i - 2 ); $j <= min( $count - 1, $i + 2 ); $j++ ) {
+				if ( $j === $i ) {
 					continue;
 				}
-				$total += $metres;
+				$q = $points[ $j ];
+				++$votes;
+				if ( self::distance( $p[0], $p[1], $q[0], $q[1] ) <= $max_speed_ms * max( 1, abs( $q[2] - $p[2] ) ) ) {
+					++$agree;
+				}
+			}
+			// Losing a real fix costs metres; keeping a bad one costs thousands of km.
+			if ( $votes && $agree * 2 <= $votes ) {
+				continue;
+			}
+			if ( $prev ) {
+				$total += self::distance( $prev[0], $prev[1], $p[0], $p[1] );
 			}
 			$prev = $p;
 		}

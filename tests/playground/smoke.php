@@ -268,13 +268,18 @@ $_GET = [ 'synced' => '1', 'new_steps' => '0', 'skipped_days' => '3' ];
 $notice = $render( 'trip-edit.php', (string) $trip_id );
 $_GET   = [];
 check( 'edit page says how many days were skipped for the trash', false !== strpos( $notice, '3 days with favourites were skipped' ) && false !== strpos( $notice, 'post_status=trash' ), substr( $notice, strpos( $notice, 'ts-notice' ) ?: 0, 400 ) );
-check( 'edit page notes the sync limits', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'at most 20,000 photos and 500,000 location points' ), '' );
+$limits = $render( 'trip-edit.php', (string) $trip_id );
+check( 'edit page notes the sync limits', false !== strpos( $limits, 'at most 20,000 photos per trip' ), '' );
+check( 'without Dawarich, no location points are mentioned', false === strpos( $limits, 'location points' ) );
 check( 'edit page renders step list', false !== strpos( $edit, 'ts-step-list' ), [ 'len' => strlen( $edit ), 'notfound' => false !== strpos( $edit, 'Trip not found' ), 'nosteps' => false !== strpos( $edit, 'No steps yet' ), 'panel' => substr_count( $edit, 'ts-panel' ), 'tail' => substr( preg_replace( '/\s+/', ' ', strip_tags( substr( $edit, strpos( $edit, '<main' ) ?: 0 ) ) ), 0, 900 ) ] );
 $html = $render( 'trip.php', (string) $trip_id );
-check( 'published trip: no draft warning', false === strpos( $html . $edit, 'This trip is a draft' ) );
+check( 'published trip: no draft warning', false === strpos( $html . $edit, 'This trip isn’t public' ) );
 wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'draft' ] );
-check( 'draft trip with published steps: trip page warns', false !== strpos( $render( 'trip.php', (string) $trip_id ), 'This trip is a draft' ) );
-check( 'draft trip with published steps: edit page warns', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'This trip is a draft' ) );
+check( 'draft trip with published steps: trip page warns', false !== strpos( $render( 'trip.php', (string) $trip_id ), 'This trip isn’t public' ) );
+check( 'draft trip with published steps: edit page warns', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'This trip isn’t public' ) );
+$GLOBALS['wpdb']->update( $GLOBALS['wpdb']->posts, [ 'post_status' => 'future' ], [ 'ID' => $trip_id ] );
+clean_post_cache( $trip_id );
+check( 'scheduled trip: no warning, its steps go public with it', false === strpos( $render( 'trip-edit.php', (string) $trip_id ), 'This trip isn’t public' ) );
 wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
@@ -339,6 +344,16 @@ check( 'unreadable home is an error and keeps the saved one', [ 'home' ] === $er
 $errors = [];
 $home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '51.8985', 'home_lon' => '' ], $saved, $errors );
 check( 'half a home is an error', [ 'home' ] === $errors && '53.3' === $home['home_lat'], $errors );
+foreach ( [ [ '48,85', '' ], [ '48,85', '2,35' ], [ '53,35', '-6,26' ] ] as [ $lat, $lon ] ) {
+	$errors = [];
+	$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => $lat, 'home_lon' => $lon ], $saved, $errors );
+	check( "decimal comma ($lat / $lon) is an error, not a pair", [ 'home' ] === $errors && '53.3' === $home['home_lat'], [ $home['home_lat'], $home['home_lon'], $errors ] );
+}
+foreach ( [ '51.8985,-8.4756', '51.8985 -8.4756', '51.8985; -8.4756' ] as $pair ) {
+	$errors = [];
+	$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => $pair, 'home_lon' => '' ], $saved, $errors );
+	check( "pair \"$pair\" is split", '51.8985' === $home['home_lat'] && '-8.4756' === $home['home_lon'] && ! $errors, [ $home['home_lat'], $home['home_lon'], $errors ] );
+}
 $errors = [];
 $home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '', 'home_lon' => '' ], $saved, $errors );
 check( 'emptying both clears home', '' === $home['home_lat'] && '' === $home['home_lon'] && ! $errors, $errors );
@@ -363,6 +378,8 @@ update_post_meta( $plain_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row
 update_post_meta( $plain_id, Trips::META_SYNCED, time() );
 $page = $render( 'trip-edit.php', (string) $plain_id );
 check( 'no favourites: edit page explains why there are no steps', false !== strpos( $page, 'None of the 2 photos' ), substr( $page, strpos( $page, '<h1' ) ?: 0, 600 ) );
+update_post_meta( $plain_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 1, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', false ) ] ) ) );
+check( 'no favourites, one photo: reads naturally', false !== strpos( $render( 'trip-edit.php', (string) $plain_id ), 'only photo isn’t a favourite' ) );
 check( 'favourites present: no warning', false === strpos( $edit, 'is-warning' ) );
 wp_delete_post( $plain_id, true );
 

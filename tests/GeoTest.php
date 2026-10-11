@@ -33,6 +33,25 @@ $glitch = [ [ 53.42, -6.27, 0 ], [ 53.43, -6.26, 60 ], [ 51.50, -0.12, 90 ], [ 5
 $len    = Geo::track_length( $glitch );
 check( 'track length skips a fix faster than a plane (Dublin-London in 30s)', $len < 5000 );
 
+// A 6 km walk over 2 hours, one fix every 10 minutes along a line.
+$walk = [];
+for ( $i = 0; $i <= 12; $i++ ) {
+	$walk[] = [ 53.35, -6.30 + $i * 0.0075, 100000 + $i * 600 ];
+}
+$clean = Geo::track_length( $walk );
+check( 'walk measures about 6km', $clean > 5500 && $clean < 6500 );
+$len = Geo::track_length( array_merge( [ [ 0.0, 0.0, 99990 ] ], $walk ) );
+check( 'a bad first fix doesn\'t drop the walk', abs( $len - $clean ) < 1000 );
+$overnight = array_merge( [ [ 53.35, -6.30, 50000 ] ], [ [ 0.0, 0.0, 99990 ] ], $walk );
+$len       = Geo::track_length( $overnight );
+check( 'a bad fix after an overnight gap isn\'t counted', abs( $len - $clean ) < 1000 );
+$cluster = $walk;
+array_splice( $cluster, 6, 0, [ [ 0.0, 0.0, 103610 ], [ 0.0, 0.0, 103620 ] ] );
+$len = Geo::track_length( $cluster );
+check( 'two bad fixes in a row aren\'t counted', abs( $len - $clean ) < 1000 );
+$len = Geo::track_length( array_merge( $walk, [ [ 0.0, 0.0, 107300 ] ] ) );
+check( 'a bad last fix isn\'t counted', abs( $len - $clean ) < 1000 );
+
 // Nearest in time.
 check( 'nearest_in_time finds closest', 1 === Geo::nearest_in_time( $flight, 70, 3600 ) );
 check( 'nearest_in_time respects max gap', null === Geo::nearest_in_time( $flight, 5000, 600 ) );

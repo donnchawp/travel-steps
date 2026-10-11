@@ -78,11 +78,11 @@ include __DIR__ . '/_header.php';
 			<div class="ts-form-row">
 				<label>
 					<span><?php esc_html_e( 'Home latitude', 'travel-steps' ); ?></span>
-					<input type="text" inputmode="decimal" name="home_lat" value="<?php echo esc_attr( $settings['home_lat'] ); ?>">
+					<input type="text" name="home_lat" value="<?php echo esc_attr( $settings['home_lat'] ); ?>">
 				</label>
 				<label>
 					<span><?php esc_html_e( 'Home longitude', 'travel-steps' ); ?></span>
-					<input type="text" inputmode="decimal" name="home_lon" value="<?php echo esc_attr( $settings['home_lon'] ); ?>">
+					<input type="text" name="home_lon" value="<?php echo esc_attr( $settings['home_lon'] ); ?>">
 				</label>
 				<label>
 					<span><?php esc_html_e( 'Radius (km)', 'travel-steps' ); ?></span>

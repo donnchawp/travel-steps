@@ -124,7 +124,9 @@ class Settings {
 		$lat = trim( $lat );
 		$lon = trim( $lon );
 		foreach ( [ $lat, $lon ] as $field ) {
-			if ( preg_match( '/^(-?[\d.]+)\s*[,;\s]\s*(-?[\d.]+)$/', $field, $pair ) ) {
+			// "51.89, -8.47", "51.89,-8.47", "51.89 -8.47" or "51.89; -8.47", but not
+			// "48,85": that's a decimal comma.
+			if ( preg_match( '/^(-?\d+(?:\.\d+)?)\s*(?:,\s+|;\s*|\s+)(-?\d+(?:\.\d+)?)$/', $field, $pair ) || preg_match( '/^(-?\d+\.\d+),(-?\d+\.\d+)$/', $field, $pair ) ) {
 				[ , $lat, $lon ] = $pair;
 				break;
 			}

@@ -234,6 +234,11 @@ wp_set_current_user( 0 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );
 check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) );
+ob_start();
+do_action( wp_app_get_scoped_hook_name( 'wp_app_head_styles', 'travel-steps' ) );
+$styles  = ob_get_clean();
+$leaflet = wp_scripts()->registered['leaflet']->src ?? '';
+check( 'trip page loads Leaflet from the plugin, not a CDN', str_ends_with( $leaflet, 'travel-steps/assets/vendor/leaflet/leaflet.js' ) && false !== strpos( $styles, 'travel-steps/assets/vendor/leaflet/leaflet.css' ) && false === strpos( $styles, 'unpkg.com' ), [ $leaflet, $styles ] );
 
 // All-digit slugs would read as post IDs in trip URLs.
 wp_set_current_user( 1 );

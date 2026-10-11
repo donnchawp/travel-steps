@@ -59,8 +59,9 @@ $render_grid = function ( array $photos ) use ( $render_photo, $pinned ) {
 };
 $cover = View::cover_url( $trip->ID, 'preview' );
 
-wp_app_enqueue_style( 'leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', [], null, 'travel-steps' );
-wp_app_enqueue_script( 'leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', [], null, true, 'travel-steps' );
+// Leaflet ships with the plugin, so no third-party script runs on a page that carries a REST nonce.
+wp_app_enqueue_style( 'leaflet', TRAVEL_STEPS_PLUGIN_URL . 'assets/vendor/leaflet/leaflet.css', [], '1.9.4', 'travel-steps' );
+wp_app_enqueue_script( 'leaflet', TRAVEL_STEPS_PLUGIN_URL . 'assets/vendor/leaflet/leaflet.js', [], '1.9.4', true, 'travel-steps' );
 wp_app_enqueue_script(
 	'travel-steps-trip',
 	TRAVEL_STEPS_PLUGIN_URL . 'assets/travel-steps-trip.js',

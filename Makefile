@@ -3,12 +3,12 @@
 
 PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
 # Dotfiles (.git, .github in dependencies…), tests and build files stay behind: Plugin Check rejects hidden files.
-RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude Makefile --exclude Makefile.local --exclude dist
+RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude Makefile --exclude Makefile.local --exclude dist
 
-.PHONY: help test smoke check deploy deploy-dry deploy-dest dist
+.PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist
 
 help: ## List targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-11s %s\n", $$1, $$2}'
+	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-11s %s\n", $$1, $$2}'
 
 test: ## Standalone unit tests (no WordPress)
 	php tests/GeoTest.php
@@ -28,6 +28,9 @@ smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs N
 	! grep -q '^FAIL' "$$out/result.txt" && test $$status -eq 0
 
 check: test smoke ## Unit tests, then smoke
+
+demo: vendor/autoload.php ## Run the Playground demo locally, from this checkout, at http://127.0.0.1:9400
+	$(PLAYGROUND) server --port=9400 --mount=.:/wordpress/wp-content/plugins/travel-steps --blueprint=demo/blueprint-local.json
 
 deploy: deploy-dest ## Copy the working tree to DEPLOY_DEST (runtime deps only)
 	composer install --no-dev

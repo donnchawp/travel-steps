@@ -1,0 +1,31 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"landingPage": "/travel-steps/trip/west-of-ireland/",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"features": {
+		"networking": true
+	},
+	"login": true,
+	"steps": [
+		{
+			"step": "activatePlugin",
+			"pluginPath": "travel-steps/travel-steps.php"
+		},
+		{
+			"step": "mkdir",
+			"path": "/wordpress/wp-content/mu-plugins"
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/mu-plugins/travel-steps-demo.php",
+			"data": "<?php require WP_PLUGIN_DIR . '/travel-steps/demo/fake-services.php';"
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/travel-steps/demo/setup.php';"
+		}
+	]
+}

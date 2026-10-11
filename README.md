@@ -6,6 +6,8 @@ A Polarsteps-style travel journal for your own WordPress, built with [WpApp](htt
 - **Photos** from [Immich](https://immich.app), served through WordPress, so Immich stays private
 - **Story** in WordPress: every step is a post you write in the block editor
 
+**[Try the demo in WordPress Playground](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/donnchawp/travel-steps/master/demo/blueprint.json)**: a week in the west of Ireland, in your browser, with nothing to install. Stand-in Immich and Dawarich servers feed the real sync, and the photos come from [Unsplash](https://unsplash.com), credited in each caption. You're logged in as an admin, so you can pin, hide and choose photos, edit the days in the block editor, and sync again.
+
 ## How it works
 
 A **trip** (`ts_trip` post) has a date range and, optionally, an Immich album. A **step** (`ts_step` post, child of the trip) is a day. **Sync**:
@@ -85,7 +87,10 @@ Then activate the plugin and open `/travel-steps/settings`:
 ```bash
 make test    # standalone: geometry, local days and places, photo selection
 make smoke   # end-to-end in WordPress Playground with fake Dawarich/Immich clients
+make demo    # the Playground demo, from this checkout, at http://127.0.0.1:9400
 ```
+
+The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release and fetches those two files from `master`.
 
 `make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections and the trip pages.
 

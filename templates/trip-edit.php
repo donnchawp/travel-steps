@@ -116,7 +116,7 @@ include __DIR__ . '/_header.php';
 	<?php if ( isset( $_GET['photos'] ) && ! $is_owner ) : ?>
 		<p class="ts-notice"><?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'The trip’s photos changed. %s needs to sync it to update its steps.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?></p>
 	<?php endif; ?>
-	<?php if ( '' === $account['immich_key'] ) : ?>
+	<?php if ( $trip && ! $uses_uploads && '' === $account['immich_key'] ) : ?>
 		<p class="ts-notice is-warning">
 			<?php if ( $is_owner ) : ?>
 				<?php esc_html_e( 'You haven’t saved an Immich API key, so this trip can’t sync.', 'travel-steps' ); ?>
@@ -130,7 +130,7 @@ include __DIR__ . '/_header.php';
 	<?php if ( $unseen ) : ?>
 		<p class="ts-notice is-warning"><?php echo esc_html( $unseen ); ?></p>
 	<?php endif; ?>
-	<?php if ( $photos && ! array_filter( array_column( $photos, 'fav' ) ) ) : ?>
+	<?php if ( ! $uses_uploads && $photos && ! array_filter( array_column( $photos, 'fav' ) ) ) : ?>
 		<p class="ts-notice is-warning">
 			<?php
 			if ( 1 === count( $photos ) ) {
@@ -271,6 +271,8 @@ include __DIR__ . '/_header.php';
 				} elseif ( $synced ) {
 					/* translators: 1: time since sync, 2: photos */
 					echo esc_html( sprintf( __( 'Last synced %1$s ago: %2$s photos.', 'travel-steps' ), human_time_diff( $synced ), number_format_i18n( $stats['photos'] ?? 0 ) ) );
+				} elseif ( $uses_uploads ) {
+					esc_html_e( 'Not synced yet. Syncing makes a draft step for each day with photos, named after where they were taken.', 'travel-steps' );
 				} elseif ( $has_dawarich ) {
 					esc_html_e( 'Not synced yet. Syncing pulls your route from Dawarich and photos from Immich, and adds a draft step for each day with favourites.', 'travel-steps' );
 				} else {
@@ -286,6 +288,7 @@ include __DIR__ . '/_header.php';
 					<button type="submit" class="ts-button ts-button-secondary"><?php esc_html_e( 'Sync now', 'travel-steps' ); ?></button>
 				</form>
 			<?php endif; ?>
+			<?php if ( ! $uses_uploads ) : ?>
 			<p class="ts-muted">
 				<?php
 				$max_photos = number_format_i18n( ImmichClient::PAGE_SIZE * ImmichClient::MAX_PAGES );
@@ -308,6 +311,7 @@ include __DIR__ . '/_header.php';
 				esc_html_e( 'A trip with that many photos would be far too big to show online anyway: pick an album, or split the trip.', 'travel-steps' );
 				?>
 			</p>
+			<?php endif; ?>
 		</section>
 
 		<section class="ts-panel">
@@ -321,7 +325,15 @@ include __DIR__ . '/_header.php';
 				</form>
 			</div>
 			<?php if ( ! $steps ) : ?>
-				<p class="ts-muted"><?php esc_html_e( 'No steps yet. Favourite photos in Immich and sync, or add one by hand.', 'travel-steps' ); ?></p>
+				<p class="ts-muted">
+					<?php
+					echo esc_html(
+						$uses_uploads
+							? __( 'No steps yet. Add photos and sync: each day with photos gets a step.', 'travel-steps' )
+							: __( 'No steps yet. Favourite photos in Immich and sync, or add one by hand.', 'travel-steps' )
+					);
+					?>
+				</p>
 			<?php else : ?>
 				<p class="ts-muted"><?php esc_html_e( 'Each step is a day, written in the block editor. New steps are drafts with a heading per place; publish the ones you want shown. Photos from that date appear under the headings. Move a step to the bin to drop it; sync won\'t bring it back.', 'travel-steps' ); ?></p>
 				<ol class="ts-step-list">

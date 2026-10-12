@@ -24,7 +24,8 @@ $pinned     = array_flip( Trips::pinned( $trip->ID ) );
 
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
 $cover_id     = Trips::cover( $trip->ID );
-$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_curate, $cover_id ) {
+$uploads      = Trips::uses_uploads( $trip->ID ); // Every upload is a favourite: no heart.
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_curate, $cover_id, $uploads ) {
 	?>
 	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
 		<button type="button" class="ts-photo-open"
@@ -39,7 +40,7 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 		</button>
 		<?php if ( $can_curate ) : ?>
 			<span class="ts-photo-tools">
-				<?php if ( ! empty( $photo['fav'] ) ) : ?>
+				<?php if ( ! empty( $photo['fav'] ) && ! $uploads ) : ?>
 					<span class="ts-photo-fav" title="<?php esc_attr_e( 'Favourite in Immich', 'travel-steps' ); ?>">♥</span>
 				<?php endif; ?>
 				<button type="button" class="ts-photo-state" data-set="pinned" aria-pressed="<?php echo 'pinned' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Always show this photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Pin', 'travel-steps' ); ?></button>

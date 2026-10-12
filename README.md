@@ -61,6 +61,15 @@ Add the filter before `init`, e.g. in a plugin or mu-plugin, since routes are re
 
 Steps and places are in core REST for the block editor, but a step is only readable when its trip is (published, or you can edit it), and place terms only by editors. The photo proxy serves the public only photos shown on published steps of published trips. Shared caches (CDNs, proxies) keep a public photo for 5 minutes, so unpublishing a step or hiding a photo takes effect within that; browsers revalidate after an hour with an ETag, which re-runs the access check without resending the image.
 
+Cached photos (`uploads/travel-steps-cache/`) and photos uploaded to a trip (`uploads/travel-steps/<trip id>/`) are only meant to be reached through the photo proxy. Both folders get an `.htaccess` deny rule, which Apache obeys, and every folder in them an empty `index.html`, so none can be listed. nginx ignores it, so there the protection is the file names: random UUIDs that appear nowhere a visitor can see. (An uploaded photo's file name is not the photo id in its proxy URL.) To block those folders on nginx too, add:
+
+```nginx
+# ^~ so it wins over regex locations for images; it covers both folders.
+location ^~ /wp-content/uploads/travel-steps { deny all; }
+```
+
+Uploaded trip photos are private attachments: they're kept out of the Media Library, other posts' media pickers and core REST listings, and visitors can't fetch them from core REST or attachment pages. Deleting a trip permanently deletes its uploaded photos; moving it to the bin doesn't.
+
 Leaflet (1.9.4, BSD-2-Clause) ships with the plugin in `assets/vendor/leaflet/`, so no third-party script runs on trip pages. Map tiles still load from OpenStreetMap's tile servers, which see visitors' IP addresses.
 
 Place names for naming spots offline ship in `data/geonames/`: towns of 500 people or more and country names from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). `make geonames` downloads them again and rebuilds the files.

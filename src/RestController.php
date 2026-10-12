@@ -301,7 +301,9 @@ class RestController {
 		if ( '' === $body ) {
 			return false;
 		}
-		wp_mkdir_p( dirname( $file ) );
+		// The size folder and the one for the id's first two characters.
+		Uploads::unlisted( dirname( $file, 2 ) );
+		Uploads::unlisted( dirname( $file ) );
 		foreach ( [ $file . '.type' => $type, $file => $body ] as $path => $data ) {
 			$tmp = $path . '.' . wp_generate_password( 8, false ) . '.tmp';
 			if ( strlen( $data ) !== file_put_contents( $tmp, $data ) || ! rename( $tmp, $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.WP.AlternativeFunctions.rename_rename
@@ -339,13 +341,19 @@ class RestController {
 	 * they're meant to be reached only through the checks above.
 	 */
 	private static function cache_file( string $asset, string $size ): array {
-		$uploads = wp_upload_dir();
-		$root    = trailingslashit( $uploads['basedir'] ) . 'travel-steps-cache';
-		if ( ! file_exists( $root . '/.htaccess' ) ) {
-			wp_mkdir_p( $root );
-			file_put_contents( $root . '/.htaccess', "Require all denied\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			file_put_contents( $root . '/index.php', "<?php\n// Silence is golden.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		}
+		$root = trailingslashit( wp_get_upload_dir()['basedir'] ) . 'travel-steps-cache';
+		Uploads::protect( $root );
 		return [ 'file' => $root . '/' . $size . '/' . substr( $asset, 0, 2 ) . '/' . $asset ];
+	}
+
+	/**
+	 * Remove every cached size of a photo.
+	 */
+	public static function delete_cached( string $asset ): void {
+		foreach ( self::SIZES as $size ) {
+			$file = self::cache_file( $asset, $size )['file'];
+			wp_delete_file( $file );
+			wp_delete_file( $file . '.type' );
+		}
 	}
 }

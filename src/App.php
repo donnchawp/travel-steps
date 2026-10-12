@@ -41,6 +41,7 @@ class App extends BaseApp {
 		// via nested add_action( 'init', … ) which won't fire reliably.
 		Trips::register_post_types();
 		PhotosBlock::register();
+		Uploads::register();
 
 		$trips = new Trips();
 		add_action( 'admin_post_travel_steps_save_trip', [ $trips, 'handle_save_trip' ] );

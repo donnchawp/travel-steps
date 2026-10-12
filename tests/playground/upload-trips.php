@@ -161,3 +161,11 @@ $ut_before  = TravelSteps\RestController::etag( $ut_asset, 'thumbnail', $ut_rest
 wp_update_attachment_metadata( $ut_rest_id, wp_get_attachment_metadata( $ut_rest_id ) );
 check( 'an upload’s ETag changes with its copies', $ut_before !== TravelSteps\RestController::etag( $ut_asset, 'thumbnail', $ut_rest_id ) );
 check( 'an Immich photo’s ETag is as before', '"' . md5( '00000000-0000-4000-8000-000000000001/thumbnail' ) . '"' === TravelSteps\RestController::etag( '00000000-0000-4000-8000-000000000001', 'thumbnail' ) );
+
+// A typed date the photos fall on the wrong side of isn't overwritten or paired backwards.
+$ut_late = $ut_trip( 'Late start', $ut_author, '2025-07-10' );
+$ut_photo( $ut_late, [ 'taken' => '2025:07:04 09:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$ut_result = ( new TripSync() )->sync( $ut_late );
+check( 'a first day after every photo: an error that says so, and no last day saved', is_wp_error( $ut_result ) && 'travel_steps_photos_outside' === $ut_result->get_error_code() && '' === get_post_meta( $ut_late, Trips::META_END, true ), [ is_wp_error( $ut_result ) ? $ut_result->get_error_code() : $ut_result, get_post_meta( $ut_late, Trips::META_END, true ) ] );
+$ut_result = ( new TripSync() )->sync( $ut_trip( 'Backwards', $ut_author, '2025-07-10', '2025-07-01' ) );
+check( 'dates set backwards on an upload trip: set the dates, not add photos', is_wp_error( $ut_result ) && 'travel_steps_no_dates' === $ut_result->get_error_code(), $ut_result );

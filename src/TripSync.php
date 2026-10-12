@@ -64,7 +64,10 @@ class TripSync {
 	private function run( int $trip_id ) {
 		$uploads = Trips::uses_uploads( $trip_id );
 		$range   = Trips::range( $trip_id );
-		if ( ! $range && ! $uploads ) {
+		// Only a trip of uploads that's missing a date takes it from its photos: dates
+		// that are both set but backwards are the author's to fix.
+		$missing = '' === (string) get_post_meta( $trip_id, Trips::META_START, true ) || '' === (string) get_post_meta( $trip_id, Trips::META_END, true );
+		if ( ! $range && ! ( $uploads && $missing ) ) {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 		}
 
@@ -185,11 +188,17 @@ class TripSync {
 				? new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) )
 				: new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) );
 		}
-		$days = array_column( $photos, 'day' );
-		foreach ( [ Trips::META_START => min( $days ), Trips::META_END => max( $days ) ] as $key => $day ) {
-			if ( '' === (string) get_post_meta( $trip_id, $key, true ) ) {
-				update_post_meta( $trip_id, $key, $day );
-			}
+		$days  = array_column( $photos, 'day' );
+		$dates = [
+			Trips::META_START => (string) get_post_meta( $trip_id, Trips::META_START, true ) ?: min( $days ),
+			Trips::META_END   => (string) get_post_meta( $trip_id, Trips::META_END, true ) ?: max( $days ),
+		];
+		// A date typed after every photo (or before), paired with one from the photos, is backwards.
+		if ( $dates[ Trips::META_START ] > $dates[ Trips::META_END ] ) {
+			return new \WP_Error( 'travel_steps_photos_outside', __( 'None of the trip’s photos were taken between its dates: change or clear them.', 'travel-steps' ) );
+		}
+		foreach ( $dates as $key => $day ) {
+			update_post_meta( $trip_id, $key, $day );
 		}
 		return Trips::range( $trip_id ) ?? new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 	}

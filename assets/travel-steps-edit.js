@@ -40,14 +40,30 @@
 	const trip = parseInt( panel.dataset.trip, 10 );
 	let frame = null;
 	let changed = false;
+	let waiting = false;
+	let dirty = false;
+	if ( form ) {
+		form.addEventListener( 'input', () => {
+			dirty = true;
+		} );
+	}
+	const busy = () => wp.Uploader.queue.some( ( attachment ) => attachment.get( 'uploading' ) );
+	// Leaving the page would cut off uploads still going.
+	window.addEventListener( 'beforeunload', ( event ) => {
+		if ( busy() ) {
+			event.preventDefault();
+		}
+	} );
 
 	// After an upload or a deletion the trip's steps are out of date: the author's page
-	// syncs it; anyone else's reloads to say the author needs to.
-	function closed() {
-		if ( ! changed ) {
+	// syncs it; anyone else's reloads to say the author needs to. Unsaved changes to the
+	// trip form are saved on the way (and synced, for the author).
+	function leave() {
+		const syncForm = document.querySelector( '.ts-sync-form' );
+		if ( dirty && form ) {
+			form.requestSubmit( syncForm ? form.querySelector( 'button[name="sync"]' ) : null );
 			return;
 		}
-		const syncForm = document.querySelector( '.ts-sync-form' );
 		if ( syncForm ) {
 			syncForm.submit();
 			return;
@@ -56,6 +72,29 @@
 		url.searchParams.delete( 'add' );
 		url.searchParams.set( 'photos', '1' );
 		window.location.assign( url );
+	}
+
+	function closed() {
+		if ( waiting ) {
+			return;
+		}
+		if ( busy() ) {
+			// Done, or closing, with uploads still going: finish them, then carry on.
+			waiting = true;
+			panel.querySelector( 'p' ).textContent = panel.dataset.finishing;
+			const finished = () => {
+				if ( ! busy() ) {
+					wp.Uploader.queue.off( 'change:uploading remove reset', finished );
+					waiting = false;
+					closed();
+				}
+			};
+			wp.Uploader.queue.on( 'change:uploading remove reset', finished );
+			return;
+		}
+		if ( changed ) {
+			leave();
+		}
 	}
 
 	function open() {

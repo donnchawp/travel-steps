@@ -238,7 +238,7 @@ include __DIR__ . '/_header.php';
 
 	<?php if ( $trip ) : ?>
 		<?php if ( $uses_uploads ) : ?>
-			<section class="ts-panel ts-uploads" data-trip="<?php echo (int) $trip_id; ?>" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>">
+			<section class="ts-panel ts-uploads" data-trip="<?php echo (int) $trip_id; ?>" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>" data-finishing="<?php esc_attr_e( 'Finishing uploads…', 'travel-steps' ); ?>">
 				<div class="ts-page-head">
 					<h2><?php esc_html_e( 'Photos', 'travel-steps' ); ?></h2>
 					<?php if ( $can_add ) : ?>

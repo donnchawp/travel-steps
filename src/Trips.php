@@ -21,6 +21,7 @@ class Trips {
 	const META_START  = '_ts_start';       // Y-m-d, site timezone.
 	const META_END    = '_ts_end';         // Y-m-d, inclusive.
 	const META_ALBUM  = '_ts_album';       // Immich album id (optional).
+	const META_DATES_AUTO = '_ts_dates_auto'; // [ first, last ]: the dates sync took from a trip's uploads, '' for one set by hand.
 	const META_SOURCE = '_ts_source';      // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';

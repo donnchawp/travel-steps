@@ -161,3 +161,25 @@ $_GET = [];
 wp_set_current_user( 1 );
 wp_delete_post( $up_priv, true );
 
+// Dates sync took from the photos follow them, so photos added on later days aren't left out.
+$up_grow  = $ut_trip( 'Growing', $ut_author );
+$up_dates = fn() => [ get_post_meta( $up_grow, Trips::META_START, true ), get_post_meta( $up_grow, Trips::META_END, true ) ];
+wp_set_current_user( $ut_author );
+$ut_photo( $up_grow, [ 'taken' => '2025:08:01 10:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+( new TravelSteps\TripSync() )->sync( $up_grow );
+// The author saves the form, which sends back the dates it shows.
+$_POST = $_REQUEST = [ 'trip_id' => $up_grow, 'title' => 'Growing', 'start' => '2025-08-01', 'end' => '2025-08-01', 'photos' => Trips::SOURCE_UPLOADS, 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+$stopped( [ new Trips(), 'handle_save_trip' ] );
+$_POST = $_REQUEST = [];
+$ut_photo( $up_grow, [ 'taken' => '2025:08:03 10:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$up_result = ( new TravelSteps\TripSync() )->sync( $up_grow );
+check( 'dates taken from the photos follow them: a later photo moves the last day', [ '2025-08-01', '2025-08-03' ] === $up_dates() && 0 === ( $up_result['left_out']['outside'] ?? -1 ), [ $up_dates(), $up_result ] );
+update_post_meta( $up_grow, Trips::META_END, '2025-08-02' );
+$ut_photo( $up_grow, [ 'taken' => '2025:08:05 10:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$up_result = ( new TravelSteps\TripSync() )->sync( $up_grow );
+check( '…but a date the author set stays put', [ '2025-08-01', '2025-08-02' ] === $up_dates() && 2 === ( $up_result['left_out']['outside'] ?? -1 ), [ $up_dates(), $up_result ] );
+wp_set_current_user( 1 );
+foreach ( Trips::steps( $up_grow, true ) as $up_step_post ) {
+	wp_delete_post( $up_step_post->ID, true );
+}
+wp_delete_post( $up_grow, true );

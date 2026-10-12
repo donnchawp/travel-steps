@@ -12,8 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ImmichSource implements PhotoSource {
 	private ImmichClient $client;
 
-	public function __construct( ?ImmichClient $client = null ) {
-		$this->client = $client ?? new ImmichClient();
+	public function __construct( ImmichClient $client ) {
+		$this->client = $client;
 	}
 
 	public function photos( int $trip_id, int $start, int $end ) {

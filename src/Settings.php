@@ -179,13 +179,15 @@ class Settings {
 
 	/**
 	 * Once, on upgrade from site-wide keys: give the site's keys and home to everyone
-	 * who has written a trip (or, with no trips yet, every administrator) and hasn't
-	 * saved their own, then take them out of the site settings, so existing trips keep
-	 * working.
+	 * who has written a trip that isn't trashed or an auto-draft and may still make
+	 * trips (or, with none, every administrator) and hasn't saved their own, then take
+	 * them out of the site settings, so existing trips keep working.
+	 *
+	 * The flag is set last, so a migration that dies part-way runs again. Two requests
+	 * running it at once is harmless: nobody's saved account is overwritten.
 	 */
 	public static function migrate(): void {
-		// add_option() is an atomic insert, so two requests can't both move them.
-		if ( get_option( self::MIGRATED ) || ! add_option( self::MIGRATED, time() ) ) {
+		if ( get_option( self::MIGRATED ) ) {
 			return;
 		}
 		$saved  = get_option( self::OPTION, [] );
@@ -198,7 +200,8 @@ class Settings {
 		}
 		if ( array_filter( array_diff_key( $account, [ 'home_radius_km' => 1 ] ) ) ) {
 			global $wpdb;
-			$authors = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_author FROM {$wpdb->posts} WHERE post_type = %s", Trips::TRIP ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$authors = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_author FROM {$wpdb->posts} WHERE post_type = %s AND post_status NOT IN ( 'trash', 'auto-draft' )", Trips::TRIP ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$authors = array_filter( array_map( 'intval', $authors ), fn( $id ) => user_can( $id, Trips::capability() ) );
 			$users   = $authors ?: get_users(
 				[
 					'capability' => 'manage_options',
@@ -212,5 +215,6 @@ class Settings {
 			}
 		}
 		update_option( self::OPTION, array_intersect_key( $saved, self::DEFAULTS ), false );
+		add_option( self::MIGRATED, time() );
 	}
 }

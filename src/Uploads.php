@@ -180,7 +180,7 @@ class Uploads {
 		// Core hasn't made any copies yet, so this is the original.
 		$file = (string) get_attached_file( $attachment_id );
 		$size = wp_getimagesize( $file );
-		update_post_meta( $attachment_id, self::META_EXIF, Exif::parse( Exif::read( $file ), (int) ( $size[0] ?? 0 ), (int) ( $size[1] ?? 0 ) ) );
+		update_post_meta( $attachment_id, self::META_EXIF, Exif::parse( Exif::read( $file ), (int) ( $size[0] ?? 0 ), (int) ( $size[1] ?? 0 ), (string) ( $size['mime'] ?? '' ) ) );
 	}
 
 	public static function photo_id( int $attachment_id ): string {

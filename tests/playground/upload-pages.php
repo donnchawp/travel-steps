@@ -118,3 +118,19 @@ $_POST = $_REQUEST = [];
 remove_filter( 'pre_http_request', $servers, 10 );
 check( 'an Immich trip’s sync passes no left-out counts', false !== strpos( $up_to, 'synced=1' ) && false === strpos( $up_to, 'untimed' ), $up_to );
 wp_set_current_user( 1 );
+
+// Wording on a trip of uploads, where every upload is a favourite and Immich plays no part.
+wp_set_current_user( $ut_author );
+$up_html = $render( 'trip.php', (string) $ut_tour );
+check( 'no “Favourite in Immich” heart on a trip of uploads', false !== strpos( $up_html, 'ts-photo-tools' ) && false === strpos( $up_html, 'Favourite in Immich' ) );
+$up_bare = $ut_trip( 'Bare', $up_nokey );
+wp_set_current_user( $up_nokey );
+$up_html = $render( 'trip-edit.php', (string) $up_bare );
+check( 'a trip of uploads: no Immich key warning and no photo limit', false === strpos( $up_html, 'saved an Immich API key' ) && false === strpos( $up_html, 'ignores the rest' ), substr( $up_html, 0, 2000 ) );
+check( '…and its Sync and Steps panels say what syncing uploads does', false !== strpos( $up_html, 'Syncing makes a draft step for each day with photos, named after where they were taken.' ) && false !== strpos( $up_html, 'Add photos and sync: each day with photos gets a step.' ) );
+$up_step = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $up_bare, 'post_title' => 'Day', 'post_status' => 'draft', 'post_author' => $up_nokey ] );
+$GLOBALS['post'] = get_post( $up_step );
+check( 'the photos block on a trip of uploads asks for uploads', false !== strpos( TravelSteps\PhotosBlock::render( [] ), 'No photos for this place yet. Add photos to the trip.' ) );
+wp_set_current_user( 1 );
+wp_delete_post( $up_step, true );
+wp_delete_post( $up_bare, true );

@@ -68,7 +68,10 @@ class PhotosBlock {
 		$photos = array_filter( $groups['shown'], fn( $p ) => $p['t'] >= $start && ( ! $end || $p['t'] < $end ) );
 
 		if ( ! $photos ) {
-			return '<p class="ts-photos-block-empty">' . esc_html__( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps' ) . '</p>';
+			$empty = Trips::uses_uploads( $trip->ID )
+				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps' )
+				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps' );
+			return '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
 		}
 		$html = '';
 		foreach ( $photos as $photo ) {

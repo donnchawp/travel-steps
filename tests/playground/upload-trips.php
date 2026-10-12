@@ -61,3 +61,52 @@ $_POST = $_REQUEST = [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'status' =
 check( 'another editor can’t change the source', 'die' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
 $_POST = $_REQUEST = [];
 wp_set_current_user( 1 );
+
+// Three days of uploads become three steps; what sync can't use is counted.
+$ut_tour = $ut_trip( 'Tour', $ut_author, '2025-06-01', '2025-06-03' );
+$ut_ids  = [];
+foreach (
+	[
+		'doolin_am' => [ 'taken' => '2025:06:01 10:00:00', 'offset' => '+01:00' ] + $ut_doolin + $ut_iphone,
+		'doolin_pm' => [ 'taken' => '2025:06:01 15:00:00', 'offset' => '+01:00' ] + $ut_doolin + $ut_iphone,
+		'dingle'    => [ 'taken' => '2025:06:02 11:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone,
+		'paris'     => [ 'taken' => '2025:06:03 12:00:00', 'offset' => '+02:00' ] + $ut_paris + $ut_iphone,
+		'no_gps'    => [ 'taken' => '2025:06:03 09:00:00', 'offset' => '+02:00' ], // No camera either: still kept.
+		'home'      => [ 'taken' => '2025:06:02 18:00:00', 'offset' => '+01:00', 'lat' => 53.3498, 'lon' => -6.2603 ] + $ut_iphone,
+		'later'     => [ 'taken' => '2025:06:10 12:00:00', 'offset' => '+01:00' ] + $ut_paris + $ut_iphone,
+		'untimed'   => $ut_doolin + $ut_iphone,
+	] as $ut_name => $ut_tags
+) {
+	$ut_ids[ $ut_name ] = Uploads::photo_id( $ut_photo( $ut_tour, $ut_tags ) );
+}
+// Left over from when it used Immich: replaced by the uploads.
+update_post_meta( $ut_tour, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 99, '2025-06-01', '10:00', 53.0, -9.3, 'Doolin', true ) ] ) ) );
+$ut_result = ( new TripSync() )->sync( $ut_tour );
+check( 'an upload trip over three days syncs into three steps', ! is_wp_error( $ut_result ) && 3 === $ut_result['new_steps'], is_wp_error( $ut_result ) ? $ut_result->get_error_message() : $ut_result );
+$ut_kept = array_column( Trips::photos( $ut_tour ), 'id' );
+check( '…keeping every upload on its days, without a camera too, and nothing from Immich', [] === array_diff( [ $ut_ids['doolin_am'], $ut_ids['doolin_pm'], $ut_ids['dingle'], $ut_ids['paris'], $ut_ids['no_gps'] ], $ut_kept ) && 5 === count( $ut_kept ), $ut_kept );
+check( '…and counting those left out: one outside the dates, one untimed, one at home', [ 'outside' => 1, 'untimed' => 1, 'home' => 1 ] === ( $ut_result['left_out'] ?? null ) && 1 === ( $ut_result['unlocated'] ?? null ), $ut_result );
+check( 'syncing it again adds no steps', 0 === ( ( new TripSync() )->sync( $ut_tour )['new_steps'] ?? -1 ) && 3 === count( Trips::steps( $ut_tour, true ) ) );
+wp_delete_attachment( (int) Uploads::attachment( $ut_tour, $ut_ids['doolin_pm'] ), true );
+( new TripSync() )->sync( $ut_tour );
+check( 'a deleted upload leaves the trip at the next sync', ! in_array( $ut_ids['doolin_pm'], array_column( Trips::photos( $ut_tour ), 'id' ), true ) );
+
+// A trip without dates takes them from its uploads.
+$ut_undated = $ut_trip( 'Undated', $ut_author );
+$ut_photo( $ut_undated, [ 'taken' => '2025:07:04 09:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$ut_photo( $ut_undated, [ 'taken' => '2025:07:06 20:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$ut_result = ( new TripSync() )->sync( $ut_undated );
+check( 'a trip without dates gets them from its uploads', ! is_wp_error( $ut_result ) && [ '2025-07-04', '2025-07-06' ] === [ get_post_meta( $ut_undated, Trips::META_START, true ), get_post_meta( $ut_undated, Trips::META_END, true ) ] && 2 === $ut_result['new_steps'], is_wp_error( $ut_result ) ? $ut_result->get_error_message() : $ut_result );
+$ut_half = $ut_trip( 'Half', $ut_author, '2025-07-01' );
+$ut_photo( $ut_half, [ 'taken' => '2025:07:04 09:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+( new TripSync() )->sync( $ut_half );
+check( 'with only a first day, sync fills in the last and keeps the first', [ '2025-07-01', '2025-07-04' ] === [ get_post_meta( $ut_half, Trips::META_START, true ), get_post_meta( $ut_half, Trips::META_END, true ) ] );
+$ut_untimed_only = $ut_trip( 'Untimed', $ut_author );
+$ut_photo( $ut_untimed_only, $ut_doolin );
+$ut_result = ( new TripSync() )->sync( $ut_untimed_only );
+check( 'a trip whose uploads have no times asks for dates', is_wp_error( $ut_result ) && 'travel_steps_no_dates' === $ut_result->get_error_code(), $ut_result );
+$ut_result = ( new TripSync() )->sync( $ut_trip( 'Empty', $ut_author ) );
+check( 'an upload trip with no uploads and no dates says to add photos', is_wp_error( $ut_result ) && 'travel_steps_no_photos' === $ut_result->get_error_code(), $ut_result );
+$ut_immich = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Immich, undated', 'post_status' => 'draft', 'post_author' => $ut_author ] );
+$ut_result = ( new TripSync() )->sync( $ut_immich );
+check( 'an Immich trip without dates still fails as before', is_wp_error( $ut_result ) && 'travel_steps_no_dates' === $ut_result->get_error_code() );

@@ -127,6 +127,10 @@ It ignores the range: the uploads are the trip's own photos, like an album.
   `_ts_start` and `_ts_end`. With no timed uploads it returns "None of the
   trip's photos say when they were taken, so set its dates." An Immich trip
   fails as before.
+- (Changed in PR 2, after review.) Sync also records the dates it took in
+  `_ts_dates_auto`, and the next sync treats a date still equal to its record
+  as empty, so dates taken from the photos follow photos added on later days.
+  A date the author changes no longer matches, and stays.
 - With dates: the range keeps its 14-hour margin, as now.
 - After `locate_photos()`, for upload trips only, one `Geocoder` fills an empty
   `city` and `country` for every photo with a position.

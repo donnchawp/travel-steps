@@ -222,12 +222,7 @@ class RestController {
 
 		$cache = self::cache_file( $asset, $size );
 		if ( ! is_readable( $cache ) ) {
-			if ( $upload ) {
-				$image = Uploads::image( $upload, $size );
-			} else {
-				$source = Trips::source( $trip_id );
-				$image  = 'medium' === $size ? self::medium( $source, $asset ) : $source->image( $asset, $size );
-			}
+			$image = self::image( $trip_id, $asset, $size, $upload );
 			if ( is_wp_error( $image ) || '' === ( $image['body'] ?? $image['file'] ) ) {
 				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
 			}
@@ -269,6 +264,21 @@ class RestController {
 		header( 'Cache-Control: ' . self::photo_cache_control( $is_public ) );
 		header( 'ETag: ' . $etag );
 		header( 'X-Content-Type-Options: nosniff' );
+	}
+
+	/**
+	 * A photo's image at a size: an upload's from WordPress's copies, else Immich's.
+	 * Every synced photo that isn't an upload came from Immich, even on a trip that has
+	 * since switched to uploads and not synced yet.
+	 *
+	 * @return array{body: string, type: string}|array{file: string, type: string}|\WP_Error
+	 */
+	public static function image( int $trip_id, string $asset, string $size, int $upload ) {
+		if ( $upload ) {
+			return Uploads::image( $upload, $size );
+		}
+		$source = Trips::immich( $trip_id );
+		return 'medium' === $size ? self::medium( $source, $asset ) : $source->image( $asset, $size );
 	}
 
 	/**

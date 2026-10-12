@@ -254,9 +254,13 @@ class Trips {
 	 * key, whoever is asking.
 	 */
 	public static function source( int $trip_id ): PhotoSource {
-		if ( self::uses_uploads( $trip_id ) ) {
-			return new MediaSource();
-		}
+		return self::uses_uploads( $trip_id ) ? new MediaSource() : self::immich( $trip_id );
+	}
+
+	/**
+	 * The trip's photos in Immich, with its author's key.
+	 */
+	public static function immich( int $trip_id ): ImmichSource {
 		return new ImmichSource( ImmichClient::for_user( (int) get_post_field( 'post_author', $trip_id ) ) );
 	}
 

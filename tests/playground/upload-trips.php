@@ -169,3 +169,16 @@ $ut_result = ( new TripSync() )->sync( $ut_late );
 check( 'a first day after every photo: an error that says so, and no last day saved', is_wp_error( $ut_result ) && 'travel_steps_photos_outside' === $ut_result->get_error_code() && '' === get_post_meta( $ut_late, Trips::META_END, true ), [ is_wp_error( $ut_result ) ? $ut_result->get_error_code() : $ut_result, get_post_meta( $ut_late, Trips::META_END, true ) ] );
 $ut_result = ( new TripSync() )->sync( $ut_trip( 'Backwards', $ut_author, '2025-07-10', '2025-07-01' ) );
 check( 'dates set backwards on an upload trip: set the dates, not add photos', is_wp_error( $ut_result ) && 'travel_steps_no_dates' === $ut_result->get_error_code(), $ut_result );
+
+// Switched from Immich to uploads, a trip's synced Immich photos still load until it syncs again.
+Settings::update_account( $ut_author, [ 'immich_key' => 'wanderer-immich' ] + Settings::account( $ut_author ) );
+$ut_switched = $ut_trip( 'Switched', $ut_author, '2025-06-01', '2025-06-03' );
+$ut_keys     = [];
+$ut_immich_server = function ( $pre, $args, $url ) use ( &$ut_keys ) {
+	$ut_keys[] = $args['headers']['x-api-key'] ?? '';
+	return [ 'headers' => [ 'content-type' => 'image/jpeg' ], 'body' => 'IMAGE', 'response' => [ 'code' => 200, 'message' => '' ], 'cookies' => [], 'filename' => null ];
+};
+add_filter( 'pre_http_request', $ut_immich_server, 10, 3 );
+$ut_image = TravelSteps\RestController::image( $ut_switched, '00000000-0000-4000-8000-000000000099', 'thumbnail', 0 );
+remove_filter( 'pre_http_request', $ut_immich_server, 10 );
+check( 'a photo that isn’t an upload is fetched from Immich, whatever the trip uses now', ! is_wp_error( $ut_image ) && [ 'wanderer-immich' ] === $ut_keys, [ is_wp_error( $ut_image ) ? $ut_image->get_error_message() : 'ok', $ut_keys ] );

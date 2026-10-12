@@ -49,19 +49,59 @@ check( 'an upload without an offset: wall-clock time, not zoned', false === $ut_
 $ut_row = $ut_rows[ Uploads::photo_id( $ut_none ) ] ?? [];
 check( 'an upload without a time: no local time and no day', null === $ut_row['local'] && '' === $ut_row['day'], $ut_row );
 
-// Only the author changes the source.
+// Only the author changes the source, with the "Photos" select: uploads, all Immich photos, or an album.
 $ut_save = function ( array $fields ) use ( $ut_rows_trip, $stopped ) {
 	$_POST  = $_REQUEST = $fields + [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
 	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );
 	$_POST  = $_REQUEST = [];
 	return $result;
 };
+$ut_album  = fn() => get_post_meta( $ut_rows_trip, Trips::META_ALBUM, true );
+$ut_albumA = '11111111-2222-4333-8444-555555555555';
+$ut_albumB = '22222222-3333-4444-8555-666666666666';
 wp_set_current_user( $ut_author );
-check( 'the author can switch a trip to Immich', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'source' => Trips::SOURCE_IMMICH ] ) && ! Trips::uses_uploads( $ut_rows_trip ) );
-check( '…and back to uploads', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'source' => Trips::SOURCE_UPLOADS ] ) && Trips::uses_uploads( $ut_rows_trip ) );
-check( 'a form without the source leaves it alone', 'redirect' === $ut_save( [ 'start' => '', 'end' => '' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+check( 'the author can switch a trip to Immich', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'photos' => Trips::SOURCE_IMMICH ] ) && ! Trips::uses_uploads( $ut_rows_trip ) && '' === $ut_album() );
+check( '…and back to uploads', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'photos' => Trips::SOURCE_UPLOADS ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+check( 'a form without the select leaves the source alone', 'redirect' === $ut_save( [ 'start' => '', 'end' => '' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+check( 'an album chosen in the select: the trip uses Immich, with that album', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'photos' => $ut_albumA ] ) && ! Trips::uses_uploads( $ut_rows_trip ) && $ut_albumA === $ut_album() );
+check( 'switching to uploads keeps the album, for switching back', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'photos' => Trips::SOURCE_UPLOADS ] ) && Trips::uses_uploads( $ut_rows_trip ) && $ut_albumA === $ut_album() );
+check( 'a form without the select leaves the album alone', 'redirect' === $ut_save( [ 'start' => '', 'end' => '' ] ) && $ut_albumA === $ut_album() );
+check( 'all Immich photos with an album id typed beside it: that album', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'photos' => Trips::SOURCE_IMMICH, 'album' => $ut_albumB ] ) && ! Trips::uses_uploads( $ut_rows_trip ) && $ut_albumB === $ut_album() );
+check( 'a typed album id is cleaned', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'photos' => Trips::SOURCE_IMMICH, 'album' => '"><x>' . $ut_albumA ] ) && $ut_albumA === $ut_album() );
+$ut_save( [ 'start' => '', 'end' => '', 'photos' => Trips::SOURCE_UPLOADS ] );
 wp_set_current_user( $eddie );
-check( 'another editor can’t change the source', 'die' === $ut_save( [ 'source' => Trips::SOURCE_IMMICH ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+check( 'another editor can’t change the source', 'die' === $ut_save( [ 'photos' => Trips::SOURCE_IMMICH ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+wp_set_current_user( 1 );
+
+// Where a form handler redirects to; 'die' if it stops instead.
+$ut_location = function ( callable $handler ) use ( $stopped ): string {
+	$to   = '';
+	$keep = function ( $location ) use ( &$to ) {
+		$to = $location;
+		return $location;
+	};
+	add_filter( 'wp_redirect', $keep, 1 );
+	$result = $stopped( $handler );
+	remove_filter( 'wp_redirect', $keep, 1 );
+	return 'redirect' === $result ? $to : $result;
+};
+
+// A new trip of uploads has none yet: saving it opens its edit page ready to add some.
+wp_set_current_user( $ut_author );
+$ut_create = function ( string $title, string $photos ) use ( $ut_location ) {
+	$_POST = $_REQUEST = [ 'trip_id' => 0, 'title' => $title, 'start' => '', 'end' => '', 'photos' => $photos, 'status' => 'draft', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+	$to    = $ut_location( [ new Trips(), 'handle_save_trip' ] );
+	$_POST = $_REQUEST = [];
+	$trip  = Trips::find_by_slug( sanitize_title( $title ) );
+	if ( $trip ) {
+		wp_delete_post( $trip->ID, true );
+	}
+	return $to;
+};
+$ut_to = $ut_create( 'Fresh uploads', Trips::SOURCE_UPLOADS );
+check( 'a new trip of uploads opens its edit page with ?add=1', false !== strpos( $ut_to, '/edit' ) && false !== strpos( $ut_to, 'add=1' ), $ut_to );
+$ut_to = $ut_create( 'Fresh Immich', Trips::SOURCE_IMMICH );
+check( '…a new Immich trip doesn’t', false !== strpos( $ut_to, 'saved=1' ) && false === strpos( $ut_to, 'add=1' ), $ut_to );
 wp_set_current_user( 1 );
 
 // Three days of uploads become three steps; what sync can't use is counted.

@@ -126,7 +126,7 @@ class Trips {
 	}
 
 	/**
-	 * Whether the current user may change what a trip pulls in (its dates and album) and
+	 * Whether the current user may change what a trip pulls in (its dates and photos) and
 	 * sync it: only its author may, as that uses their keys, library and location history.
 	 * Others who can edit the trip keep the rest.
 	 */
@@ -355,10 +355,11 @@ class Trips {
 		check_admin_referer( 'travel_steps_save_trip' );
 		$input   = wp_unslash( $_POST );
 		$trip_id = absint( $input['trip_id'] ?? 0 );
+		$created = ! $trip_id;
 
 		if ( $trip_id ) {
 			$this->trip_from_request();
-			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'source', 'sync' ] ) ) ) {
+			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'photos', 'sync' ] ) ) ) {
 				wp_die( esc_html__( 'Only the trip’s author can change its dates or photos, or sync it.', 'travel-steps' ), 403 );
 			}
 		} elseif ( ! current_user_can( 'edit_posts' ) || ! current_user_can( self::capability() ) ) {
@@ -395,10 +396,16 @@ class Trips {
 				$ymd = preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m ) && checkdate( (int) $m[2], (int) $m[3], (int) $m[1] );
 				update_post_meta( $trip_id, $key, $ymd ? $date : '' );
 			}
-			update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', (string) ( $input['album'] ?? '' ) ) );
-			// Left alone when the form doesn't offer the choice.
-			if ( isset( $input['source'] ) ) {
-				update_post_meta( $trip_id, self::META_SOURCE, self::SOURCE_UPLOADS === $input['source'] ? self::SOURCE_UPLOADS : self::SOURCE_IMMICH );
+			// The "Photos" select: uploads, all Immich photos, or an album id. When Immich
+			// can't list albums, an album id can be typed beside it. Left alone when the form
+			// doesn't offer the choice; uploads keep the album, for switching back.
+			if ( isset( $input['photos'] ) ) {
+				$photos = (string) $input['photos'];
+				update_post_meta( $trip_id, self::META_SOURCE, self::SOURCE_UPLOADS === $photos ? self::SOURCE_UPLOADS : self::SOURCE_IMMICH );
+				if ( self::SOURCE_UPLOADS !== $photos ) {
+					$album = self::SOURCE_IMMICH === $photos ? (string) ( $input['album'] ?? '' ) : $photos;
+					update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', $album ) );
+				}
 			}
 		}
 
@@ -406,7 +413,9 @@ class Trips {
 		if ( ! empty( $input['sync'] ) ) {
 			$this->run_sync_and_redirect( $trip );
 		}
-		wp_safe_redirect( add_query_arg( 'saved', '1', self::url( $trip, 'edit' ) ) );
+		// A new trip of uploads has none yet: its edit page opens the media modal.
+		$args = $created && self::uses_uploads( $trip_id ) ? [ 'saved' => '1', 'add' => '1' ] : [ 'saved' => '1' ];
+		wp_safe_redirect( add_query_arg( $args, self::url( $trip, 'edit' ) ) );
 		exit;
 	}
 

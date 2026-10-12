@@ -1,6 +1,6 @@
 # Travel Steps
 
-A Polarsteps-style travel journal for your own WordPress, built with [WpApp](https://github.com/akirk/wp-app). The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app) and are served through WordPress, so Immich stays private. Every step is a post you write in the block editor.
+A Polarsteps-style travel journal for your own WordPress, built with [WpApp](https://github.com/akirk/wp-app). The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip; either way they're served through WordPress, so Immich and the original files stay private. Every step is a post you write in the block editor.
 
 ## Demo
 
@@ -12,13 +12,15 @@ A Polarsteps-style travel journal for your own WordPress, built with [WpApp](htt
 
 ## How it works
 
-A trip (a `ts_trip` post) has a date range and, optionally, an Immich album. A step (a `ts_step` post, child of the trip) is one day. Sync works like this:
+A trip (a `ts_trip` post) has a date range and takes its photos from Immich (everything taken in those dates, or one album) or from photos uploaded to it. A step (a `ts_step` post, child of the trip) is one day. Sync works like this:
 
 1. If Dawarich is set up, fetches your points for those dates and drops anything near home, and GPS glitches: any fix you'd have had to travel faster than 1,080 km/h to reach.
 2. Fetches the album's photos, or all photos taken during those dates if there's no album. Photos without GPS get the position you were at when you took them. A camera that records no time zone gets the offset of the nearest phone photo that does (or the site's), so abroad its photos aren't hours off. Photos are kept by the local date they were taken, so the first morning and last evening of a trip in another time zone aren't cut off.
 3. Creates a draft step for each day with favourites. The day is the local date the photos were taken (Immich's `localDateTime`).
 4. Groups each new day's favourites into places. A new place starts when a favourite is more than 2 km (configurable) from the current one and in a different town. A day with several places gets a heading per place in its story and a place tag (`ts_place`) for each. Each place also gets an empty paragraph to write in and a Trip photos block. The title lists the places: "Lisbon, Sintra".
 5. Simplifies the route (your Dawarich points, or else the photos with GPS in time order), splits it at big jumps (flights, ferries) and caches it on the trip. A track made from photos loses its GPS glitches too. The distance follows the whole track, jumps included, so flights count.
+
+A trip of uploads uses every photo uploaded to it, and needs no dates: left empty, they're taken from its first and last photo. Uploads with no capture time can't go on a day, so sync leaves them out, along with those outside the trip's dates and those taken at home, and the notice after a sync counts each. Places are named offline, from the GeoNames data the plugin ships (see Privacy).
 
 Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position.
 
@@ -28,6 +30,7 @@ Publish the days you want shown. Draft steps and their photos stay private, but 
 
 A step shows photos from its date. Favourites in Immich decide which:
 
+- On a trip of uploads, every upload is a favourite: each day with photos gets a step that shows them all. Hide the ones you don't want.
 - A step with favourites shows exactly those.
 - A step without favourites (one you added by hand) gets an automatic pick (8 by default), spread across the day. Bursts of shots taken seconds apart count as one.
 - On the trip page, **Pin** a photo to always show it, or **Hide** it to never show it. Press the button again to undo.
@@ -87,10 +90,12 @@ Place names for naming spots offline ship in `data/geonames/`: towns of 500 peop
 |---|---|
 | `/travel-steps/` | Everyone: published trips (editors also see drafts) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox. Editors can pin and hide photos. |
-| `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, album, visibility, sync, step list |
+| `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, photos (Immich or uploads), visibility, sync, step list |
 | `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys and home. Admins also: the server URLs, place radius and photos to pick |
 
 ## Setup
+
+Needs WordPress 6.7 or later, which converts iPhones' HEIC photos, and PHP's `exif` extension for uploading photos to trips.
 
 ```bash
 composer install --no-dev
@@ -99,7 +104,8 @@ composer install --no-dev
 Then activate the plugin and open `/travel-steps/settings`. An administrator sets the server URLs under "Site"; everyone who makes trips adds their own keys and home under "Your accounts":
 
 - Dawarich (optional): the URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network), and your API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations. The route joins the places photos were taken with straight lines, dashed where they're over 20 km apart, and the distance is measured along those lines, so a winding drive comes out short and a flight counts. Photos without GPS stay unplaced, and a day without any located photo has no marker.
-- Immich: the URL falls back to the one from *Media Picker for Immich* when that's configured; its key is never used. Your key needs `asset.read`, `asset.view` and `album.read`.
+- Immich (optional): the URL falls back to the one from *Media Picker for Immich* when that's configured; its key is never used. Your key needs `asset.read`, `asset.view` and `album.read`.
+- Uploads, without Immich: on a trip, choose "Photos uploaded to this trip", then **Add photos**. Closing the media window after adding or deleting photos syncs the trip. iPhone browsers strip a photo's location unless you turn on Options → Location in the photo picker, and messaging apps strip it too, so upload from the photo library. See Privacy for where uploads are kept.
 - Home: coordinates and a radius to keep your home off your trips' maps. Right-click your home in Google Maps and click the coordinates to copy them, then paste the pair into either field.
 
 ## Development
@@ -112,7 +118,7 @@ make demo    # the Playground demo, from this checkout, at http://127.0.0.1:9400
 
 The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release and fetches those two files from `master`.
 
-`make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections and the trip pages.
+`make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections, the trip pages, and trips of uploaded photos and their pages.
 
 ## Deploying
 

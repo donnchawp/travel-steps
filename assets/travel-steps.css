@@ -247,6 +247,8 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-form-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
 /* .ts-button's display would otherwise win over the hidden attribute. */
 .ts-body [hidden] { display: none !important; }
+/* The media modal is light whatever the page's colour scheme: keep the page's ink out of it. */
+.ts-body .media-modal { color: #1d2327; color-scheme: light; }
 .ts-dates-hint { margin-top: -.5rem; }
 .ts-panel { margin-top: 2rem; padding: 1rem 1.25rem; border-radius: var(--ts-radius); background: var(--ts-surface); box-shadow: var(--ts-shadow); }
 .ts-panel h2 { margin: .25rem 0; font-size: 1.2rem; }

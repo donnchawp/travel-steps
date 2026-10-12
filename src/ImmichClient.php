@@ -94,7 +94,10 @@ class ImmichClient {
 
 		$albums = $this->request( '/api/albums', 'GET', null, self::ALBUMS_TIMEOUT_S );
 		if ( is_wp_error( $albums ) ) {
-			set_transient( $key, [ 'error' => $albums->get_error_message() ], self::ALBUMS_ERROR_S );
+			// A refusal is quick to repeat, and names the key's owner: others may share the key.
+			if ( 'travel_steps_immich_key_refused' !== $albums->get_error_code() ) {
+				set_transient( $key, [ 'error' => $albums->get_error_message() ], self::ALBUMS_ERROR_S );
+			}
 			return $albums;
 		}
 		$out = [];

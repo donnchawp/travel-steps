@@ -795,6 +795,12 @@ $status = 401;
 $r      = ( new TripSync() )->sync( $bobs );
 $status = 200;
 check( 'a key Immich refuses fails the sync, naming whose it is', is_wp_error( $r ) && false !== strpos( $r->get_error_message(), 'Bob' ), is_wp_error( $r ) ? $r->get_error_message() : $r );
+// Another author with the same key mustn't be shown "Immich refused Bob's key" from the cache.
+$status = 401;
+ImmichClient::for_user( $bob )->albums();
+$status = 200;
+$albums = ImmichClient::for_user( $bob )->albums();
+check( 'a refused key’s album error isn’t cached', ! is_wp_error( $albums ), is_wp_error( $albums ) ? $albums->get_error_message() : '' );
 
 // Only the author changes what a trip pulls in, or syncs it; other editors keep the rest.
 wp_set_current_user( $eddie );
@@ -839,6 +845,39 @@ $_POST = $_REQUEST = [];
 // Upgrading from site-wide keys: each trip author gets them, unless they have their own.
 $dave = $person( 'dave', 'author' );
 $trip_by( $dave );
+$trip_with = function ( $login, $role, $status ) use ( $person ) {
+	$id = $person( $login, $role );
+	wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'A trip', 'post_status' => $status, 'post_author' => $id ] );
+	return $id;
+};
+$drafter     = $trip_with( 'drafter', 'author', 'draft' );
+$autodrafter = $trip_with( 'autodrafter', 'author', 'auto-draft' );
+$trasher     = $trip_with( 'trasher', 'author', 'trash' );
+$contributor = $trip_with( 'contributor', 'contributor', 'draft' );
+$ghost       = 999999;
+wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'A trip', 'post_status' => 'publish', 'post_author' => $ghost ] );
+// A migration that dies part-way (here, saving Dave's) is tried again on the next request.
+delete_option( Settings::MIGRATED );
+update_option( Settings::OPTION, [ 'immich_url' => 'http://immich.test', 'dawarich_key' => 'site-dawarich' ] );
+$crash = function ( $meta_id, $user_id ) use ( $dave ) {
+	if ( $dave === $user_id ) {
+		throw new RuntimeException( 'crash' );
+	}
+};
+add_action( 'added_user_meta', $crash, 10, 2 );
+try {
+	Settings::migrate();
+} catch ( RuntimeException $e ) {
+	unset( $e );
+}
+remove_action( 'added_user_meta', $crash, 10 );
+delete_user_option( $dave, Settings::ACCOUNT );
+Settings::migrate();
+check( 'upgrade: a migration that failed part-way runs again', 'site-dawarich' === Settings::account( $dave )['dawarich_key'] && get_option( Settings::MIGRATED ), Settings::account( $dave ) );
+foreach ( [ $dave, $drafter, $autodrafter, $trasher, $contributor ] as $id ) {
+	delete_user_option( $id, Settings::ACCOUNT );
+}
+$wpdb->delete( $wpdb->usermeta, [ 'user_id' => $ghost ] );
 delete_option( Settings::MIGRATED );
 update_option( Settings::OPTION, [ 'immich_url' => 'http://immich.test', 'dawarich_key' => 'site-dawarich', 'home_lat' => '53.3', 'home_lon' => '-6.2' ] );
 update_option( 'immich_settings', [ 'api_url' => 'http://picker.test', 'api_key' => 'picker-key' ] );
@@ -846,6 +885,9 @@ Settings::migrate();
 check( 'upgrade: a trip author gets the key in effect, Media Picker’s included, and the home', [ 'picker-key', 'site-dawarich', '53.3' ] === [ Settings::account( $dave )['immich_key'], Settings::account( $dave )['dawarich_key'], Settings::account( $dave )['home_lat'] ], Settings::account( $dave ) );
 check( 'upgrade: an author with their own keeps them', 'alice-new' === Settings::account( $alice )['immich_key'] );
 check( 'upgrade: no keys or home left in the site settings', [ 'immich_url' => 'http://immich.test' ] === get_option( Settings::OPTION ), get_option( Settings::OPTION ) );
+check( 'upgrade: the author of a draft trip gets them', 'picker-key' === Settings::account( $drafter )['immich_key'] );
+check( 'upgrade: authors of only an auto-draft or a trashed trip, or who can’t make trips, don’t', [ false, false, false ] === array_map( fn( $id ) => get_user_option( Settings::ACCOUNT, $id ), [ $autodrafter, $trasher, $contributor ] ) );
+check( 'upgrade: nothing is saved for a trip author who no longer exists', null === $wpdb->get_var( $wpdb->prepare( "SELECT umeta_id FROM {$wpdb->usermeta} WHERE user_id = %d", $ghost ) ) );
 update_option( Settings::OPTION, [ 'immich_key' => 'later' ] );
 Settings::update_account( $dave, Settings::ACCOUNT_DEFAULTS );
 Settings::migrate();

@@ -122,3 +122,14 @@ check( '…and so are its photos', [ 'Lisdoonvarna', 'Ireland' ] === [ Trips::ph
 check( '…with no warning about place names', false === ( ( new TripSync() )->sync( $ut_tour )['no_places'] ?? null ) );
 $ut_result = ( new TripSync( null, null, new TravelSteps\Geocoder( '/nowhere' ) ) )->sync( $ut_tour );
 check( 'missing geocoder data is reported', true === ( $ut_result['no_places'] ?? null ), $ut_result );
+
+// Every upload is shown; pin, hide and cover work on them as on Immich photos.
+$ut_groups = Trips::photos_by_step( $ut_tour, Trips::steps( $ut_tour, true ) );
+$ut_shown  = array_merge( ...array_map( fn( $g ) => array_column( $g['shown'], 'id' ), array_values( $ut_groups ) ) );
+check( 'every upload on a step is shown, none behind “Show more”', 4 === count( $ut_shown ) && [] === array_merge( ...array_map( fn( $g ) => $g['rest'], array_values( $ut_groups ) ) ), $ut_groups );
+$rest_post( "/travel-steps/v1/trips/$ut_tour/photo-state", [ 'asset' => $ut_ids['dingle'], 'state' => 'hidden' ] );
+$rest_post( "/travel-steps/v1/trips/$ut_tour/photo-state", [ 'asset' => $ut_ids['paris'], 'state' => 'pinned' ] );
+$ut_cover = $rest_post( "/travel-steps/v1/trips/$ut_tour/cover", [ 'asset' => $ut_ids['paris'] ] );
+$ut_groups = Trips::photos_by_step( $ut_tour, Trips::steps( $ut_tour, true ) );
+$ut_hidden = array_merge( ...array_map( fn( $g ) => array_column( $g['hidden'], 'id' ), array_values( $ut_groups ) ) );
+check( 'an upload can be hidden, pinned and made the cover', [ $ut_ids['dingle'] ] === $ut_hidden && in_array( $ut_ids['paris'], Trips::pinned( $ut_tour ), true ) && 200 === $ut_cover->get_status() && $ut_ids['paris'] === Trips::cover( $ut_tour ), [ $ut_hidden, $ut_cover->get_data() ] );

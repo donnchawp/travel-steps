@@ -213,4 +213,66 @@ class View {
 		}
 		return $markers;
 	}
+
+	/**
+	 * The trip form's "Photos" choices for the trip's author: the trip's uploads, all
+	 * their Immich photos from its dates, or one Immich album. Empty when they can use
+	 * neither.
+	 *
+	 * @param array|\WP_Error|null $albums The author's Immich albums, the error listing
+	 *                                     them, or null when they have no Immich key.
+	 * @return list<array{value: string, label: string, selected: bool, disabled: bool}>
+	 */
+	public static function photo_choices( ?\WP_Post $trip, $albums ): array {
+		$can_upload = Uploads::available();
+		if ( null === $albums && ! $can_upload ) {
+			return [];
+		}
+		$saved_album = $trip ? (string) get_post_meta( $trip->ID, Trips::META_ALBUM, true ) : '';
+		if ( ! $trip ) {
+			// A new trip: uploads when the author can't use Immich, else all their Immich photos.
+			$current = null === $albums ? Trips::SOURCE_UPLOADS : Trips::SOURCE_IMMICH;
+		} elseif ( Trips::uses_uploads( $trip->ID ) ) {
+			$current = Trips::SOURCE_UPLOADS;
+		} elseif ( '' !== $saved_album && ! is_wp_error( $albums ) ) {
+			$current = $saved_album;
+		} else {
+			// When Immich can't list albums, the album id is typed beside the select.
+			$current = Trips::SOURCE_IMMICH;
+		}
+		$choice = fn( string $value, string $label, bool $disabled = false ) => [
+			'value'    => $value,
+			'label'    => $label,
+			'selected' => $value === $current,
+			'disabled' => $disabled,
+		];
+
+		$choices = [ $choice( Trips::SOURCE_UPLOADS, __( 'Photos uploaded to this trip', 'travel-steps' ), ! $can_upload ) ];
+		if ( null === $albums ) {
+			// Without a key the author can't choose Immich, but saving the form mustn't
+			// switch an Immich trip to uploads.
+			if ( Trips::SOURCE_UPLOADS !== $current ) {
+				$choices[] = $choice(
+					$current,
+					Trips::SOURCE_IMMICH === $current
+						? __( 'All Immich photos taken during the trip', 'travel-steps' )
+						/* translators: %s: Immich album id */
+						: sprintf( __( 'Immich album %s', 'travel-steps' ), $current )
+				);
+			}
+			return $choices;
+		}
+		$choices[] = $choice( Trips::SOURCE_IMMICH, __( 'All Immich photos taken during the trip', 'travel-steps' ) );
+		$listed    = is_array( $albums ) ? $albums : [];
+		// An album Immich no longer lists (deleted, or not visible to this key) stays
+		// selected, so saving the form for something else doesn't drop it.
+		if ( $current === $saved_album && '' !== $saved_album && ! in_array( $saved_album, array_column( $listed, 'id' ), true ) ) {
+			/* translators: %s: Immich album id */
+			$choices[] = $choice( $saved_album, sprintf( __( 'Album not found in Immich (%s)', 'travel-steps' ), $saved_album ) );
+		}
+		foreach ( $listed as $album ) {
+			$choices[] = $choice( $album['id'], sprintf( '%s (%s)', $album['name'], number_format_i18n( $album['count'] ) ) );
+		}
+		return $choices;
+	}
 }

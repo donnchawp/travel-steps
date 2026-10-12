@@ -495,7 +495,7 @@ $gone = '22222222-2222-4222-8222-222222222222';
 update_post_meta( $trip_id, Trips::META_ALBUM, $gone );
 wp_set_current_user( 1 );
 $edit = $render( 'trip-edit.php', (string) $trip_id );
-check( 'a saved album missing from Immich stays selected', 1 === preg_match( '/<option value="' . $gone . '"[^>]*selected/', $edit ), substr( $edit, strpos( $edit, '<select name="album"' ) ?: 0, 600 ) );
+check( 'a saved album missing from Immich stays selected', 1 === preg_match( '/<option value="' . $gone . '"[^>]*selected/', $edit ), substr( $edit, strpos( $edit, '<select name="photos"' ) ?: 0, 600 ) );
 
 // Only users with the travel-steps capability may use the site's Immich and Dawarich
 // credentials: a contributor can't create or sync a trip.
@@ -838,14 +838,14 @@ check( '…but they can still rename it', 'redirect' === $stopped( [ new Trips()
 $_POST = $_REQUEST = [];
 $keys_used = [];
 $edit      = $render( 'trip-edit.php', (string) $alices );
-check( '…and their edit page has no Sync button and no album list, and asks Immich nothing', false === strpos( $edit, 'travel_steps_sync' ) && false === strpos( $edit, 'name="sync"' ) && false === strpos( $edit, 'name="album"' ) && [] === $keys_used, substr( $edit, strpos( $edit, '<form' ) ?: 0, 1500 ) );
+check( '…and their edit page has no Sync button and no album list, and asks Immich nothing', false === strpos( $edit, 'travel_steps_sync' ) && false === strpos( $edit, 'name="sync"' ) && false === strpos( $edit, 'name="photos"' ) && [] === $keys_used, substr( $edit, strpos( $edit, '<form' ) ?: 0, 1500 ) );
 check( '…with the dates shown but not editable', 1 === preg_match( '/name="start"[^>]*disabled|disabled[^>]*name="start"/', $edit ) );
 check( '…and they can still pin, hide and choose the cover', 200 === $rest_post( "/travel-steps/v1/trips/$alices/photo-state", [ 'asset' => $own_photo, 'state' => 'hidden' ] )->get_status() );
 check( 'an editor of a trip whose author has no Immich key is told so', false !== strpos( $render( 'trip-edit.php', (string) $carols ), 'Carol hasn’t saved an Immich API key' ) );
 wp_set_current_user( $alice );
 $keys_used = [];
 $edit      = $render( 'trip-edit.php', (string) $alices );
-check( 'the author’s own edit page lists their albums, and offers to sync', false !== strpos( $edit, 'name="album"' ) && false !== strpos( $edit, 'travel_steps_sync' ) && [ 'alice-immich' ] === array_values( array_unique( $keys_used ) ), $keys_used );
+check( 'the author’s own edit page lists their albums, and offers to sync', false !== strpos( $edit, 'name="photos"' ) && false !== strpos( $edit, 'travel_steps_sync' ) && [ 'alice-immich' ] === array_values( array_unique( $keys_used ) ), $keys_used );
 remove_filter( 'pre_http_request', $servers, 10 );
 
 // Settings: your own accounts for anyone who makes trips; the site's for administrators.
@@ -936,6 +936,7 @@ $suggested = implode( ' ', wp_list_pluck( WP_Privacy_Policy_Content::get_suggest
 check( 'privacy policy suggestion names OpenStreetMap', false !== strpos( $suggested, 'OpenStreetMap' ) && false !== strpos( $suggested, 'osmfoundation.org/wiki/Privacy_Policy' ), substr( $suggested, 0, 200 ) );
 
 require '/smoke/upload-trips.php';
+require '/smoke/upload-pages.php';
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

@@ -9,6 +9,7 @@ use TravelSteps\DawarichClient;
 use TravelSteps\ImmichClient;
 use TravelSteps\Settings;
 use TravelSteps\Trips;
+use TravelSteps\Uploads;
 use TravelSteps\View;
 
 $slug = (string) get_query_var( 'slug' );
@@ -24,7 +25,11 @@ $meta    = fn( $key ) => $trip_id ? (string) get_post_meta( $trip_id, $key, true
 $author   = $trip ? (int) $trip->post_author : get_current_user_id();
 $is_owner = ! $trip || Trips::can_sync_trip( $trip_id );
 $account  = Settings::account( $author );
-$albums   = $is_owner ? ImmichClient::for_user( $author )->albums() : [];
+// Null when the author has no Immich key: Immich isn't offered then.
+$albums  = $is_owner && Trips::can_use_immich( $author ) ? ImmichClient::for_user( $author )->albums() : null;
+$choices = $is_owner ? View::photo_choices( $trip, $albums ) : [];
+// Uploads make the dates optional: sync takes them from the photos.
+$picks_uploads = in_array( Trips::SOURCE_UPLOADS, array_column( array_filter( $choices, fn( $c ) => $c['selected'] ), 'value' ), true );
 $synced  = (int) $meta( Trips::META_SYNCED );
 $error   = $meta( Trips::META_ERROR );
 $stats   = $trip_id ? get_post_meta( $trip_id, Trips::META_STATS, true ) : [];
@@ -32,6 +37,15 @@ $steps   = $trip_id ? Trips::steps( $trip_id, true ) : [];
 $photos  = $synced && ! $steps ? Trips::photos( $trip_id ) : [];
 
 $has_dawarich = '' !== $account['dawarich_key'];
+
+wp_app_enqueue_script(
+	'travel-steps-edit',
+	TRAVEL_STEPS_PLUGIN_URL . 'assets/travel-steps-edit.js',
+	[],
+	filemtime( TRAVEL_STEPS_PLUGIN_DIR . 'assets/travel-steps-edit.js' ),
+	true,
+	'travel-steps'
+);
 
 $page_title = $trip ? sprintf( /* translators: %s: trip title */ __( 'Edit %s', 'travel-steps' ), get_the_title( $trip ) ) : __( 'New trip', 'travel-steps' );
 include __DIR__ . '/_header.php';
@@ -97,7 +111,7 @@ include __DIR__ . '/_header.php';
 		</p>
 	<?php endif; ?>
 
-	<form class="ts-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+	<form class="ts-form ts-trip-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="travel_steps_save_trip">
 		<input type="hidden" name="trip_id" value="<?php echo (int) $trip_id; ?>">
 		<?php wp_nonce_field( 'travel_steps_save_trip' ); ?>
@@ -110,41 +124,41 @@ include __DIR__ . '/_header.php';
 		<div class="ts-form-row">
 			<label>
 				<span><?php esc_html_e( 'First day', 'travel-steps' ); ?></span>
-				<input type="date" name="start" required value="<?php echo esc_attr( $meta( Trips::META_START ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+				<input type="date" name="start" <?php echo $picks_uploads ? '' : 'required'; ?> value="<?php echo esc_attr( $meta( Trips::META_START ) ); ?>" <?php disabled( ! $is_owner ); ?>>
 			</label>
 			<label>
 				<span><?php esc_html_e( 'Last day', 'travel-steps' ); ?></span>
-				<input type="date" name="end" required value="<?php echo esc_attr( $meta( Trips::META_END ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+				<input type="date" name="end" <?php echo $picks_uploads ? '' : 'required'; ?> value="<?php echo esc_attr( $meta( Trips::META_END ) ); ?>" <?php disabled( ! $is_owner ); ?>>
 			</label>
 		</div>
+		<?php if ( $is_owner ) : ?>
+			<small class="ts-muted ts-dates-hint" <?php echo $picks_uploads ? '' : 'hidden'; ?>><?php esc_html_e( 'Leave empty to take them from the photos.', 'travel-steps' ); ?></small>
+		<?php endif; ?>
 
 		<?php if ( ! $is_owner ) : ?>
-			<p class="ts-muted"><?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'The trip uses %s’s photos and location history, so only they can change its dates or album, or sync it.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?></p>
+			<p class="ts-muted"><?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'The trip uses %s’s photos and location history, so only they can change its dates or photos, or sync it.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?></p>
+		<?php elseif ( ! $choices ) : ?>
+			<p class="ts-notice is-warning">
+				<?php esc_html_e( 'To add photos to a trip, add an Immich key in settings, or ask your site’s administrator for PHP’s exif extension, which uploading needs.', 'travel-steps' ); ?>
+				<a href="<?php echo esc_url( App::url( 'settings' ) ); ?>"><?php esc_html_e( 'Settings', 'travel-steps' ); ?></a>
+			</p>
 		<?php else : ?>
 		<label>
 			<span><?php esc_html_e( 'Photos', 'travel-steps' ); ?></span>
-			<?php if ( is_wp_error( $albums ) ) : ?>
+			<select name="photos">
+				<?php foreach ( $choices as $choice ) : ?>
+					<option value="<?php echo esc_attr( $choice['value'] ); ?>" <?php selected( $choice['selected'] ); ?> <?php disabled( $choice['disabled'] ); ?>><?php echo esc_html( $choice['label'] ); ?></option>
+				<?php endforeach; ?>
+			</select>
+			<?php if ( ! Uploads::available() ) : ?>
+				<small class="ts-muted"><?php esc_html_e( 'Uploading photos needs PHP’s exif extension, which reads when and where they were taken. This site doesn’t have it.', 'travel-steps' ); ?></small>
+			<?php endif; ?>
+			<?php if ( null === $albums ) : ?>
+				<small class="ts-muted"><a href="<?php echo esc_url( App::url( 'settings' ) ); ?>"><?php esc_html_e( 'Add an Immich key in settings to use Immich photos.', 'travel-steps' ); ?></a></small>
+			<?php elseif ( is_wp_error( $albums ) ) : ?>
 				<input type="text" name="album" placeholder="<?php esc_attr_e( 'Immich album id', 'travel-steps' ); ?>" value="<?php echo esc_attr( $meta( Trips::META_ALBUM ) ); ?>">
 				<small class="ts-muted"><?php echo esc_html( sprintf( /* translators: %s: error message */ __( 'Could not list Immich albums: %s', 'travel-steps' ), $albums->get_error_message() ) ); ?></small>
 			<?php else : ?>
-				<select name="album">
-					<option value=""><?php esc_html_e( 'All photos taken during the trip', 'travel-steps' ); ?></option>
-					<?php
-					// An album Immich no longer lists (deleted, or not visible to this key) stays
-					// selected, so saving the form for something else doesn't drop it.
-					$saved_album = $meta( Trips::META_ALBUM );
-					if ( $saved_album && ! in_array( $saved_album, array_column( $albums, 'id' ), true ) ) :
-						?>
-						<option value="<?php echo esc_attr( $saved_album ); ?>" selected>
-							<?php echo esc_html( sprintf( /* translators: %s: Immich album id */ __( 'Album not found in Immich (%s)', 'travel-steps' ), $saved_album ) ); ?>
-						</option>
-					<?php endif; ?>
-					<?php foreach ( $albums as $album ) : ?>
-						<option value="<?php echo esc_attr( $album['id'] ); ?>" <?php selected( $meta( Trips::META_ALBUM ), $album['id'] ); ?>>
-							<?php echo esc_html( sprintf( '%s (%s)', $album['name'], number_format_i18n( $album['count'] ) ) ); ?>
-						</option>
-					<?php endforeach; ?>
-				</select>
 				<small class="ts-muted"><?php esc_html_e( 'Pick an Immich album to choose exactly which photos appear.', 'travel-steps' ); ?></small>
 			<?php endif; ?>
 		</label>
@@ -172,9 +186,15 @@ include __DIR__ . '/_header.php';
 		</label>
 
 		<div class="ts-form-actions">
-			<button type="submit" class="ts-button"><?php esc_html_e( 'Save', 'travel-steps' ); ?></button>
+			<?php
+			$save_label = __( 'Save', 'travel-steps' );
+			$add_label  = __( 'Save and add photos', 'travel-steps' );
+			// A new trip of uploads has nothing to sync yet: saving it opens the media modal.
+			$adds = ! $trip && $picks_uploads;
+			?>
+			<button type="submit" class="ts-button ts-save" data-label="<?php echo esc_attr( $save_label ); ?>" data-uploads-label="<?php echo esc_attr( $add_label ); ?>"><?php echo esc_html( $adds ? $add_label : $save_label ); ?></button>
 			<?php if ( $is_owner ) : ?>
-				<button type="submit" class="ts-button ts-button-secondary" name="sync" value="1"><?php esc_html_e( 'Save and sync', 'travel-steps' ); ?></button>
+				<button type="submit" class="ts-button ts-button-secondary" name="sync" value="1" <?php echo $adds ? 'hidden' : ''; ?>><?php esc_html_e( 'Save and sync', 'travel-steps' ); ?></button>
 			<?php endif; ?>
 		</div>
 	</form>

@@ -75,6 +75,14 @@ class Uploads {
 	}
 
 	/**
+	 * Whether photos can be uploaded to trips on this site. Without PHP's exif extension
+	 * there's no knowing when a photo was taken, so no day to put it on.
+	 */
+	public static function available(): bool {
+		return (bool) apply_filters( 'travel_steps_can_upload', function_exists( 'exif_read_data' ) );
+	}
+
+	/**
 	 * Give a trip photo its id and a random file name, keeping its extension. A request
 	 * that asks to be a trip photo but isn't allowed fails, rather than becoming public media.
 	 */
@@ -82,8 +90,7 @@ class Uploads {
 		$trip_id = self::upload_trip();
 		if ( null === $trip_id ) {
 			$file['error'] = __( 'You can’t add photos to this trip.', 'travel-steps' );
-		} elseif ( $trip_id && ! function_exists( 'exif_read_data' ) ) {
-			// Without it there's no knowing when a photo was taken, so no day to put it on.
+		} elseif ( $trip_id && ! self::available() ) {
 			$file['error'] = __( 'Photos can’t be added to trips on this site: its PHP has no exif extension, which reads when and where they were taken.', 'travel-steps' );
 		} elseif ( $trip_id && ! in_array( wp_get_image_mime( (string) $file['tmp_name'] ), self::PHOTO_TYPES, true ) ) {
 			// Read from its content, not its name: Imagick opens PDFs, videos, PSDs and more.

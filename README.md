@@ -51,7 +51,7 @@ To add a step by hand, click **Add step**, set its date in the block editor and 
 
 ## Privacy
 
-Creating, editing and syncing trips uses the site's Immich and Dawarich credentials, which reach your whole photo library and location history, so it needs the `manage_options` capability (administrators) rather than just being able to write posts. To let other roles manage trips, filter it:
+Creating, editing and syncing trips uses the site's Immich and Dawarich credentials, which reach your whole photo library and location history, so it needs the `manage_options` capability (administrators) rather than just being able to write posts. The same goes for pinning, hiding and choosing a trip's cover photo. To let other roles manage trips, filter it:
 
 ```php
 add_filter( 'travel_steps_capability', fn() => 'edit_others_posts' );
@@ -132,7 +132,7 @@ make deploy       # composer install --no-dev, then rsync --delete
 
 If an authentication proxy guards the whole site, trips aren't public until it lets these paths through:
 
-- `/travel-steps/*`: the trip pages. The new, edit and settings routes still need a WordPress login with the right capability (`edit_posts`, `manage_options`).
+- `/travel-steps/*`: the trip pages. The new and edit routes still need a WordPress login with the trips capability (`manage_options` unless filtered, see above), and settings always needs `manage_options`.
 - `/wp-json/travel-steps/v1/*`: map data and photos, each checked against the trip's visibility
 - `/wp-content/plugins/travel-steps/*`: scripts, styles and Leaflet
 

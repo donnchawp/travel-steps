@@ -192,7 +192,7 @@ $one = $get( '/wp/v2/ts_step/' . $d1->ID );
 check( 'anon: single step of a draft trip refused', $one->get_status() >= 400, $one->get_status() );
 $places = $get( '/wp/v2/ts_place' );
 check( 'anon: place terms refused', $places->get_status() >= 400, $places->get_status() );
-check( 'anon: no photos of a draft trip', [] === Trips::viewable_photo_ids( get_post( $trip_id ) ) );
+check( 'anon: no photos of a draft trip', [] === Trips::public_photo_ids( get_post( $trip_id ) ) );
 
 wp_set_current_user( 1 );
 $list = $get( '/wp/v2/ts_step', [ 'parent' => $trip_id, 'status' => 'any', 'context' => 'edit' ] );
@@ -205,7 +205,7 @@ wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
 wp_set_current_user( 0 );
 $list = $get( '/wp/v2/ts_step' );
 check( 'anon: published step of a published trip is listed', 1 === count( $list->get_data() ), count( (array) $list->get_data() ) );
-$ids = Trips::viewable_photo_ids( get_post( $trip_id ) );
+$ids = Trips::public_photo_ids( get_post( $trip_id ) );
 check( 'anon: photos only from the published day', isset( $ids[ row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ] ) && ! isset( $ids[ row( 5, '2025-05-02', '11:00', 0, 0, '', 1 )['id'] ] ), array_keys( $ids ) );
 
 $trip = $get( '/travel-steps/v1/trips/' . $trip_id );
@@ -237,14 +237,14 @@ check( 'cover: an editor chooses a photo', 200 === $res->get_status() && false !
 check( 'cover: the header uses it', false !== strpos( View::cover_url( $trip_id ), $faro ) );
 check( 'cover: only the trip’s own photos', 400 === $cover( '99999999-9999-4999-8999-999999999999' )->get_status() );
 wp_set_current_user( 0 );
-check( 'cover: visitors can load the chosen cover', isset( Trips::viewable_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
+check( 'cover: visitors can load the chosen cover', isset( Trips::public_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
 wp_set_current_user( 1 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'cover: its button is pressed on the trip page', 1 === preg_match( '/data-asset="' . $faro . '"[^>]*>(?:(?!<\/figure>).)*ts-photo-cover[^>]*aria-pressed="true"/s', $html ) );
 $res = $cover( '' );
 check( 'cover: pressing again goes back to automatic', 200 === $res->get_status() && false !== strpos( View::cover_url( $trip_id ), $lis ) );
 wp_set_current_user( 0 );
-check( 'cover: an unchosen draft photo is private again', ! isset( Trips::viewable_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
+check( 'cover: an unchosen draft photo is private again', ! isset( Trips::public_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
 
 // Photo caching: shared caches must drop a photo soon after it's unpublished or hidden.
 $public = TravelSteps\RestController::photo_cache_control( true );
@@ -510,11 +510,12 @@ require_once ABSPATH . 'wp-admin/includes/image.php';
 $photos_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Uploads', 'post_status' => 'publish' ] );
 $other_post  = wp_insert_post( [ 'post_title' => 'A post', 'post_status' => 'publish' ] );
 $as_photo    = [ 'post_id' => $photos_trip, TravelSteps\Uploads::REQUEST_FLAG => '1' ];
+require_once '/smoke/exif-fixture.php';
 // Big enough that core keeps the original and makes a "-scaled" copy to use.
-$upload      = function ( array $request, int $post_id, int $width = 3000 ) use ( $jpeg ) {
+$upload      = function ( array $request, int $post_id, int $width = 3000, int $height = 2000, array $tags = [] ) use ( $jpeg ) {
 	$_REQUEST = $request;
 	$tmp      = wp_tempnam( 'IMG_1234.jpg' );
-	file_put_contents( $tmp, $jpeg( $width, 2000 ) );
+	file_put_contents( $tmp, ts_tagged_jpeg( $jpeg( $width, $height ), $tags ) );
 	$id       = media_handle_sideload( [ 'name' => 'IMG_1234.jpg', 'tmp_name' => $tmp ], $post_id );
 	$_REQUEST = [];
 	return $id;
@@ -597,32 +598,25 @@ check( 'a REST trip photo upload belongs to the trip', 201 === $res->get_status(
 
 // What a trip photo says about itself, read from the original, which is never served:
 // only copies with no GPS in them are. Imagick keeps EXIF in the copies core makes.
-require_once '/smoke/exif-fixture.php';
 check( 'the plugin’s Imagick editor stands in for core’s', [ TravelSteps\ImagickEditor::class, 'WP_Image_Editor_GD' ] === apply_filters( 'wp_image_editors', [ 'WP_Image_Editor_Imagick', 'WP_Image_Editor_GD' ] ) );
 // Playground's Imagick reports its version as "@PACKAGE_VERSION@", so core's test() turns it down.
-class PlaygroundImagick extends TravelSteps\ImagickEditor {
+trait InPlayground {
 	public static function test( $args = [] ) {
 		return class_exists( 'Imagick', false );
 	}
 }
+class PlaygroundImagick extends TravelSteps\ImagickEditor {
+	use InPlayground;
+}
 class CoreImagick extends WP_Image_Editor_Imagick {
-	public static function test( $args = [] ) {
-		return class_exists( 'Imagick', false );
-	}
+	use InPlayground;
 }
 $editor = PlaygroundImagick::class;
 $use    = function () use ( &$editor ) {
 	return [ $editor ];
 };
 add_filter( 'wp_image_editors', $use, 20 );
-$upload_photo = function ( array $tags, int $width = 3000, int $height = 2000 ) use ( $jpeg, $as_photo, $photos_trip ) {
-	$_REQUEST = $as_photo;
-	$tmp      = wp_tempnam( 'IMG_2000.jpg' );
-	file_put_contents( $tmp, ts_tagged_jpeg( $jpeg( $width, $height ), $tags ) );
-	$id       = media_handle_sideload( [ 'name' => 'IMG_2000.jpg', 'tmp_name' => $tmp ], $photos_trip );
-	$_REQUEST = [];
-	return $id;
-};
+$upload_photo = fn( array $tags, int $width = 3000, int $height = 2000 ) => $upload( $as_photo, $photos_trip, $width, $height, $tags );
 $gps_in = function ( string $file ) {
 	$exif = @exif_read_data( $file );
 	return is_array( $exif ) && isset( $exif['GPSLatitude'] );
@@ -666,13 +660,13 @@ check( 'a copy with GPS in it is never served', is_wp_error( TravelSteps\Uploads
 $guard = fn( string $body ) => TravelSteps\Uploads::has_gps( [ 'body' => $body, 'type' => 'image/jpeg' ] );
 check( 'GPS guard: finds GPS in EXIF', $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), $doolin ) ) );
 check( 'GPS guard: finds GPS in XMP', $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), [ 'xmp_lat' => '53,1.314N', 'xmp_lon' => '9,22.752W' ] ) ) );
-check( 'GPS guard: doesn’t trust EXIF it can’t read', $guard( substr( $plain = $jpeg( 30, 20 ), 0, 2 ) . "\xFF\xE1\x00\x0AExif\0\0\xFF\xFF" . substr( $plain, 2 ) ) );
+check( 'GPS guard: doesn’t trust EXIF it can’t read', $guard( ts_app1( $jpeg( 30, 20 ), "Exif\0\0\xFF\xFF" ) ) );
 check( 'GPS guard: lets through a photo without EXIF, or with EXIF but no GPS', ! $guard( $jpeg( 30, 20 ) ) && ! $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), array_diff_key( $doolin, [ 'lat' => 1, 'lon' => 1 ] ) ) ) );
 
 $editor = PlaygroundImagick::class;
 $tagged = $upload_photo( $doolin );
 $meta   = get_post_meta( $tagged, TravelSteps\Uploads::META_EXIF, true );
-check( 'trip photo: capture time, offset, camera and size stored', is_array( $meta ) && [ '2025-05-01 14:03:22', '+01:00', 'Apple iPhone 15 Pro', 3000, 2000 ] === [ $meta['taken'], $meta['offset'], $meta['camera'], $meta['w'], $meta['h'] ], $meta );
+check( 'trip photo: capture time, offset and camera stored', is_array( $meta ) && [ '2025-05-01 14:03:22', '+01:00', 'Apple iPhone 15 Pro' ] === [ $meta['taken'], $meta['offset'], $meta['camera'] ], $meta );
 check( 'trip photo: its position stored', is_array( $meta ) && abs( $meta['lat'] - 53.0219 ) < 1e-6 && abs( $meta['lon'] + 9.3792 ) < 1e-6, $meta );
 $original = (string) wp_get_original_image_path( $tagged );
 check( 'trip photo: the original is untouched', $gps_in( $original ) && $original !== get_attached_file( $tagged ), $original );
@@ -680,7 +674,10 @@ check( 'trip photo: no copy core made has GPS', [] === array_filter( $derived( $
 $images = $served( $tagged );
 check( 'trip photo: every size is served, none of them the original', [] === array_filter( $images, 'is_wp_error' ) && ! in_array( $original, array_column( $images, 'file' ), true ), array_map( fn( $i ) => is_wp_error( $i ) ? $i->get_error_message() : basename( $i['file'] ?? 'bytes' ), $images ) );
 check( 'trip photo: no size served has GPS', [] === $served_gps( $images ), $served_gps( $images ) );
-check( 'trip photo: Imagick reads the same metadata as exif_read_data()', TravelSteps\Exif::parse( exif_read_data( $original ), 3000, 2000 ) === TravelSteps\Exif::parse( TravelSteps\Exif::imagick( $original ), 3000, 2000 ), TravelSteps\Exif::imagick( $original ) );
+check( 'trip photo: each of core’s copies served is checked once', count( (array) get_post_meta( $tagged, TravelSteps\Uploads::META_CHECKED, true ) ) === count( array_filter( array_column( $images, 'file' ) ) ), get_post_meta( $tagged, TravelSteps\Uploads::META_CHECKED, true ) );
+$turned = $upload_photo( $doolin + [ 'orientation' => 6 ], 900, 600 );
+check( 'trip photo turned on its side: WordPress has its size as displayed', [ 600, 900 ] === [ wp_get_attachment_metadata( $turned )['width'] ?? 0, wp_get_attachment_metadata( $turned )['height'] ?? 0 ], wp_get_attachment_metadata( $turned ) );
+check( 'trip photo: Imagick reads the same metadata as exif_read_data()', TravelSteps\Exif::parse( exif_read_data( $original ) ) === TravelSteps\Exif::parse( TravelSteps\Exif::imagick( $original ) ), TravelSteps\Exif::imagick( $original ) );
 
 add_filter( 'image_strip_meta', '__return_false' );
 $unstripped = $upload_photo( $doolin );
@@ -702,16 +699,16 @@ remove_filter( 'wp_image_editors', $use, 20 );
 
 // Editors can see a photo as soon as it's uploaded, before a sync lists it.
 $tagged_id = TravelSteps\Uploads::photo_id( $tagged );
-check( 'an editor can fetch a trip photo before it’s synced', TravelSteps\RestController::can_fetch( $photos_trip, $tagged_id ) );
+check( 'an editor can fetch a trip photo before it’s synced', '' !== TravelSteps\RestController::access( $photos_trip, $tagged_id ) );
 check( 'a trip photo is found by its id, under its own trip only', $tagged === TravelSteps\Uploads::attachment( $photos_trip, $tagged_id ) && 0 === TravelSteps\Uploads::attachment( $trip_id, $tagged_id ) );
-check( '…not through another trip', ! TravelSteps\RestController::can_fetch( $trip_id, $tagged_id ) );
-check( '…and, as only editors can see it, not into shared caches, though the trip is published', 'publish' === get_post_status( $photos_trip ) && ! TravelSteps\RestController::is_public( $photos_trip, $tagged_id ) );
+check( '…not through another trip', '' === TravelSteps\RestController::access( $trip_id, $tagged_id ) );
+check( '…and, as only editors can see it, not into shared caches, though the trip is published', 'publish' === get_post_status( $photos_trip ) && 'private' === TravelSteps\RestController::access( $photos_trip, $tagged_id ) );
 $cached_copy = "$base/travel-steps-cache/medium/" . substr( $tagged_id, 0, 2 ) . "/$tagged_id";
 TravelSteps\RestController::store_cached( $cached_copy, 'IMAGE', 'image/jpeg' );
 wp_update_attachment_metadata( $tagged, wp_get_attachment_metadata( $tagged ) );
-check( 'new sizes for a trip photo (regenerated, edited) replace its cached copies', ! file_exists( $cached_copy ) );
+check( 'new sizes for a trip photo (regenerated, edited) replace its cached copies and are checked again', ! file_exists( $cached_copy ) && '' === get_post_meta( $tagged, TravelSteps\Uploads::META_CHECKED, true ) );
 wp_set_current_user( 0 );
-check( 'visitors can’t fetch a trip photo sync hasn’t published', ! TravelSteps\RestController::can_fetch( $photos_trip, $tagged_id ) );
+check( 'visitors can’t fetch a trip photo sync hasn’t published', '' === TravelSteps\RestController::access( $photos_trip, $tagged_id ) );
 wp_set_current_user( 1 );
 
 // Deleting a trip for good deletes its photos; binning it doesn't.

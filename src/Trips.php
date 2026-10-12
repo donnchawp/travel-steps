@@ -295,19 +295,6 @@ class Trips {
 	}
 
 	/**
-	 * Asset ids the current user may fetch: for the public, only non-hidden photos of
-	 * published steps; editors get every synced photo.
-	 *
-	 * @return array<string, true>
-	 */
-	public static function viewable_photo_ids( \WP_Post $trip ): array {
-		if ( current_user_can( 'edit_post', $trip->ID ) ) {
-			return array_fill_keys( array_column( self::photos( $trip->ID ), 'id' ), true );
-		}
-		return self::public_photo_ids( $trip );
-	}
-
-	/**
 	 * Asset ids anyone may fetch, whoever is asking: non-hidden photos of a published
 	 * trip's published steps, and its chosen cover.
 	 *

@@ -25,6 +25,7 @@ class Uploads {
 	const REQUEST_FLAG  = 'travel_steps_photo';
 	const META_PHOTO_ID = '_ts_photo_id';
 	const META_EXIF     = '_ts_exif'; // When, where and with what it was taken: see Exif::parse().
+	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in, by file name.
 	const DIR           = 'travel-steps';
 	// The photo proxy's sizes, as Immich makes them: at least this on the short side.
 	const SHORT_PX = [
@@ -52,16 +53,7 @@ class Uploads {
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
 		add_action( 'before_delete_post', [ self::class, 'delete_trip' ] );
 		add_action( 'delete_attachment', [ self::class, 'forget_cached' ] );
-		// New sizes (regenerated, or the photo edited) replace copies the proxy made.
-		add_filter(
-			'wp_update_attachment_metadata',
-			function ( $data, $attachment_id ) {
-				self::forget_cached( (int) $attachment_id );
-				return $data;
-			},
-			10,
-			2
-		);
+		add_filter( 'wp_update_attachment_metadata', [ self::class, 'new_copies' ], 10, 2 );
 	}
 
 	/**
@@ -178,9 +170,7 @@ class Uploads {
 		update_post_meta( $attachment_id, self::META_PHOTO_ID, self::$photo_id );
 		self::$photo_id = null;
 		// Core hasn't made any copies yet, so this is the original.
-		$file = (string) get_attached_file( $attachment_id );
-		$size = wp_getimagesize( $file );
-		update_post_meta( $attachment_id, self::META_EXIF, Exif::parse( Exif::read( $file ), (int) ( $size[0] ?? 0 ), (int) ( $size[1] ?? 0 ), (string) ( $size['mime'] ?? '' ) ) );
+		update_post_meta( $attachment_id, self::META_EXIF, Exif::parse( Exif::read( (string) get_attached_file( $attachment_id ) ) ) );
 	}
 
 	public static function photo_id( int $attachment_id ): string {
@@ -212,7 +202,8 @@ class Uploads {
 	 * A trip photo at one of the photo proxy's sizes, never the original: the smallest
 	 * copy core made that's at least SHORT_PX on its short side, or one made at that
 	 * size from it (when it's more than twice that) or from the original (when there's
-	 * none), never enlarged. A copy with GPS in it is refused.
+	 * none), never enlarged. A copy with GPS in it is refused; each of core's is checked
+	 * once, and those the proxy makes are cached.
 	 *
 	 * @return array{file: string, type: string}|array{body: string, type: string}|\WP_Error
 	 */
@@ -224,19 +215,41 @@ class Uploads {
 				$fit = $copy;
 			}
 		}
+		$gps = new \WP_Error( 'travel_steps_photo_gps', 'A copy of the photo has its location in it.' );
 		if ( $fit && $fit['short'] <= 2 * $short ) {
-			$image = [
+			$image   = [
 				'file' => $fit['file'],
 				'type' => $fit['type'],
 			];
-		} else {
-			$from  = $fit['file'] ?? (string) wp_get_original_image_path( $attachment_id );
-			$image = is_readable( $from ) ? RestController::shrink_file( $from, $short ) : new \WP_Error( 'travel_steps_no_file', 'The photo’s file is missing.' );
+			$checked = get_post_meta( $attachment_id, self::META_CHECKED, true ) ?: [];
+			$name    = wp_basename( $fit['file'] );
+			if ( empty( $checked[ $name ] ) ) {
+				if ( self::has_gps( $image ) ) {
+					return $gps;
+				}
+				$checked[ $name ] = true;
+				update_post_meta( $attachment_id, self::META_CHECKED, $checked );
+			}
+			return $image;
 		}
-		if ( ! is_wp_error( $image ) && self::has_gps( $image ) ) {
-			return new \WP_Error( 'travel_steps_photo_gps', 'A copy of the photo has its location in it.' );
+		$from  = $fit['file'] ?? (string) wp_get_original_image_path( $attachment_id );
+		$image = is_readable( $from ) ? RestController::shrink_file( $from, $short ) : new \WP_Error( 'travel_steps_no_file', 'The photo’s file is missing.' );
+		return ! is_wp_error( $image ) && self::has_gps( $image ) ? $gps : $image;
+	}
+
+	/**
+	 * New sizes for a trip photo (made, regenerated, or the photo edited) replace the
+	 * copies the proxy made and need checking again.
+	 *
+	 * @param array|false $data
+	 * @return array|false
+	 */
+	public static function new_copies( $data, $attachment_id ) {
+		if ( '' !== self::photo_id( (int) $attachment_id ) ) {
+			self::forget_cached( (int) $attachment_id );
+			delete_post_meta( (int) $attachment_id, self::META_CHECKED );
 		}
-		return $image;
+		return $data;
 	}
 
 	/**
@@ -251,27 +264,25 @@ class Uploads {
 		if ( ! is_array( $meta ) || empty( $meta['width'] ) || empty( $meta['height'] ) ) {
 			return [];
 		}
-		$copies = [];
+		$sizes = $meta['sizes'] ?? [];
 		if ( ! empty( $meta['original_image'] ) ) {
-			$copies[] = [ $file, wp_check_filetype( $file )['type'], $meta['width'], $meta['height'] ];
+			$sizes[] = [
+				'file'      => wp_basename( $file ),
+				'mime-type' => wp_check_filetype( $file )['type'],
+			] + $meta;
 		}
-		foreach ( $meta['sizes'] ?? [] as $copy ) {
-			// Allowing a pixel for rounding.
-			if ( abs( $copy['width'] * $meta['height'] - $copy['height'] * $meta['width'] ) <= max( $meta['width'], $meta['height'] ) ) {
-				$copies[] = [ dirname( $file ) . '/' . $copy['file'], $copy['mime-type'], $copy['width'], $copy['height'] ];
-			}
-		}
-		$found = [];
-		foreach ( $copies as [ $path, $type, $width, $height ] ) {
-			if ( is_readable( $path ) ) {
-				$found[] = [
+		$copies = [];
+		foreach ( $sizes as $copy ) {
+			$path = dirname( $file ) . '/' . $copy['file'];
+			if ( wp_image_matches_ratio( $meta['width'], $meta['height'], $copy['width'], $copy['height'] ) && is_readable( $path ) ) {
+				$copies[] = [
 					'file'  => $path,
-					'type'  => (string) $type,
-					'short' => (int) min( $width, $height ),
+					'type'  => (string) $copy['mime-type'],
+					'short' => (int) min( $copy['width'], $copy['height'] ),
 				];
 			}
 		}
-		return $found;
+		return $copies;
 	}
 
 	/**

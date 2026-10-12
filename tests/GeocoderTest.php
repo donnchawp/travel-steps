@@ -76,4 +76,7 @@ check( '250 lookups across Ireland find towns', $named > 200, $named );
 check( '…and use under 8 MB', $used < 8 * 1024 * 1024, $used );
 printf( "     (%.2f s, %.1f MB)\n", microtime( true ) - $start, $used / 1048576 );
 
+check( 'the bundled data is available', ( new Geocoder() )->available() );
+check( 'missing data is reported, not mistaken for open sea', ! ( new Geocoder( __DIR__ . '/no-such-dir' ) )->available() );
+
 exit( $failures ? 1 : 0 );

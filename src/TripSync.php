@@ -22,21 +22,24 @@ class TripSync {
 
 	private ?DawarichClient $dawarich;
 	private ?PhotoSource $source;
+	private ?Geocoder $geocoder;
 
 	/**
 	 * By default, each trip uses its author's own Dawarich and photo source.
 	 *
 	 * @param DawarichClient|null $dawarich Location history for every trip.
 	 * @param PhotoSource|null    $source   Photos for every trip.
+	 * @param Geocoder|null       $geocoder Place names for uploads.
 	 */
-	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null ) {
+	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null, ?Geocoder $geocoder = null ) {
 		$this->dawarich = $dawarich;
 		$this->source   = $source;
+		$this->geocoder = $geocoder;
 	}
 
 	/**
-	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int}|\WP_Error
-	 *         left_out and unlocated only for a trip of uploads.
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int, no_places?: bool}|\WP_Error
+	 *         left_out, unlocated and no_places only for a trip of uploads.
 	 */
 	public function sync( int $trip_id ) {
 		// add_option() is an atomic insert, so a double-clicked sync can't create a day twice.
@@ -55,8 +58,8 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int}|\WP_Error
-	 *         left_out and unlocated only for a trip of uploads.
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int, no_places?: bool}|\WP_Error
+	 *         left_out, unlocated and no_places only for a trip of uploads.
 	 */
 	private function run( int $trip_id ) {
 		$uploads = Trips::uses_uploads( $trip_id );
@@ -99,6 +102,17 @@ class TripSync {
 		$photos  = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
 		$outside = $taken - count( $photos );
 		[ $photos, $at_home ] = $this->locate_photos( $photos, $points, $home );
+		// Uploads carry no place names, and some have a position only from Dawarich:
+		// name them all here, with one geocoder for the sync. Immich names its own.
+		$geocoder = $uploads ? ( $this->geocoder ?? new Geocoder() ) : null;
+		if ( $geocoder ) {
+			foreach ( $photos as &$photo ) {
+				if ( null !== $photo['lat'] && '' === $photo['city'] ) {
+					$photo = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
+				}
+			}
+			unset( $photo );
+		}
 
 		// No location history for these dates? Fall back to the photos' own positions.
 		$track = $points;
@@ -144,6 +158,7 @@ class TripSync {
 				'home'    => $at_home,
 			];
 			$result['unlocated'] = count( array_filter( $photos, fn( $p ) => null === $p['lat'] ) );
+			$result['no_places'] = ! $geocoder->available();
 		}
 		return $result;
 	}

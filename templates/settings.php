@@ -5,6 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 use TravelSteps\Settings;
+use TravelSteps\Uploads;
 
 $account    = Settings::account( get_current_user_id() );
 $settings   = Settings::all();
@@ -17,6 +18,9 @@ include __DIR__ . '/_header.php';
 		<p class="ts-notice is-error"><?php esc_html_e( 'Home location not saved: it needs both a latitude and a longitude in decimal degrees, like 51.8985 and -8.4756 (west and south are negative). You can also paste a "51.8985, -8.4756" pair from a map into either field. Everything else was saved.', 'travel-steps' ); ?></p>
 	<?php elseif ( isset( $_GET['saved'] ) ) : ?>
 		<p class="ts-notice"><?php esc_html_e( 'Settings saved.', 'travel-steps' ); ?></p>
+	<?php endif; ?>
+	<?php if ( ! Uploads::available() ) : ?>
+		<p class="ts-notice is-warning"><?php esc_html_e( 'This site’s PHP has no exif extension, so trips can only use Immich photos. Uploading needs it to read when and where photos were taken.', 'travel-steps' ); ?></p>
 	<?php endif; ?>
 
 	<form class="ts-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -41,7 +45,10 @@ include __DIR__ . '/_header.php';
 			<?php endif; ?>
 		</fieldset>
 		<fieldset>
-			<legend><?php esc_html_e( 'Immich', 'travel-steps' ); ?></legend>
+			<legend><?php esc_html_e( 'Immich (optional)', 'travel-steps' ); ?></legend>
+			<?php if ( Uploads::available() ) : ?>
+				<p class="ts-muted"><?php esc_html_e( 'Without a key, upload photos to your trips instead.', 'travel-steps' ); ?></p>
+			<?php endif; ?>
 			<label>
 				<span><?php esc_html_e( 'API key', 'travel-steps' ); ?></span>
 				<input type="password" name="immich_key" autocomplete="off" placeholder="<?php echo $account['immich_key'] ? esc_attr__( '•••••• saved – leave blank to keep', 'travel-steps' ) : ''; ?>">
@@ -113,7 +120,7 @@ include __DIR__ . '/_header.php';
 
 		<fieldset>
 			<legend><?php esc_html_e( 'Photos', 'travel-steps' ); ?></legend>
-			<p class="ts-muted"><?php esc_html_e( 'Favourite photos in Immich to choose what each step shows. A step with no favourites gets an automatic pick spread across your time there, one per burst. Pin or hide photos on the trip page to adjust. The rest stay behind "Show more". Star ratings are ignored.', 'travel-steps' ); ?></p>
+			<p class="ts-muted"><?php esc_html_e( 'Favourite photos in Immich to choose what each step shows. A step with no favourites gets an automatic pick spread across your time there, one per burst. Pin or hide photos on the trip page to adjust. The rest stay behind "Show more". Star ratings are ignored. For a trip with uploaded photos, every upload is shown; hide the ones you don’t want.', 'travel-steps' ); ?></p>
 			<label>
 				<span><?php esc_html_e( 'Photos to pick for steps without favourites', 'travel-steps' ); ?></span>
 				<input type="number" min="1" max="50" name="auto_pick" value="<?php echo esc_attr( $settings['auto_pick'] ); ?>">

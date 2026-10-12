@@ -29,13 +29,17 @@ class Geocoder {
 	}
 
 	/**
-	 * The nearest town and its country, or empty strings if there's none within MAX_DISTANCE_M.
+	 * The nearest town and its country, or empty strings if there's none within
+	 * MAX_DISTANCE_M, or the point isn't one (EXIF can hold NaN, from 0/0).
 	 *
 	 * @return array{city: string, country: string}
 	 */
 	public function nearest( float $lat, float $lon ): array {
-		$best   = null;
+		$best   = [ 'city' => '', 'code' => '' ];
 		$best_m = self::MAX_DISTANCE_M;
+		if ( ! is_finite( $lat ) || ! is_finite( $lon ) || abs( $lat ) > 90 || abs( $lon ) > 180 ) {
+			return [ 'city' => '', 'country' => '' ];
+		}
 		foreach ( self::tiles_near( $lat, $lon ) as $tile ) {
 			$rows = $this->rows( $tile );
 			if ( '' === $rows ) {
@@ -45,15 +49,12 @@ class Geocoder {
 				[ $name, $code, $place_lat, $place_lon ] = explode( "\t", $row );
 				$m = Geo::distance( $lat, $lon, (float) $place_lat, (float) $place_lon );
 				if ( $m <= $best_m ) {
-					$best   = [ $name, $code ];
+					$best   = [ 'city' => $name, 'code' => $code ];
 					$best_m = $m;
 				}
 			}
 		}
-		if ( ! $best ) {
-			return [ 'city' => '', 'country' => '' ];
-		}
-		return [ 'city' => $best[0], 'country' => $this->countries()[ $best[1] ] ?? '' ];
+		return [ 'city' => $best['city'], 'country' => $this->countries()[ $best['code'] ] ?? '' ];
 	}
 
 	/**
@@ -82,13 +83,13 @@ class Geocoder {
 		$d_lat = rad2deg( $angle );
 		$south = max( -90, $lat - $d_lat );
 		$north = min( 90, $lat + $d_lat );
-		// The widest longitude a great circle reaches within that distance.
-		$sin   = sin( $angle ) / max( 1e-9, cos( deg2rad( $lat ) ) );
-		$round = $south <= -90 || $north >= 90 || $sin >= 1;
-		$d_lon = $round ? 180 : rad2deg( asin( $sin ) );
+		// The widest longitude a great circle reaches within that distance; near a pole
+		// (where the circle takes in the pole itself), all of them.
+		$sin   = sin( $angle ) / cos( deg2rad( $lat ) );
+		$d_lon = $sin >= 1 ? 180 : rad2deg( asin( $sin ) );
 
 		$cols = [];
-		for ( $c = (int) floor( $lon - $d_lon ); $c <= (int) floor( $lon + $d_lon ) && count( $cols ) < 360; $c++ ) {
+		for ( $c = (int) floor( $lon - $d_lon ); $c <= (int) floor( $lon + $d_lon ); $c++ ) {
 			$cols[ self::col( $c ) ] = true;
 		}
 		$tiles = [];
@@ -104,7 +105,7 @@ class Geocoder {
 		if ( isset( $this->tiles[ $tile ] ) ) {
 			return $this->tiles[ $tile ];
 		}
-		$this->index  ??= @fopen( $this->dir . '/index.bin', 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$this->index  ??= @fopen( $this->dir . '/index.dat', 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 		$this->places ??= @fopen( $this->dir . '/places.tsv', 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 		$rows = '';
 		if ( $this->index && $this->places && 0 === fseek( $this->index, 4 * $tile ) ) {

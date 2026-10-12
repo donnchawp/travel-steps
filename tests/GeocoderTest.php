@@ -21,15 +21,23 @@ $r = $geo->nearest( 52.1409, -10.2689 );
 check( 'Dingle is Dingle', [ 'city' => 'Dingle', 'country' => 'Ireland' ] === $r, $r );
 $r = $geo->nearest( 66.3232, -179.1184 );
 check( 'a town just east of 180° is found', [ 'city' => 'Egvekinot', 'country' => 'Russia' ] === $r, $r );
-$r = $geo->nearest( 0.0, -30.0 );
-check( 'mid-Atlantic has no name', [ 'city' => '', 'country' => '' ] === $r, $r );
+$r = $geo->nearest( 48.8566, 2.3522 );
+check( 'central Paris is Paris, not an arrondissement', [ 'city' => 'Paris', 'country' => 'France' ] === $r, $r );
+$r = $geo->nearest( 43.2965, 5.3698 );
+check( 'central Marseille is Marseille', [ 'city' => 'Marseille', 'country' => 'France' ] === $r, $r );
+$none = [ 'city' => '', 'country' => '' ];
+$r    = $geo->nearest( 0.0, -30.0 );
+check( 'mid-Atlantic has no name', $none === $r, $r );
 $r = [ $geo->nearest( 10.0, 180.0 ), $geo->nearest( 10.0, -180.0 ), $geo->nearest( 90.0, 0.0 ), $geo->nearest( -90.0, 45.0 ) ];
-check( 'the 180° line and the poles are quiet', [ [ 'city' => '', 'country' => '' ] ] === array_values( array_unique( $r, SORT_REGULAR ) ), $r );
+check( 'the 180° line and the poles are quiet', [ $none, $none, $none, $none ] === $r, $r );
+$r = [ $geo->nearest( NAN, 0.0 ), $geo->nearest( 0.0, INF ), $geo->nearest( 95.0, 0.0 ), $geo->nearest( 53.0, 350.0 ) ];
+check( 'NaN, infinity and out-of-range points have no name', [ $none, $none, $none, $none ] === $r, $r );
 
 // A lookup reads only the tiles around the point.
 $tiles = Geocoder::tiles_near( 53.0158, -9.3769 );
 check( 'Doolin needs at most 4 tiles, including its own', count( $tiles ) <= 4 && in_array( Geocoder::tile( 53.0158, -9.3769 ), $tiles, true ), $tiles );
-check( 'tiles further north are wider, so a few more', count( Geocoder::tiles_near( 70.5, 25.5 ) ) <= 6, Geocoder::tiles_near( 70.5, 25.5 ) );
+$tiles = Geocoder::tiles_near( 70.5, 25.5 );
+check( 'tiles further north are wider, so a few more', count( $tiles ) <= 6, $tiles );
 $tiles = Geocoder::tiles_near( 66.3, 179.99 );
 check( 'tiles wrap across 180°', in_array( Geocoder::tile( 66.3, 179.5 ), $tiles, true ) && in_array( Geocoder::tile( 66.3, -179.5 ), $tiles, true ), $tiles );
 check( 'a tile at the pole goes all the way round', 360 === count( Geocoder::tiles_near( 89.9, 0 ) ) );
@@ -49,7 +57,10 @@ array_map( 'unlink', glob( "$dir/*" ) );
 rmdir( $dir );
 
 // A trip's worth of lookups: tiles are kept, and memory stays small.
-$geo    = new Geocoder();
+$geo = new Geocoder();
+if ( function_exists( 'memory_reset_peak_usage' ) ) {
+	memory_reset_peak_usage(); // So an earlier peak can't hide what the lookups use.
+}
 $before = memory_get_usage();
 $start  = microtime( true );
 $named  = 0;

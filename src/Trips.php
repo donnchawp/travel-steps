@@ -23,9 +23,9 @@ class Trips {
 	const META_ALBUM  = '_ts_album';       // Immich album id (optional).
 	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon].
 	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
-	const META_HIDDEN = '_ts_hidden';      // array of hidden Immich asset ids.
-	const META_PINNED = '_ts_pinned';      // array of Immich asset ids always shown.
-	const META_COVER  = '_ts_cover';       // Immich asset id chosen for the header, else automatic.
+	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.
+	const META_PINNED = '_ts_pinned';      // array of photo ids always shown.
+	const META_COVER  = '_ts_cover';       // photo id chosen for the header, else automatic.
 	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries.
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.

@@ -73,7 +73,7 @@ Uploaded trip photos are private attachments: they're kept out of the Media Libr
 
 Leaflet (1.9.4, BSD-2-Clause) ships with the plugin in `assets/vendor/leaflet/`, so no third-party script runs on trip pages. Map tiles still load from OpenStreetMap's tile servers, which see visitors' IP addresses.
 
-Place names for naming spots offline ship in `data/geonames/`: towns of 500 people or more and country names from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). `make geonames` downloads them again and rebuilds the files.
+Place names for naming spots offline ship in `data/geonames/`: towns of 500 people or more and country names from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), trimmed to names, countries and positions and filtered (no neighbourhoods, historical places or numbered arrondissements). `make geonames` downloads them again and rebuilds the files.
 
 ## Pages
 

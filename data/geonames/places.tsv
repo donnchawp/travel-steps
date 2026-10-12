@@ -142643,22 +142643,6 @@ Alleins	FR	43.7039	5.162
 Allauch	FR	43.3357	5.482
 Aix-en-Provence	FR	43.5283	5.4497
 Carnoux-en-Provence	FR	43.2564	5.5644
-Marseille 01	FR	43.2981	5.3841
-Marseille 02	FR	43.2966	5.3703
-Marseille 03	FR	43.3026	5.3758
-Marseille 04	FR	43.3021	5.4014
-Marseille 05	FR	43.2955	5.4006
-Marseille 06	FR	43.2876	5.3792
-Marseille 07	FR	43.2829	5.3602
-Marseille 08	FR	43.2708	5.3821
-Marseille 10	FR	43.2789	5.4152
-Marseille 09	FR	43.2543	5.4057
-Marseille 11	FR	43.2907	5.4384
-Marseille 12	FR	43.2961	5.4362
-Marseille 13	FR	43.3186	5.4084
-Marseille 14	FR	43.3445	5.38
-Marseille 15	FR	43.3722	5.3539
-Marseille 16	FR	43.3598	5.3342
 Vins-sur-Caramy	FR	43.4342	6.1419
 Villecroze	FR	43.5822	6.2759
 Vidauban	FR	43.4272	6.4319
@@ -181225,7 +181209,6 @@ Vaux-le-Pénil	FR	48.528	2.6917
 Vaujours	FR	48.9302	2.5711
 Vauhallan	FR	48.7335	2.2028
 Vaugrigneuse	FR	48.6026	2.1222
-Paris 15 Vaugirard	FR	48.8412	2.3003
 Vaucresson	FR	48.8408	2.1565
 Varennes-sur-Seine	FR	48.373	2.9257
 Varennes-Jarcy	FR	48.6791	2.5615
@@ -181248,7 +181231,6 @@ Thoury-Férottes	FR	48.2942	2.9415
 Thorigny-sur-Marne	FR	48.8869	2.7181
 Thomery	FR	48.4072	2.7885
 Thiais	FR	48.765	2.3961
-Paris 03 Temple	FR	48.8637	2.3615
 Suresnes	FR	48.8714	2.2293
 Sucy-en-Brie	FR	48.7687	2.5347
 Stains	FR	48.95	2.3833
@@ -181323,7 +181305,6 @@ Roissy-en-Brie	FR	48.7916	2.6475
 Roinville	FR	48.5313	2.0425
 Rocquencourt	FR	48.8378	2.1023
 Ris-Orangis	FR	48.6511	2.4141
-Paris 12 Reuilly	FR	48.8412	2.3876
 Recloses	FR	48.3466	2.643
 Réau	FR	48.6102	2.624
 Quincy-Voisins	FR	48.9011	2.8756
@@ -181334,7 +181315,6 @@ Puiseaux	FR	48.0923	2.0597
 Pringy	FR	48.5182	2.5633
 Presles-en-Brie	FR	48.7153	2.7411
 Précy-sur-Marne	FR	48.9308	2.7745
-Paris 11 Popincourt	FR	48.8574	2.3795
 Ponthierry	FR	48.5337	2.5442
 Pontcarré	FR	48.7977	2.7051
 Pomponne	FR	48.8813	2.6823
@@ -181349,15 +181329,12 @@ Périgny	FR	48.6966	2.5554
 Penchard	FR	48.9865	2.861
 Pecqueuse	FR	48.6468	2.0479
 Paucourt	FR	48.0378	2.7953
-Paris 16 Passy	FR	48.8637	2.2769
 Paris	FR	48.8534	2.3488
 Paray-Vieille-Poste	FR	48.714	2.3628
 Pantin	FR	48.8944	2.4094
-Paris 05 Panthéon	FR	48.8448	2.3471
 Pannes	FR	48.0194	2.6676
 Pamfou	FR	48.4611	2.8702
 Palaiseau	FR	48.7183	2.2498
-Paris 07 Palais-Bourbon	FR	48.8565	2.321
 Ozouer-le-Voulgis	FR	48.6601	2.7741
 Ozoir-la-Ferrière	FR	48.767	2.6687
 Outarville	FR	48.2139	2.022
@@ -181366,10 +181343,8 @@ Ormoy-la-Rivière	FR	48.405	2.1498
 Ormoy	FR	48.5749	2.4521
 Ormesson-sur-Marne	FR	48.7863	2.5447
 Orly	FR	48.7479	2.3925
-Paris 09 Opéra	FR	48.8718	2.3399
 Oncy-sur-École	FR	48.3833	2.4667
 Ollainville	FR	48.5908	2.2194
-Paris 14 Observatoire	FR	48.8331	2.3264
 Nozay	FR	48.6592	2.2415
 Nonville	FR	48.2825	2.7931
 Noisy-sur-École	FR	48.367	2.508
@@ -181426,7 +181401,6 @@ Meudon	FR	48.8138	2.235
 Messy	FR	48.9667	2.7
 Méréville	FR	48.3148	2.0861
 Mennecy	FR	48.569	2.4438
-Paris 20 Ménilmontant	FR	48.8646	2.3984
 Melun	FR	48.5457	2.6536
 Meaux	FR	48.9601	2.8789
 Maurecourt	FR	48.9961	2.0616
@@ -181451,7 +181425,6 @@ Maincy	FR	48.5498	2.7002
 Magny-les-Hameaux	FR	48.7435	2.0615
 Magny-le-Hongre	FR	48.8633	2.8155
 Machault	FR	48.4555	2.8314
-Paris 06 Luxembourg	FR	48.8493	2.33
 Lumigny-Nesles-Ormeaux	FR	48.7333	2.95
 Louveciennes	FR	48.8612	2.1146
 Lorrez-le-Bocage-Préaux	FR	48.2333	2.9
@@ -181537,7 +181510,6 @@ Issy-les-Moulineaux	FR	48.821	2.2772
 Isles-lès-Villenoy	FR	48.9125	2.8272
 Igny	FR	48.7444	2.2243
 Houilles	FR	48.9216	2.1926
-Paris 04 Hôtel-de-Ville	FR	48.8601	2.3507
 Héricy	FR	48.4485	2.7645
 Herblay-sur-Seine	FR	48.9899	2.1699
 Guyancourt	FR	48.7733	2.0739
@@ -181560,7 +181532,6 @@ Gournay-sur-Marne	FR	48.8622	2.5845
 Gonesse	FR	48.9869	2.4489
 Gometz-le-Châtel	FR	48.6784	2.1379
 Gometz-la-Ville	FR	48.6722	2.1287
-Paris 13 Gobelins	FR	48.8322	2.3561
 Gironville-sur-Essonne	FR	48.3667	2.3833
 Girolles	FR	48.0612	2.7153
 Gif-sur-Yvette	FR	48.6833	2.1333
@@ -181607,9 +181578,7 @@ Ermont	FR	48.99	2.258
 Épinay-sur-Orge	FR	48.6734	2.3107
 Épinay-sous-Sénart	FR	48.6897	2.5119
 Enghien-les-Bains	FR	48.9667	2.3167
-Paris 10 Entrepôt	FR	48.8709	2.3561
 Émerainville	FR	48.8128	2.6214
-Paris 08 Élysée	FR	48.8763	2.3183
 Égreville	FR	48.1761	2.8728
 Égly	FR	48.5783	2.2242
 Écuelles	FR	48.3564	2.8234
@@ -181712,8 +181681,6 @@ Carrières-sur-Seine	FR	48.9069	2.1792
 Carrières-sous-Poissy	FR	48.9495	2.0407
 Cannes-Écluse	FR	48.363	2.9875
 Cachan	FR	48.7963	2.3366
-Paris 19 Buttes-Chaumont	FR	48.8817	2.3822
-Paris 18 Buttes-Montmartre	FR	48.8925	2.3444
 Buthiers	FR	48.2871	2.4316
 Bussy-Saint-Martin	FR	48.849	2.6904
 Bussy-Saint-Georges	FR	48.841	2.7017
@@ -181736,7 +181703,6 @@ Bouville	FR	48.5664	2.0712
 Boutigny-sur-Essonne	FR	48.4333	2.3833
 Boutigny	FR	48.9205	2.93
 Boussy-Saint-Antoine	FR	48.691	2.5306
-Paris 02 Bourse	FR	48.8655	2.3426
 Bourron-Marlotte	FR	48.3405	2.7004
 Bourg-la-Reine	FR	48.7789	2.3178
 Bouray-sur-Juine	FR	48.5198	2.3
@@ -181771,7 +181737,6 @@ Beaumont-du-Gâtinais	FR	48.1386	2.4791
 Bazoches-sur-le-Betz	FR	48.133	2.9883
 Bazoches-les-Gallerandes	FR	48.1654	2.0432
 Baulne	FR	48.493	2.3623
-Paris 17 Batignolles-Monceau	FR	48.8835	2.3219
 Barbizon	FR	48.4435	2.6031
 Ballancourt-sur-Essonne	FR	48.5253	2.386
 Ballainvilliers	FR	48.6748	2.3006
@@ -181808,7 +181773,6 @@ Aigremont	FR	48.9045	2.0192
 Achères-la-Forêt	FR	48.3546	2.5704
 Achères	FR	48.9612	2.0688
 Ablon-sur-Seine	FR	48.7273	2.4269
-Paris 01 Louvre	FR	48.8592	2.3417
 Les Ulis	FR	48.6817	2.1694
 Saint-Quentin-en-Yvelines	FR	48.7719	2.0189
 Marne La Vallée	FR	48.8358	2.6424

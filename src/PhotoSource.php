@@ -12,11 +12,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 interface PhotoSource {
 	/**
-	 * Photos taken between two unix timestamps, or all of the trip's own photos (an
-	 * Immich album) whenever they were taken: sync keeps the ones on the trip's days.
+	 * Photos taken between two unix timestamps, or all of the trip's own photos (such
+	 * as an album) whenever they were taken: sync keeps the ones on the trip's days.
 	 *
 	 * Each row is:
-	 * - id:      string, a 36-character UUID (the thumbnail cache is keyed by it alone);
+	 * - id:      string, a lowercase 36-character UUID, as the photo route accepts (the
+	 *            thumbnail cache is keyed by it alone);
 	 * - t:       int, unix time it was taken;
 	 * - day:     string, Y-m-d where it was taken;
 	 * - lat/lon: float|null;

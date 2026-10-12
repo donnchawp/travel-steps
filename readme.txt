@@ -46,7 +46,7 @@ Syncing a trip makes your WordPress server ask your Immich server for the photos
 
 == Credits ==
 
-Place names come from [GeoNames](https://www.geonames.org) (towns of 500 people or more, and country names), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). They ship with the plugin, so naming a place sends nothing anywhere.
+Place names come from [GeoNames](https://www.geonames.org) (towns of 500 people or more, and country names), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), trimmed to names, countries and positions and filtered (no neighbourhoods, historical places or numbered arrondissements). They ship with the plugin, so naming a place sends nothing anywhere.
 
 == Changelog ==
 

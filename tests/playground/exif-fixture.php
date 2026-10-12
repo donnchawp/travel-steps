@@ -13,8 +13,7 @@ function ts_tagged_jpeg( string $jpeg, array $tags ): string {
 		$xmp  = '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
 			. '<rdf:Description rdf:about="" xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="' . $tags['xmp_lat'] . '" exif:GPSLongitude="' . $tags['xmp_lon'] . '"/>'
 			. '</rdf:RDF></x:xmpmeta>';
-		$app1 = "http://ns.adobe.com/xap/1.0/\0" . $xmp;
-		$jpeg = substr( $jpeg, 0, 2 ) . "\xFF\xE1" . pack( 'n', strlen( $app1 ) + 2 ) . $app1 . substr( $jpeg, 2 );
+		$jpeg = ts_app1( $jpeg, "http://ns.adobe.com/xap/1.0/\0" . $xmp );
 	}
 	$ifd0 = [];
 	$exif = [];
@@ -62,8 +61,14 @@ function ts_tagged_jpeg( string $jpeg, array $tags ): string {
 		$ifd0[0x8825] = [ 4, $gps_at ];
 	}
 	$tiff = "II*\0" . pack( 'V', 8 ) . ts_ifd( $ifd0, 8 ) . $exif_ifd . ( $gps ? ts_ifd( $gps, $gps_at ) : '' );
-	$app1 = "Exif\0\0" . $tiff;
-	return substr( $jpeg, 0, 2 ) . "\xFF\xE1" . pack( 'n', strlen( $app1 ) + 2 ) . $app1 . substr( $jpeg, 2 );
+	return ts_app1( $jpeg, "Exif\0\0" . $tiff );
+}
+
+/**
+ * A JPEG with an APP1 segment (where EXIF and XMP go) added after its start marker.
+ */
+function ts_app1( string $jpeg, string $payload ): string {
+	return substr( $jpeg, 0, 2 ) . "\xFF\xE1" . pack( 'n', strlen( $payload ) + 2 ) . $payload . substr( $jpeg, 2 );
 }
 
 /**

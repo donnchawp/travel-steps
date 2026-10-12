@@ -8,17 +8,15 @@ namespace TravelSteps;
  */
 class Exif {
 	/**
-	 * @param array  $exif  Tags by name, as exif_read_data() gives them (or from_properties()).
-	 * @param int    $width The image's width and height as decoded.
-	 * @param string $type  Its MIME type. HEIF keeps its rotation in the file, which
-	 *                      decoders apply, so its size is already as displayed and its
-	 *                      EXIF orientation is ignored, as the format says to.
-	 * @return array{taken: string, offset: string, lat: ?float, lon: ?float, camera: string, w: int, h: int}
+	 * The photo's size isn't here: WordPress's attachment metadata has it as displayed,
+	 * once core has turned the copies (or the decoder has, for HEIF).
+	 *
+	 * @param array $exif Tags by name, as exif_read_data() gives them (or from_properties()).
+	 * @return array{taken: string, offset: string, lat: ?float, lon: ?float, camera: string}
 	 *         taken is the camera's wall-clock time, Y-m-d H:i:s, or empty; offset is
-	 *         its UTC offset, such as +01:00, or empty if the camera didn't record one;
-	 *         w and h are as displayed.
+	 *         its UTC offset, such as +01:00, or empty if the camera didn't record one.
 	 */
-	public static function parse( array $exif, int $width, int $height, string $type = '' ): array {
+	public static function parse( array $exif ): array {
 		$kind  = isset( $exif['DateTimeOriginal'] ) ? 'Original' : 'Digitized';
 		$taken = self::time( $exif[ 'DateTime' . $kind ] ?? '' );
 		$lat   = self::coordinate( $exif['GPSLatitude'] ?? null, $exif['GPSLatitudeRef'] ?? '', 90 );
@@ -31,18 +29,12 @@ class Exif {
 		$offset = self::text( $exif[ 'OffsetTime' . $kind ] ?? '' );
 		$make   = self::text( $exif['Make'] ?? '' );
 		$model  = self::text( $exif['Model'] ?? '' );
-		// Orientations 5 to 8 turn the photo on its side.
-		if ( 0 !== strpos( $type, 'image/hei' ) && in_array( (int) ( $exif['Orientation'] ?? 1 ), [ 5, 6, 7, 8 ], true ) ) {
-			[ $width, $height ] = [ $height, $width ];
-		}
 		return [
 			'taken'  => $taken,
 			'offset' => '' !== $taken && preg_match( '/^[+-]\d\d:\d\d$/', $offset ) ? $offset : '',
 			'lat'    => $lat,
 			'lon'    => $lon,
 			'camera' => '' !== $make && 0 !== stripos( $model, $make ) ? trim( "$make $model" ) : $model,
-			'w'      => $width,
-			'h'      => $height,
 		];
 	}
 
@@ -90,9 +82,10 @@ class Exif {
 	}
 
 	private static function time( $value ): string {
-		$time = \DateTimeImmutable::createFromFormat( '!Y:m:d H:i:s', self::text( $value ) );
+		$text = self::text( $value );
+		$time = \DateTimeImmutable::createFromFormat( '!Y:m:d H:i:s', $text );
 		// Rolled-over dates (month 13, 99 o'clock) and all-zero ones are no time.
-		return $time && $time->format( 'Y:m:d H:i:s' ) === self::text( $value ) && (int) $time->format( 'Y' ) > 0
+		return $time && $time->format( 'Y:m:d H:i:s' ) === $text && (int) $time->format( 'Y' ) > 0
 			? $time->format( 'Y-m-d H:i:s' )
 			: '';
 	}

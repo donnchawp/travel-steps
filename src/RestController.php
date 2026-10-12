@@ -173,23 +173,25 @@ class RestController {
 	}
 
 	/**
-	 * Whether the current user may fetch a photo through a trip: the public, photos
-	 * shown on its published steps; editors, anything synced, and the trip's managers
-	 * any photo uploaded to it, synced or not, so they can see what they've added.
+	 * Who may fetch a photo through a trip: "public" for one anyone may see, which
+	 * shared caches may keep; "private" for one only the current user may (for editors,
+	 * any synced photo; for the trip's managers, any photo uploaded to it, synced or
+	 * not); "" if they may not.
 	 */
-	public static function can_fetch( int $trip_id, string $asset ): bool {
+	public static function access( int $trip_id, string $asset ): string {
 		$trip = get_post( $trip_id );
-		return $trip && ( isset( Trips::viewable_photo_ids( $trip )[ $asset ] )
-			|| ( Trips::can_edit_trip( $trip_id ) && Uploads::attachment( $trip_id, $asset ) ) );
-	}
-
-	/**
-	 * Whether a photo is one anyone may see, so shared caches may keep it. Editors fetch
-	 * others too (drafts, unsynced uploads), which mustn't be cached for everyone.
-	 */
-	public static function is_public( int $trip_id, string $asset ): bool {
-		$trip = get_post( $trip_id );
-		return $trip && isset( Trips::public_photo_ids( $trip )[ $asset ] ) && ! in_array( $asset, Trips::hidden( $trip_id ), true );
+		if ( ! $trip ) {
+			return '';
+		}
+		if ( isset( Trips::public_photo_ids( $trip )[ $asset ] ) ) {
+			// Only a chosen cover can be hidden and public.
+			return in_array( $asset, Trips::hidden( $trip_id ), true ) ? 'private' : 'public';
+		}
+		if ( ! current_user_can( 'edit_post', $trip_id ) ) {
+			return '';
+		}
+		$synced = in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true );
+		return $synced || ( Trips::can_edit_trip( $trip_id ) && Uploads::attachment( $trip_id, $asset ) ) ? 'private' : '';
 	}
 
 	/**
@@ -204,10 +206,11 @@ class RestController {
 		$asset   = (string) $request['asset'];
 		$size    = (string) $request['size'];
 
-		if ( ! self::can_fetch( $trip_id, $asset ) ) {
+		$access = self::access( $trip_id, $asset );
+		if ( '' === $access ) {
 			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
 		}
-		$is_public = self::is_public( $trip_id, $asset );
+		$is_public = 'public' === $access;
 		// An asset's thumbnail doesn't change, so its tag needn't depend on the cache file.
 		$etag = '"' . md5( $asset . '/' . $size ) . '"';
 		// Revalidation runs the access check above every time, but costs no image bytes.

@@ -25,7 +25,7 @@ class ImagickEditor extends \WP_Image_Editor_Imagick {
 	protected function _save( $image, $filename = null, $mime_type = null ) {
 		if ( Uploads::is_trip_file( (string) $this->file ) ) {
 			try {
-				foreach ( array_keys( $image->getImageProfiles( '*', true ) ) as $profile ) {
+				foreach ( $image->getImageProfiles( '*', false ) as $profile ) {
 					if ( ! in_array( $profile, self::KEEP_PROFILES, true ) ) {
 						$image->removeImageProfile( $profile );
 					}

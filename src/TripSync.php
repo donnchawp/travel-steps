@@ -62,12 +62,12 @@ class TripSync {
 	 *         left_out, unlocated and no_places only for a trip of uploads.
 	 */
 	private function run( int $trip_id ) {
-		$uploads = Trips::uses_uploads( $trip_id );
-		$range   = Trips::range( $trip_id );
-		// Only a trip of uploads that's missing a date takes it from its photos: dates
-		// that are both set but backwards are the author's to fix.
-		$missing = '' === (string) get_post_meta( $trip_id, Trips::META_START, true ) || '' === (string) get_post_meta( $trip_id, Trips::META_END, true );
-		if ( ! $range && ! ( $uploads && $missing ) ) {
+		$first = (string) get_post_meta( $trip_id, Trips::META_START, true );
+		$last  = (string) get_post_meta( $trip_id, Trips::META_END, true );
+		$range = Trips::range( $trip_id );
+		// Dates that are both set but backwards are the author's to fix. A missing one
+		// is up to the source: uploads can supply it, Immich can't.
+		if ( ! $range && '' !== $first && '' !== $last ) {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 		}
 
@@ -77,14 +77,15 @@ class TripSync {
 		if ( is_wp_error( $photos ) ) {
 			return $photos;
 		}
-		$all     = count( $photos );
-		$photos  = $this->resolve_times( $photos );
-		$untimed = $all - count( $photos );
+		$untimed = count( array_filter( $photos, fn( $p ) => null === $p['local'] ) );
+		$photos  = $this->timed_in_order( $photos );
 		if ( ! $range ) {
-			$range = $this->dates_from( $trip_id, $photos, $untimed );
-			if ( is_wp_error( $range ) ) {
-				return $range;
+			$days = $this->dates_from( $trip_id, $first, $last, $photos, $untimed );
+			if ( is_wp_error( $days ) ) {
+				return $days;
 			}
+			[ $first, $last ] = $days;
+			$range            = Trips::range( $trip_id );
 		}
 		[ $start, $end ] = $range;
 		// The trip's author's: their location history, and their home to leave out.
@@ -99,16 +100,15 @@ class TripSync {
 		// the morning you leave.
 		$points = Geo::exclude_near( Geo::drop_glitches( $points ), $home );
 
-		$first   = (string) get_post_meta( $trip_id, Trips::META_START, true );
-		$last    = (string) get_post_meta( $trip_id, Trips::META_END, true );
-		$taken   = count( $photos );
-		$photos  = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
-		$outside = $taken - count( $photos );
-		[ $photos, $at_home ] = $this->locate_photos( $photos, $points, $home );
-		// Uploads carry no place names, and some have a position only from Dawarich:
-		// name them all here, with one geocoder for the sync. Immich names its own.
-		$geocoder = $uploads ? ( $this->geocoder ?? new Geocoder() ) : null;
-		if ( $geocoder ) {
+		$on_days = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
+		$outside = count( $photos ) - count( $on_days );
+		[ $photos, $at_home ] = $this->locate_photos( $on_days, $points, $home );
+		$uploads = Trips::uses_uploads( $trip_id );
+		if ( $uploads ) {
+			// Uploads carry no place names, and some have a position only from Dawarich:
+			// name them all here, with one geocoder for the sync.
+			$geocoder  = $this->geocoder ?? new Geocoder();
+			$no_places = ! $geocoder->available();
 			foreach ( $photos as &$photo ) {
 				if ( null !== $photo['lat'] && '' === $photo['city'] ) {
 					$photo = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
@@ -161,7 +161,7 @@ class TripSync {
 				'home'    => $at_home,
 			];
 			$result['unlocated'] = count( array_filter( $photos, fn( $p ) => null === $p['lat'] ) );
-			$result['no_places'] = ! $geocoder->available();
+			$result['no_places'] = $no_places;
 		}
 		return $result;
 	}
@@ -170,37 +170,34 @@ class TripSync {
 	 * Every source's rows, with exact times in time order. Photos that don't say when
 	 * they were taken can't go on a day, so they're left out.
 	 */
-	private function resolve_times( array $photos ): array {
+	private function timed_in_order( array $photos ): array {
 		$photos = Days::resolve_times( array_values( array_filter( $photos, fn( $p ) => null !== $p['local'] ) ), wp_timezone() );
 		usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
 		return $photos;
 	}
 
 	/**
-	 * A trip of uploads without dates takes them from its photos: the first and last
+	 * A trip of uploads missing a date takes it from its photos: the first or last
 	 * local day. A date already set is kept.
 	 *
-	 * @return array{0: int, 1: int}|\WP_Error
+	 * @return array{0: string, 1: string}|\WP_Error The first and last day.
 	 */
-	private function dates_from( int $trip_id, array $photos, int $untimed ) {
+	private function dates_from( int $trip_id, string $first, string $last, array $photos, int $untimed ) {
 		if ( ! $photos ) {
 			return $untimed
 				? new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) )
 				: new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) );
 		}
 		$days  = array_column( $photos, 'day' );
-		$dates = [
-			Trips::META_START => (string) get_post_meta( $trip_id, Trips::META_START, true ) ?: min( $days ),
-			Trips::META_END   => (string) get_post_meta( $trip_id, Trips::META_END, true ) ?: max( $days ),
-		];
+		$first = $first ?: min( $days );
+		$last  = $last ?: max( $days );
 		// A date typed after every photo (or before), paired with one from the photos, is backwards.
-		if ( $dates[ Trips::META_START ] > $dates[ Trips::META_END ] ) {
+		if ( $first > $last ) {
 			return new \WP_Error( 'travel_steps_photos_outside', __( 'None of the trip’s photos were taken between its dates: change or clear them.', 'travel-steps' ) );
 		}
-		foreach ( $dates as $key => $day ) {
-			update_post_meta( $trip_id, $key, $day );
-		}
-		return Trips::range( $trip_id ) ?? new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+		update_post_meta( $trip_id, Trips::META_START, $first );
+		update_post_meta( $trip_id, Trips::META_END, $last );
+		return [ $first, $last ];
 	}
 
 	/**

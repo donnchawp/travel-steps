@@ -419,6 +419,27 @@ class Uploads {
 	}
 
 	/**
+	 * The attachment ids of the photos uploaded to a trip, oldest first.
+	 *
+	 * @param string[] $statuses
+	 * @return int[]
+	 */
+	public static function trip_photos( int $trip_id, array $statuses = [ 'private', 'inherit' ] ): array {
+		return get_posts(
+			[
+				'post_type'      => 'attachment',
+				'post_parent'    => $trip_id,
+				'post_status'    => $statuses,
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'orderby'        => 'ID',
+				'order'          => 'ASC',
+				'meta_key'       => self::META_PHOTO_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			]
+		);
+	}
+
+	/**
 	 * Deleting a trip for good deletes its photos, their sizes and cached copies.
 	 * Binning it deletes nothing.
 	 */
@@ -426,18 +447,8 @@ class Uploads {
 		if ( Trips::TRIP !== get_post_type( $post_id ) ) {
 			return;
 		}
-		$photos = get_posts(
-			[
-				'post_type'      => 'attachment',
-				'post_parent'    => $post_id,
-				// Binned too, if media goes to the bin (MEDIA_TRASH).
-				'post_status'    => [ 'private', 'inherit', 'trash' ],
-				'posts_per_page' => -1,
-				'fields'         => 'ids',
-				'meta_key'       => self::META_PHOTO_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-			]
-		);
-		foreach ( $photos as $attachment_id ) {
+		// Binned too, if media goes to the bin (MEDIA_TRASH).
+		foreach ( self::trip_photos( $post_id, [ 'private', 'inherit', 'trash' ] ) as $attachment_id ) {
 			wp_delete_attachment( $attachment_id, true );
 		}
 		$dir = wp_get_upload_dir()['basedir'] . self::subdir( $post_id );

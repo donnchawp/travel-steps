@@ -63,6 +63,8 @@ Steps and places are in core REST for the block editor, but a step is only reada
 
 Leaflet (1.9.4, BSD-2-Clause) ships with the plugin in `assets/vendor/leaflet/`, so no third-party script runs on trip pages. Map tiles still load from OpenStreetMap's tile servers, which see visitors' IP addresses.
 
+Place names for naming spots offline ship in `data/geonames/`: towns of 500 people or more and country names from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). `make geonames` downloads them again and rebuilds the files.
+
 ## Pages
 
 | URL | Who |

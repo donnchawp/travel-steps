@@ -3,9 +3,9 @@
 
 PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
 # Dotfiles (.git, .github in dependencies…), tests and build files stay behind: Plugin Check rejects hidden files.
-RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude docs --exclude AGENTS.md --exclude Makefile --exclude Makefile.local --exclude dist
+RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude docs --exclude tools --exclude AGENTS.md --exclude Makefile --exclude Makefile.local --exclude dist
 
-.PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist
+.PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist geonames
 
 help: ## List targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-11s %s\n", $$1, $$2}'
@@ -14,6 +14,7 @@ test: ## Standalone unit tests (no WordPress)
 	php tests/GeoTest.php
 	php tests/DaysTest.php
 	php tests/SelectionTest.php
+	php tests/GeocoderTest.php
 
 smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs Node and npx)
 	@out=$$(mktemp -d) && trap 'rm -rf "$$out"' EXIT && \
@@ -48,6 +49,13 @@ dist: ## Build dist/travel-steps.zip: the plugin as installed, with runtime deps
 	$(RSYNC) --quiet ./ dist/travel-steps/
 	cd dist && zip -qr travel-steps.zip travel-steps && rm -rf travel-steps
 	@echo dist/travel-steps.zip
+
+geonames: ## Rebuild the place names in data/geonames from GeoNames (cities500 and countryInfo)
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+	curl -sSfL -o "$$tmp/cities500.zip" https://download.geonames.org/export/dump/cities500.zip && \
+	curl -sSfL -o "$$tmp/countryInfo.txt" https://download.geonames.org/export/dump/countryInfo.txt && \
+	unzip -q "$$tmp/cities500.zip" cities500.txt -d "$$tmp" && \
+	php tools/geonames.php "$$tmp/cities500.txt" "$$tmp/countryInfo.txt" data/geonames
 
 vendor/autoload.php:
 	composer install --no-dev

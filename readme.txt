@@ -44,6 +44,10 @@ If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawa
 
 Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends your Immich API key and the date range or album id. The trip edit page also lists your Immich albums. Photos on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
 
+== Credits ==
+
+Place names come from [GeoNames](https://www.geonames.org) (towns of 500 people or more, and country names), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). They ship with the plugin, so naming a place sends nothing anywhere.
+
 == Changelog ==
 
 = 0.2.2 =

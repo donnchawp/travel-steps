@@ -134,3 +134,12 @@ check( 'the photos block on a trip of uploads asks for uploads', false !== strpo
 wp_set_current_user( 1 );
 wp_delete_post( $up_step, true );
 wp_delete_post( $up_bare, true );
+
+// Settings: Immich is optional, and a site without exif says what that means.
+wp_set_current_user( 1 );
+$up_html = $render( 'settings.php', '' );
+check( 'settings: Immich is optional, and a trip of uploads shows every upload', false !== strpos( $up_html, 'Immich (optional)' ) && false !== strpos( $up_html, 'For a trip with uploaded photos, every upload is shown; hide the ones you don’t want.' ) && false === strpos( $up_html, 'no exif extension' ) );
+add_filter( 'travel_steps_can_upload', '__return_false' );
+$up_html = $render( 'settings.php', '' );
+remove_filter( 'travel_steps_can_upload', '__return_false' );
+check( 'settings without exif: trips can only use Immich', false !== strpos( $up_html, 'This site’s PHP has no exif extension, so trips can only use Immich photos.' ) );

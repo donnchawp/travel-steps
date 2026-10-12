@@ -48,6 +48,7 @@ class Uploads {
 		add_action( 'add_attachment', [ self::class, 'add_attachment' ] );
 		add_filter( 'wp_prepare_attachment_for_js', [ self::class, 'prepare_for_js' ], 10, 2 );
 		add_filter( 'xmlrpc_prepare_media_item', [ self::class, 'xmlrpc_item' ], 10, 2 );
+		add_filter( 'rest_prepare_attachment', [ self::class, 'rest_item' ], 10, 2 );
 		add_filter( 'ajax_query_attachments_args', [ self::class, 'modal_query' ] );
 		add_filter( 'rest_attachment_query', [ self::class, 'exclude' ] );
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
@@ -352,6 +353,24 @@ class Uploads {
 			$item['metadata']  = [];
 		}
 		return $item;
+	}
+
+	/**
+	 * Core REST gives anyone who can edit a trip photo its file URL and names. Leave
+	 * those out, as for the modal: on nginx they'd lead to the untouched original.
+	 */
+	public static function rest_item( \WP_REST_Response $response, \WP_Post $attachment ): \WP_REST_Response {
+		if ( '' === self::photo_id( $attachment->ID ) ) {
+			return $response;
+		}
+		$data = $response->get_data();
+		unset( $data['source_url'], $data['media_details'], $data['missing_image_sizes'], $data['guid'] );
+		$data['link'] = '';
+		if ( isset( $data['description']['rendered'] ) ) {
+			$data['description']['rendered'] = '';
+		}
+		$response->set_data( $data );
+		return $response;
 	}
 
 	/**

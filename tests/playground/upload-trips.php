@@ -146,3 +146,11 @@ $ut_sideload = function ( string $name, string $bytes ) use ( $ut_tour ) {
 $ut_pdf = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n";
 check( 'a PDF can’t be a trip photo', is_wp_error( $ut_sideload( 'notes.pdf', $ut_pdf ) ) );
 check( '…even named like a photo', is_wp_error( $ut_sideload( 'IMG_0001.jpg', $ut_pdf ) ) );
+
+// Core REST gives editors an attachment's file URL and names (source_url, media_details,
+// guid, the description's <img>); on nginx those lead to the untouched original.
+$ut_rest_id = $ut_photo( $ut_tour, $ut_doolin + $ut_iphone );
+$ut_file    = pathinfo( (string) get_post_meta( $ut_rest_id, '_wp_attached_file', true ), PATHINFO_FILENAME );
+$ut_file    = preg_replace( '/-scaled$/', '', $ut_file );
+$ut_json    = wp_json_encode( $get( "/wp/v2/media/$ut_rest_id", [ 'context' => 'edit' ] )->get_data(), JSON_UNESCAPED_SLASHES );
+check( 'core REST names no file for a trip photo, even for editors', false === strpos( $ut_json, $ut_file ) && false === strpos( $ut_json, '/uploads/travel-steps/' ), substr( $ut_json, 0, 800 ) );

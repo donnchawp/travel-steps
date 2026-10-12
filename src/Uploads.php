@@ -26,8 +26,10 @@ class Uploads {
 	const META_PHOTO_ID = '_ts_photo_id';
 	const DIR           = 'travel-steps';
 
-	// The photo id for the upload in progress: one file per upload request.
+	// The upload in progress (one file per upload request): its photo id, and the
+	// name it was uploaded with, before prefilter() gave it a random one.
 	private static ?string $photo_id = null;
+	private static string $uploaded_as = '';
 
 	public static function register(): void {
 		add_filter( 'wp_handle_upload_prefilter', [ self::class, 'prefilter' ] );
@@ -36,6 +38,7 @@ class Uploads {
 		add_filter( 'wp_insert_attachment_data', [ self::class, 'attachment_data' ], 10, 4 );
 		add_action( 'add_attachment', [ self::class, 'add_attachment' ] );
 		add_filter( 'wp_prepare_attachment_for_js', [ self::class, 'prepare_for_js' ], 10, 2 );
+		add_filter( 'xmlrpc_prepare_media_item', [ self::class, 'xmlrpc_item' ], 10, 2 );
 		add_filter( 'ajax_query_attachments_args', [ self::class, 'modal_query' ] );
 		add_filter( 'rest_attachment_query', [ self::class, 'exclude' ] );
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
@@ -66,9 +69,10 @@ class Uploads {
 		if ( null === $trip_id ) {
 			$file['error'] = __( 'You can’t add photos to this trip.', 'travel-steps' );
 		} elseif ( $trip_id ) {
-			self::$photo_id = wp_generate_uuid4();
-			$ext            = strtolower( pathinfo( (string) $file['name'], PATHINFO_EXTENSION ) );
-			$file['name']   = wp_generate_uuid4() . ( '' !== $ext ? '.' . $ext : '' );
+			self::$photo_id    = wp_generate_uuid4();
+			self::$uploaded_as = pathinfo( (string) $file['name'], PATHINFO_FILENAME );
+			$ext               = strtolower( pathinfo( (string) $file['name'], PATHINFO_EXTENSION ) );
+			$file['name']      = wp_generate_uuid4() . ( '' !== $ext ? '.' . $ext : '' );
 		}
 		return $file;
 	}
@@ -118,8 +122,16 @@ class Uploads {
 	}
 
 	public static function attachment_data( array $data, array $postarr, array $unsanitized, bool $update ): array {
-		if ( ! $update && self::$photo_id && self::upload_trip() ) {
+		$trip_id = self::$photo_id ? self::upload_trip() : 0;
+		if ( ! $update && $trip_id ) {
 			$data['post_status'] = 'private';
+			// A REST upload names its parent separately, but its file is already in this trip's folder.
+			$data['post_parent'] = $trip_id;
+			// Core names the attachment after its file, which must stay secret.
+			$data['post_name'] = self::$photo_id;
+			if ( pathinfo( (string) $data['guid'], PATHINFO_FILENAME ) === $data['post_title'] ) {
+				$data['post_title'] = self::$uploaded_as;
+			}
 		}
 		return $data;
 	}
@@ -138,7 +150,8 @@ class Uploads {
 
 	/**
 	 * The media modal can't load a trip photo's own URLs (they're denied), so it gets
-	 * the photo proxy's, for the signed-in editor.
+	 * the photo proxy's, for the signed-in editor. Nothing in it names the file: on
+	 * nginx, its URL would be a lasting link to the untouched original.
 	 */
 	public static function prepare_for_js( array $response, \WP_Post $attachment ): array {
 		$photo_id = self::photo_id( $attachment->ID );
@@ -148,11 +161,26 @@ class Uploads {
 		$trip_id         = (int) $attachment->post_parent;
 		$response['url'] = RestController::photo_url( $trip_id, $photo_id, 'preview', true );
 		$response['link'] = '';
+		$response['filename'] = '';
+		unset( $response['originalImageURL'], $response['originalImageName'] );
 		foreach ( array_keys( $response['sizes'] ?? [] ) as $size ) {
 			$proxy                              = in_array( $size, RestController::SIZES, true ) ? $size : 'preview';
 			$response['sizes'][ $size ]['url'] = RestController::photo_url( $trip_id, $photo_id, $proxy, true );
 		}
 		return $response;
+	}
+
+	/**
+	 * XML-RPC's wp.getMediaItem gives any author any attachment, with its URL and file
+	 * names; for a trip photo, leave those out.
+	 */
+	public static function xmlrpc_item( array $item, \WP_Post $attachment ): array {
+		if ( '' !== self::photo_id( $attachment->ID ) ) {
+			$item['link']      = '';
+			$item['thumbnail'] = '';
+			$item['metadata']  = [];
+		}
+		return $item;
 	}
 
 	/**
@@ -172,7 +200,9 @@ class Uploads {
 			return $query;
 		}
 		$query['post_parent'] = $trip_id;
-		$query['meta_query'] = [ [ 'key' => self::META_PHOTO_ID, 'compare' => 'EXISTS' ] ]; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		// Trip photos are private; core lists those only for users who can read others' private posts.
+		$query['post_status'] = 'inherit,private';
+		$query['meta_query']  = [ [ 'key' => self::META_PHOTO_ID, 'compare' => 'EXISTS' ] ]; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 		return $query;
 	}
 
@@ -206,7 +236,8 @@ class Uploads {
 			[
 				'post_type'      => 'attachment',
 				'post_parent'    => $post_id,
-				'post_status'    => 'any',
+				// Binned too, if media goes to the bin (MEDIA_TRASH).
+				'post_status'    => [ 'private', 'inherit', 'trash' ],
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
 				'meta_key'       => self::META_PHOTO_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key

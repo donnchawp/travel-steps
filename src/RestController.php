@@ -287,7 +287,7 @@ class RestController {
 	 *
 	 * @return array{body: string, type: string}|\WP_Error
 	 */
-	private static function medium( PhotoSource $source, string $asset ) {
+	private static function medium( ImmichSource $source, string $asset ) {
 		$preview = self::cache_file( $asset, 'preview' );
 		if ( is_readable( $preview ) ) {
 			$type  = is_readable( $preview . '.type' ) ? trim( (string) file_get_contents( $preview . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents

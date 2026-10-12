@@ -7,8 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Where a trip's photos come from. Sync asks it for the photos, the photo proxy for
- * their images; nothing else needs to know which source a trip uses.
+ * Where a trip's photos come from, for sync. The photo proxy finds each photo's image
+ * itself: from WordPress for an upload, else from Immich (RestController::image()).
  */
 interface PhotoSource {
 	/**
@@ -36,11 +36,4 @@ interface PhotoSource {
 	 * @return array<int, array>|\WP_Error Photo rows, in any order.
 	 */
 	public function photos( int $trip_id, ?array $range );
-
-	/**
-	 * A photo's image at a size: "thumbnail" or "preview". The proxy makes "medium" from the preview.
-	 *
-	 * @return array{body: string, type: string}|\WP_Error
-	 */
-	public function image( string $photo_id, string $size );
 }

@@ -1,7 +1,8 @@
 <?php
 /**
  * Trips whose photos are uploaded to WordPress. Required at the end of smoke.php, in
- * its scope: uses check(), $upload, $rest_post, $get, $stopped, $person and $eddie.
+ * its scope: uses check(), $upload, $sideload, $servers, $keys_used, $rest_post, $get,
+ * $stopped, $person and $eddie.
  */
 use TravelSteps\MediaSource;
 use TravelSteps\Settings;
@@ -49,17 +50,18 @@ $ut_row = $ut_rows[ Uploads::photo_id( $ut_none ) ] ?? [];
 check( 'an upload without a time: no local time and no day', null === $ut_row['local'] && '' === $ut_row['day'], $ut_row );
 
 // Only the author changes the source.
+$ut_save = function ( array $fields ) use ( $ut_rows_trip, $stopped ) {
+	$_POST  = $_REQUEST = $fields + [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );
+	$_POST  = $_REQUEST = [];
+	return $result;
+};
 wp_set_current_user( $ut_author );
-$_POST = $_REQUEST = [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'start' => '', 'end' => '', 'status' => 'publish', 'source' => Trips::SOURCE_IMMICH, '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-check( 'the author can switch a trip to Immich', 'redirect' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && ! Trips::uses_uploads( $ut_rows_trip ) );
-$_POST = $_REQUEST = [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'start' => '', 'end' => '', 'status' => 'publish', 'source' => Trips::SOURCE_UPLOADS, '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-check( '…and back to uploads', 'redirect' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
-$_POST = $_REQUEST = [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'start' => '', 'end' => '', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-check( 'a form without the source leaves it alone', 'redirect' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+check( 'the author can switch a trip to Immich', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'source' => Trips::SOURCE_IMMICH ] ) && ! Trips::uses_uploads( $ut_rows_trip ) );
+check( '…and back to uploads', 'redirect' === $ut_save( [ 'start' => '', 'end' => '', 'source' => Trips::SOURCE_UPLOADS ] ) && Trips::uses_uploads( $ut_rows_trip ) );
+check( 'a form without the source leaves it alone', 'redirect' === $ut_save( [ 'start' => '', 'end' => '' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
 wp_set_current_user( $eddie );
-$_POST = $_REQUEST = [ 'trip_id' => $ut_rows_trip, 'title' => 'Rows', 'status' => 'publish', 'source' => Trips::SOURCE_IMMICH, '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-check( 'another editor can’t change the source', 'die' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && Trips::uses_uploads( $ut_rows_trip ) );
-$_POST = $_REQUEST = [];
+check( 'another editor can’t change the source', 'die' === $ut_save( [ 'source' => Trips::SOURCE_IMMICH ] ) && Trips::uses_uploads( $ut_rows_trip ) );
 wp_set_current_user( 1 );
 
 // Three days of uploads become three steps; what sync can't use is counted.
@@ -87,7 +89,7 @@ $ut_kept = array_column( Trips::photos( $ut_tour ), 'id' );
 check( '…keeping every upload on its days, without a camera too, and nothing from Immich', [] === array_diff( [ $ut_ids['doolin_am'], $ut_ids['doolin_pm'], $ut_ids['dingle'], $ut_ids['paris'], $ut_ids['no_gps'] ], $ut_kept ) && 5 === count( $ut_kept ), $ut_kept );
 check( '…and counting those left out: one outside the dates, one untimed, one at home', [ 'outside' => 1, 'untimed' => 1, 'home' => 1 ] === ( $ut_result['left_out'] ?? null ) && 1 === ( $ut_result['unlocated'] ?? null ), $ut_result );
 check( 'syncing it again adds no steps', 0 === ( ( new TripSync() )->sync( $ut_tour )['new_steps'] ?? -1 ) && 3 === count( Trips::steps( $ut_tour, true ) ) );
-wp_delete_attachment( (int) Uploads::attachment( $ut_tour, $ut_ids['doolin_pm'] ), true );
+wp_delete_attachment( Uploads::attachment( $ut_tour, $ut_ids['doolin_pm'] ), true );
 ( new TripSync() )->sync( $ut_tour );
 check( 'a deleted upload leaves the trip at the next sync', ! in_array( $ut_ids['doolin_pm'], array_column( Trips::photos( $ut_tour ), 'id' ), true ) );
 
@@ -118,34 +120,27 @@ foreach ( Trips::steps( $ut_tour, true ) as $ut_step ) {
 }
 ksort( $ut_places );
 check( 'an upload trip’s steps are named by the geocoder', [ '2025-06-01' => [ 'Lisdoonvarna' ], '2025-06-02' => [ 'Dingle' ], '2025-06-03' => [ 'Paris' ] ] === $ut_places, $ut_places );
-check( '…and so are its photos', [ 'Lisdoonvarna', 'Ireland' ] === [ Trips::photos( $ut_tour )[0]['city'] ?? '', Trips::photos( $ut_tour )[0]['country'] ?? '' ], Trips::photos( $ut_tour )[0] ?? [] );
+$ut_first = Trips::photos( $ut_tour )[0] ?? [];
+check( '…and so are its photos', [ 'Lisdoonvarna', 'Ireland' ] === [ $ut_first['city'] ?? '', $ut_first['country'] ?? '' ], $ut_first );
 check( '…with no warning about place names', false === ( ( new TripSync() )->sync( $ut_tour )['no_places'] ?? null ) );
 $ut_result = ( new TripSync( null, null, new TravelSteps\Geocoder( '/nowhere' ) ) )->sync( $ut_tour );
 check( 'missing geocoder data is reported', true === ( $ut_result['no_places'] ?? null ), $ut_result );
 
 // Every upload is shown; pin, hide and cover work on them as on Immich photos.
-$ut_groups = Trips::photos_by_step( $ut_tour, Trips::steps( $ut_tour, true ) );
-$ut_shown  = array_merge( ...array_map( fn( $g ) => array_column( $g['shown'], 'id' ), array_values( $ut_groups ) ) );
-check( 'every upload on a step is shown, none behind “Show more”', 4 === count( $ut_shown ) && [] === array_merge( ...array_map( fn( $g ) => $g['rest'], array_values( $ut_groups ) ) ), $ut_groups );
+// The ids in one of Selection's groups (shown, rest, hidden), across every step.
+$ut_in     = fn( string $group ) => array_column( array_merge( ...array_column( Trips::photos_by_step( $ut_tour, Trips::steps( $ut_tour, true ) ), $group ) ), 'id' );
+check( 'every upload on a step is shown, none behind “Show more”', 4 === count( $ut_in( 'shown' ) ) && [] === $ut_in( 'rest' ), [ $ut_in( 'shown' ), $ut_in( 'rest' ) ] );
 $rest_post( "/travel-steps/v1/trips/$ut_tour/photo-state", [ 'asset' => $ut_ids['dingle'], 'state' => 'hidden' ] );
 $rest_post( "/travel-steps/v1/trips/$ut_tour/photo-state", [ 'asset' => $ut_ids['paris'], 'state' => 'pinned' ] );
 $ut_cover = $rest_post( "/travel-steps/v1/trips/$ut_tour/cover", [ 'asset' => $ut_ids['paris'] ] );
-$ut_groups = Trips::photos_by_step( $ut_tour, Trips::steps( $ut_tour, true ) );
-$ut_hidden = array_merge( ...array_map( fn( $g ) => array_column( $g['hidden'], 'id' ), array_values( $ut_groups ) ) );
+$ut_hidden = $ut_in( 'hidden' );
 check( 'an upload can be hidden, pinned and made the cover', [ $ut_ids['dingle'] ] === $ut_hidden && in_array( $ut_ids['paris'], Trips::pinned( $ut_tour ), true ) && 200 === $ut_cover->get_status() && $ut_ids['paris'] === Trips::cover( $ut_tour ), [ $ut_hidden, $ut_cover->get_data() ] );
 
 // Trip photos must be images: Imagick would otherwise open a PDF or a video to read it.
-$ut_sideload = function ( string $name, string $bytes ) use ( $ut_tour ) {
-	$_REQUEST = [ 'post_id' => $ut_tour, Uploads::REQUEST_FLAG => '1' ];
-	$tmp      = wp_tempnam( $name );
-	file_put_contents( $tmp, $bytes );
-	$id       = media_handle_sideload( [ 'name' => $name, 'tmp_name' => $tmp ], $ut_tour );
-	$_REQUEST = [];
-	return $id;
-};
+$ut_as_photo = [ 'post_id' => $ut_tour, Uploads::REQUEST_FLAG => '1' ];
 $ut_pdf = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n";
-check( 'a PDF can’t be a trip photo', is_wp_error( $ut_sideload( 'notes.pdf', $ut_pdf ) ) );
-check( '…even named like a photo', is_wp_error( $ut_sideload( 'IMG_0001.jpg', $ut_pdf ) ) );
+check( 'a PDF can’t be a trip photo', is_wp_error( $sideload( $ut_as_photo, $ut_tour, 'notes.pdf', $ut_pdf ) ) );
+check( '…even named like a photo', is_wp_error( $sideload( $ut_as_photo, $ut_tour, 'IMG_0001.jpg', $ut_pdf ) ) );
 
 // Core REST gives editors an attachment's file URL and names (source_url, media_details,
 // guid, the description's <img>); on nginx those lead to the untouched original.
@@ -173,17 +168,13 @@ check( 'dates set backwards on an upload trip: set the dates, not add photos', i
 // Switched from Immich to uploads, a trip's synced Immich photos still load until it syncs again.
 Settings::update_account( $ut_author, [ 'immich_key' => 'wanderer-immich' ] + Settings::account( $ut_author ) );
 $ut_switched = $ut_trip( 'Switched', $ut_author, '2025-06-01', '2025-06-03' );
-$ut_keys     = [];
-$ut_immich_server = function ( $pre, $args, $url ) use ( &$ut_keys ) {
-	$ut_keys[] = $args['headers']['x-api-key'] ?? '';
-	return [ 'headers' => [ 'content-type' => 'image/jpeg' ], 'body' => 'IMAGE', 'response' => [ 'code' => 200, 'message' => '' ], 'cookies' => [], 'filename' => null ];
-};
-add_filter( 'pre_http_request', $ut_immich_server, 10, 3 );
+$keys_used   = [];
+add_filter( 'pre_http_request', $servers, 10, 3 );
 $ut_image = TravelSteps\RestController::image( $ut_switched, '00000000-0000-4000-8000-000000000099', 'thumbnail', 0 );
-remove_filter( 'pre_http_request', $ut_immich_server, 10 );
-check( 'a photo that isn’t an upload is fetched from Immich, whatever the trip uses now', ! is_wp_error( $ut_image ) && [ 'wanderer-immich' ] === $ut_keys, [ is_wp_error( $ut_image ) ? $ut_image->get_error_message() : 'ok', $ut_keys ] );
+remove_filter( 'pre_http_request', $servers, 10 );
+check( 'a photo that isn’t an upload is fetched from Immich, whatever the trip uses now', ! is_wp_error( $ut_image ) && [ 'wanderer-immich' ] === $keys_used, [ is_wp_error( $ut_image ) ? $ut_image->get_error_message() : 'ok', $keys_used ] );
 
 // Only the image types a trip shows: TIFF, PSD and BMP would still go through Imagick.
 ob_start();
 imagebmp( imagecreatetruecolor( 8, 8 ) );
-check( 'a BMP can’t be a trip photo', is_wp_error( $ut_sideload( 'scan.bmp', ob_get_clean() ) ) );
+check( 'a BMP can’t be a trip photo', is_wp_error( $sideload( $ut_as_photo, $ut_tour, 'scan.bmp', ob_get_clean() ) ) );

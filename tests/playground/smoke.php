@@ -70,9 +70,6 @@ class FakeSource implements PhotoSource {
 		$this->asked = $range;
 		return $this->rows;
 	}
-	public function image( string $photo_id, string $size ) {
-		return new WP_Error( 'fake', 'No images here' );
-	}
 }
 function row( $n, $day, $hm, $lat, $lon, $city, $fav ) {
 	$t = strtotime( "$day $hm UTC" );
@@ -548,14 +545,15 @@ $other_post  = wp_insert_post( [ 'post_title' => 'A post', 'post_status' => 'pub
 $as_photo    = [ 'post_id' => $photos_trip, TravelSteps\Uploads::REQUEST_FLAG => '1' ];
 require_once '/smoke/exif-fixture.php';
 // Big enough that core keeps the original and makes a "-scaled" copy to use.
-$upload      = function ( array $request, int $post_id, int $width = 3000, int $height = 2000, array $tags = [] ) use ( $jpeg ) {
+$sideload    = function ( array $request, int $post_id, string $name, string $bytes ) {
 	$_REQUEST = $request;
-	$tmp      = wp_tempnam( 'IMG_1234.jpg' );
-	file_put_contents( $tmp, ts_tagged_jpeg( $jpeg( $width, $height ), $tags ) );
-	$id       = media_handle_sideload( [ 'name' => 'IMG_1234.jpg', 'tmp_name' => $tmp ], $post_id );
+	$tmp      = wp_tempnam( $name );
+	file_put_contents( $tmp, $bytes );
+	$id       = media_handle_sideload( [ 'name' => $name, 'tmp_name' => $tmp ], $post_id );
 	$_REQUEST = [];
 	return $id;
 };
+$upload      = fn( array $request, int $post_id, int $width = 3000, int $height = 2000, array $tags = [] ) => $sideload( $request, $post_id, 'IMG_1234.jpg', ts_tagged_jpeg( $jpeg( $width, $height ), $tags ) );
 $is_media = fn( $id ) => is_int( $id ) && 0 !== strpos( (string) get_post_meta( $id, '_wp_attached_file', true ), 'travel-steps/' ) && '' === TravelSteps\Uploads::photo_id( $id ) && 'inherit' === get_post( $id )->post_status;
 $base     = wp_get_upload_dir()['basedir'];
 $photo    = $upload( $as_photo, $photos_trip );
@@ -807,7 +805,7 @@ $r         = ( new TripSync() )->sync( $bobs );
 check( '…and another author’s trip only theirs (without Dawarich, none)', ! is_wp_error( $r ) && [ 'bob-immich' ] === array_values( array_unique( $keys_used ) ), $keys_used );
 $keys_used = [];
 wp_set_current_user( 0 );
-Trips::source( $alices )->image( '00000000-0000-4000-8000-000000000001', 'thumbnail' );
+Trips::immich( $alices )->image( '00000000-0000-4000-8000-000000000001', 'thumbnail' );
 check( 'a visitor’s photo is fetched with the trip author’s key', [ 'alice-immich' ] === $keys_used, $keys_used );
 wp_set_current_user( 1 );
 $r = ( new TripSync() )->sync( $carols );

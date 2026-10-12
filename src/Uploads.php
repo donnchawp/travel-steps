@@ -55,6 +55,7 @@ class Uploads {
 		add_filter( 'ajax_query_attachments_args', [ self::class, 'modal_query' ] );
 		add_filter( 'rest_attachment_query', [ self::class, 'exclude' ] );
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
+		add_action( 'load-post.php', [ self::class, 'edit_screen' ] );
 		add_action( 'before_delete_post', [ self::class, 'delete_trip' ] );
 		add_action( 'delete_attachment', [ self::class, 'forget_cached' ] );
 		add_filter( 'wp_update_attachment_metadata', [ self::class, 'new_copies' ], 10, 2 );
@@ -346,11 +347,29 @@ class Uploads {
 		$response['link'] = '';
 		$response['filename'] = '';
 		unset( $response['originalImageURL'], $response['originalImageName'] );
+		// Core's attachment screen, where the Edit Image and edit links lead, prints the
+		// file's URL and name: a trip photo gets neither link.
+		$response['editLink'] = '';
+		unset( $response['nonces']['update'], $response['nonces']['edit'] );
 		foreach ( array_keys( $response['sizes'] ?? [] ) as $size ) {
 			$proxy                              = in_array( $size, RestController::SIZES, true ) ? $size : 'preview';
 			$response['sizes'][ $size ]['url'] = RestController::photo_url( $trip_id, $photo_id, $proxy, true );
 		}
 		return $response;
+	}
+
+	/**
+	 * Core's attachment screen prints a file's URL and name. For a trip photo, send its
+	 * editors to the trip instead.
+	 */
+	public static function edit_screen(): void {
+		$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only reads which post the screen is for.
+		if ( ! $post_id || '' === self::photo_id( $post_id ) ) {
+			return;
+		}
+		$trip = get_post( (int) get_post_field( 'post_parent', $post_id ) );
+		wp_safe_redirect( $trip ? Trips::url( $trip, 'edit' ) : admin_url() );
+		exit;
 	}
 
 	/**

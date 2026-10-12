@@ -143,3 +143,21 @@ add_filter( 'travel_steps_can_upload', '__return_false' );
 $up_html = $render( 'settings.php', '' );
 remove_filter( 'travel_steps_can_upload', '__return_false' );
 check( 'settings without exif: trips can only use Immich', false !== strpos( $up_html, 'This site’s PHP has no exif extension, so trips can only use Immich photos.' ) );
+
+// The modal's attachment details link nowhere that names the file: core's attachment
+// screen prints the original's URL and name, so trip photos get no link to it.
+$up_priv = $ut_trip( 'Private screen', $ut_author );
+wp_set_current_user( $ut_author );
+$up_pid = $ut_photo( $up_priv, [ 'taken' => '2025:08:01 10:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$up_js  = wp_prepare_attachment_for_js( $up_pid );
+check( 'the modal has no Edit Image or edit-screen link for a trip photo', '' === ( $up_js['editLink'] ?? '' ) && empty( $up_js['nonces']['update'] ) && empty( $up_js['nonces']['edit'] ), [ $up_js['editLink'] ?? null, $up_js['nonces'] ?? null ] );
+check( '…but can still delete it', ! empty( $up_js['nonces']['delete'] ) );
+$_GET  = [ 'post' => (string) $up_pid, 'action' => 'edit' ];
+$up_to = $ut_location( [ TravelSteps\Uploads::class, 'edit_screen' ] );
+check( 'core’s attachment screen for a trip photo sends you to its trip instead', false !== strpos( $up_to, '/trip/private-screen/edit' ), $up_to );
+$_GET = [ 'post' => (string) $alices, 'action' => 'edit' ];
+check( '…and leaves any other post alone', 'returned' === $stopped( [ TravelSteps\Uploads::class, 'edit_screen' ] ) );
+$_GET = [];
+wp_set_current_user( 1 );
+wp_delete_post( $up_priv, true );
+

@@ -35,7 +35,8 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, points: int, photos: int}|\WP_Error
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int}|\WP_Error
+	 *         left_out and unlocated only for a trip of uploads.
 	 */
 	public function sync( int $trip_id ) {
 		// add_option() is an atomic insert, so a double-clicked sync can't create a day twice.
@@ -54,12 +55,30 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, points: int, photos: int}|\WP_Error
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int}|\WP_Error
+	 *         left_out and unlocated only for a trip of uploads.
 	 */
 	private function run( int $trip_id ) {
-		$range = Trips::range( $trip_id );
-		if ( ! $range ) {
+		$uploads = Trips::uses_uploads( $trip_id );
+		$range   = Trips::range( $trip_id );
+		if ( ! $range && ! $uploads ) {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+		}
+
+		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
+		$source = $this->source ?? Trips::source( $trip_id );
+		$photos = $source->photos( $trip_id, $range ? [ $range[0] - self::ZONE_MARGIN_S, $range[1] + self::ZONE_MARGIN_S ] : null );
+		if ( is_wp_error( $photos ) ) {
+			return $photos;
+		}
+		$all     = count( $photos );
+		$photos  = $this->resolve_times( $photos );
+		$untimed = $all - count( $photos );
+		if ( ! $range ) {
+			$range = $this->dates_from( $trip_id, $photos, $untimed );
+			if ( is_wp_error( $range ) ) {
+				return $range;
+			}
 		}
 		[ $start, $end ] = $range;
 		// The trip's author's: their location history, and their home to leave out.
@@ -74,17 +93,12 @@ class TripSync {
 		// the morning you leave.
 		$points = Geo::exclude_near( Geo::drop_glitches( $points ), $home );
 
-		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
-		$source = $this->source ?? Trips::source( $trip_id );
-		$photos = $source->photos( $trip_id, [ $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S ] );
-		if ( is_wp_error( $photos ) ) {
-			return $photos;
-		}
-		$photos = $this->resolve_times( $photos );
-		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
-		$last   = (string) get_post_meta( $trip_id, Trips::META_END, true );
-		$photos = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
-		$photos = $this->locate_photos( $photos, $points, $home );
+		$first   = (string) get_post_meta( $trip_id, Trips::META_START, true );
+		$last    = (string) get_post_meta( $trip_id, Trips::META_END, true );
+		$taken   = count( $photos );
+		$photos  = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
+		$outside = $taken - count( $photos );
+		[ $photos, $at_home ] = $this->locate_photos( $photos, $points, $home );
 
 		// No location history for these dates? Fall back to the photos' own positions.
 		$track = $points;
@@ -116,12 +130,22 @@ class TripSync {
 		);
 		update_post_meta( $trip_id, Trips::META_SYNCED, time() );
 
-		return [
+		$result = [
 			'new_steps'    => $new_steps,
 			'skipped_days' => $skipped_days,
 			'points'       => count( $points ),
 			'photos'       => count( $photos ),
 		];
+		// Uploads are all meant to be shown, so say which weren't, and why.
+		if ( $uploads ) {
+			$result['left_out']  = [
+				'outside' => $outside,
+				'untimed' => $untimed,
+				'home'    => $at_home,
+			];
+			$result['unlocated'] = count( array_filter( $photos, fn( $p ) => null === $p['lat'] ) );
+		}
+		return $result;
 	}
 
 	/**
@@ -135,12 +159,36 @@ class TripSync {
 	}
 
 	/**
+	 * A trip of uploads without dates takes them from its photos: the first and last
+	 * local day. A date already set is kept.
+	 *
+	 * @return array{0: int, 1: int}|\WP_Error
+	 */
+	private function dates_from( int $trip_id, array $photos, int $untimed ) {
+		if ( ! $photos ) {
+			return $untimed
+				? new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) )
+				: new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) );
+		}
+		$days = array_column( $photos, 'day' );
+		foreach ( [ Trips::META_START => min( $days ), Trips::META_END => max( $days ) ] as $key => $day ) {
+			if ( '' === (string) get_post_meta( $trip_id, $key, true ) ) {
+				update_post_meta( $trip_id, $key, $day );
+			}
+		}
+		return Trips::range( $trip_id ) ?? new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+	}
+
+	/**
 	 * Give photos without GPS the position you were at when they were taken, and drop
 	 * any taken near home. Images with no camera in their EXIF (screenshots, saved
 	 * downloads) are dropped too, unless you favourited them.
+	 *
+	 * @return array{0: array, 1: int} The photos kept, and how many were taken at home.
 	 */
 	private function locate_photos( array $photos, array $points, ?array $home ): array {
-		$out = [];
+		$out     = [];
+		$at_home = 0;
 		foreach ( $photos as $photo ) {
 			if ( '' === $photo['camera'] && ! $photo['fav'] ) {
 				continue;
@@ -153,11 +201,12 @@ class TripSync {
 				}
 			}
 			if ( $home && null !== $photo['lat'] && Geo::distance( $photo['lat'], $photo['lon'], $home['lat'], $home['lon'] ) <= $home['radius_m'] ) {
+				++$at_home;
 				continue;
 			}
 			$out[] = $photo;
 		}
-		return $out;
+		return [ $out, $at_home ];
 	}
 
 	/**

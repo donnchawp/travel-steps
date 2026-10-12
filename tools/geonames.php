@@ -47,14 +47,13 @@ foreach ( new SplFileObject( $cities ) as $line ) {
 	if ( ( 'PPLX' === $f[7] && 'AU' !== $f[8] ) || 'PPLH' === $f[7] ) {
 		continue;
 	}
-	// Unlike Immich, no numbered arrondissements ("Paris 16 Passy", "Marseille 02"): a
-	// walk across the city would become a string of places. The city itself is there.
-	if ( 'FR' === $f[8] && preg_match( '/^(Paris|Marseille|Lyon) \d/', $f[1] ) ) {
-		continue;
-	}
-	$lat = round( (float) $f[4], 4 );
-	$lon = round( (float) $f[5], 4 );
-	$tiles[ Geocoder::tile( $lat, $lon ) ][ (int) $f[0] ] = str_replace( "\t", ' ', $f[1] ) . "\t" . $f[8] . "\t" . $lat . "\t" . $lon . "\n";
+	// Unlike Immich, numbered arrondissements ("Paris 16 Passy", "Marseille 02") are
+	// named after their city: a walk across it would otherwise be a string of places.
+	// They're kept, not dropped, or the city's edges would go to its suburbs.
+	$name = 'FR' === $f[8] ? preg_replace( '/^(Paris|Marseille) \d.*$/', '$1', $f[1] ) : $f[1];
+	$lat  = round( (float) $f[4], 4 );
+	$lon  = round( (float) $f[5], 4 );
+	$tiles[ Geocoder::tile( $lat, $lon ) ][ (int) $f[0] ] = str_replace( "\t", ' ', $name ) . "\t" . $f[8] . "\t" . $lat . "\t" . $lon . "\n";
 }
 
 @mkdir( $out, 0755, true );

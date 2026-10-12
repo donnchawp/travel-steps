@@ -173,9 +173,29 @@ class RestController {
 	}
 
 	/**
-	 * Stream a photo from the trip's source. Only assets that belong to the trip are
-	 * served, so the source (an Immich server and its API key) never has to be
-	 * reachable from outside.
+	 * Whether the current user may fetch a photo through a trip: the public, photos
+	 * shown on its published steps; editors, anything synced, and the trip's managers
+	 * any photo uploaded to it, synced or not, so they can see what they've added.
+	 */
+	public static function can_fetch( int $trip_id, string $asset ): bool {
+		$trip = get_post( $trip_id );
+		return $trip && ( isset( Trips::viewable_photo_ids( $trip )[ $asset ] )
+			|| ( Trips::can_edit_trip( $trip_id ) && Uploads::attachment( $trip_id, $asset ) ) );
+	}
+
+	/**
+	 * Whether a photo is one anyone may see, so shared caches may keep it. Editors fetch
+	 * others too (drafts, unsynced uploads), which mustn't be cached for everyone.
+	 */
+	public static function is_public( int $trip_id, string $asset ): bool {
+		$trip = get_post( $trip_id );
+		return $trip && isset( Trips::public_photo_ids( $trip )[ $asset ] ) && ! in_array( $asset, Trips::hidden( $trip_id ), true );
+	}
+
+	/**
+	 * Stream a photo from the trip's source, or from the copies WordPress made of one
+	 * uploaded to it. Only assets that belong to the trip are served, so the source (an
+	 * Immich server and its API key) never has to be reachable from outside.
 	 *
 	 * @return \WP_Error|void
 	 */
@@ -184,13 +204,10 @@ class RestController {
 		$asset   = (string) $request['asset'];
 		$size    = (string) $request['size'];
 
-		// Only photos shown on a published step for the public; anything synced for editors.
-		if ( ! isset( Trips::viewable_photo_ids( get_post( $trip_id ) )[ $asset ] ) ) {
+		if ( ! self::can_fetch( $trip_id, $asset ) ) {
 			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
 		}
-		$hidden = in_array( $asset, Trips::hidden( $trip_id ), true );
-
-		$is_public = 'publish' === get_post_status( $trip_id ) && ! $hidden;
+		$is_public = self::is_public( $trip_id, $asset );
 		// An asset's thumbnail doesn't change, so its tag needn't depend on the cache file.
 		$etag = '"' . md5( $asset . '/' . $size ) . '"';
 		// Revalidation runs the access check above every time, but costs no image bytes.
@@ -202,10 +219,19 @@ class RestController {
 
 		$cache = self::cache_file( $asset, $size );
 		if ( ! is_readable( $cache ) ) {
-			$source = Trips::source( $trip_id );
-			$image  = 'medium' === $size ? self::medium( $source, $asset ) : $source->image( $asset, $size );
-			if ( is_wp_error( $image ) || '' === $image['body'] ) {
+			$upload = Uploads::attachment( $trip_id, $asset );
+			if ( $upload ) {
+				$image = Uploads::image( $upload, $size );
+			} else {
+				$source = Trips::source( $trip_id );
+				$image  = 'medium' === $size ? self::medium( $source, $asset ) : $source->image( $asset, $size );
+			}
+			if ( is_wp_error( $image ) || '' === ( $image['body'] ?? $image['file'] ) ) {
 				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
+			}
+			// A copy WordPress made of an upload is served as it is, not cached again.
+			if ( isset( $image['file'] ) ) {
+				self::send_file( $is_public, $etag, $image['file'], $image['type'] );
 			}
 			// Serve what we fetched even if it couldn't be cached.
 			self::cache( $asset, $size, $image );
@@ -216,10 +242,14 @@ class RestController {
 			exit;
 		}
 
+		self::send_file( $is_public, $etag, $cache, is_readable( $cache . '.type' ) ? trim( (string) file_get_contents( $cache . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+	}
+
+	private static function send_file( bool $is_public, string $etag, string $file, string $type ): void {
 		self::send_cache_headers( $is_public, $etag );
-		self::send_type( is_readable( $cache . '.type' ) ? trim( (string) file_get_contents( $cache . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		header( 'Content-Length: ' . filesize( $cache ) );
-		readfile( $cache ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		self::send_type( $type );
+		header( 'Content-Length: ' . filesize( $file ) );
+		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 		exit;
 	}
 
@@ -261,30 +291,42 @@ class RestController {
 	public static function shrink( string $body, string $type ) {
 		$ext = wp_get_default_extension_for_mime_type( $type ) ?: 'jpg';
 		$in  = get_temp_dir() . 'ts-photo-' . wp_generate_password( 12, false ) . '.' . $ext;
-		$out = substr( $in, 0, -strlen( $ext ) - 1 ) . '-medium.' . $ext;
 		try {
 			file_put_contents( $in, $body ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			$editor = wp_get_image_editor( $in );
-			if ( is_wp_error( $editor ) ) {
-				return $editor;
-			}
-			$size  = $editor->get_size();
-			$short = self::MEDIUM_SHORT_PX;
-			if ( min( $size['width'], $size['height'] ) > $short ) {
-				$resized = $size['width'] >= $size['height'] ? $editor->resize( null, $short ) : $editor->resize( $short, null );
-				if ( is_wp_error( $resized ) ) {
-					return $resized;
-				}
-			}
-			$editor->set_quality( 82 );
-			$saved = $editor->save( $out, $type );
-			if ( is_wp_error( $saved ) ) {
-				return $saved;
-			}
-			return [ 'body' => (string) file_get_contents( $saved['path'] ), 'type' => $saved['mime-type'] ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			return self::shrink_file( $in, self::MEDIUM_SHORT_PX, $type );
 		} finally {
 			wp_delete_file( $in );
-			wp_delete_file( $out );
+		}
+	}
+
+	/**
+	 * An image file scaled down to $short px on its short side, never up, in $type or
+	 * else the type the image editor saves this one as.
+	 *
+	 * @return array{body: string, type: string}|\WP_Error
+	 */
+	public static function shrink_file( string $file, int $short, ?string $type = null ) {
+		$editor = wp_get_image_editor( $file );
+		if ( is_wp_error( $editor ) ) {
+			return $editor;
+		}
+		$size = $editor->get_size();
+		if ( min( $size['width'], $size['height'] ) > $short ) {
+			$resized = $size['width'] >= $size['height'] ? $editor->resize( null, $short ) : $editor->resize( $short, null );
+			if ( is_wp_error( $resized ) ) {
+				return $resized;
+			}
+		}
+		$editor->set_quality( 82 );
+		// The editor may change the extension (a HEIC is saved as JPEG).
+		$saved = $editor->save( get_temp_dir() . 'ts-photo-' . wp_generate_password( 12, false ) . '.' . pathinfo( $file, PATHINFO_EXTENSION ), $type );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		try {
+			return [ 'body' => (string) file_get_contents( $saved['path'] ), 'type' => $saved['mime-type'] ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		} finally {
+			wp_delete_file( $saved['path'] );
 		}
 	}
 

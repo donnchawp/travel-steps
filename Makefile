@@ -15,6 +15,7 @@ test: ## Standalone unit tests (no WordPress)
 	php tests/DaysTest.php
 	php tests/SelectionTest.php
 	php tests/GeocoderTest.php
+	php tests/ExifTest.php
 
 smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs Node and npx)
 	@out=$$(mktemp -d) && trap 'rm -rf "$$out"' EXIT && \

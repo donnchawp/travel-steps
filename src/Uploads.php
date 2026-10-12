@@ -24,7 +24,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Uploads {
 	const REQUEST_FLAG  = 'travel_steps_photo';
 	const META_PHOTO_ID = '_ts_photo_id';
+	const META_EXIF     = '_ts_exif'; // When, where and with what it was taken: see Exif::parse().
 	const DIR           = 'travel-steps';
+	// The photo proxy's sizes, as Immich makes them: at least this on the short side.
+	const SHORT_PX = [
+		'thumbnail' => 250,
+		'medium'    => RestController::MEDIUM_SHORT_PX,
+		'preview'   => 1440,
+	];
 
 	// The upload in progress (one file per upload request): its photo id, and the
 	// name it was uploaded with, before prefilter() gave it a random one.
@@ -35,6 +42,7 @@ class Uploads {
 		add_filter( 'wp_handle_upload_prefilter', [ self::class, 'prefilter' ] );
 		add_filter( 'wp_handle_sideload_prefilter', [ self::class, 'prefilter' ] );
 		add_filter( 'upload_dir', [ self::class, 'upload_dir' ] );
+		add_filter( 'wp_image_editors', [ self::class, 'image_editors' ] );
 		add_filter( 'wp_insert_attachment_data', [ self::class, 'attachment_data' ], 10, 4 );
 		add_action( 'add_attachment', [ self::class, 'add_attachment' ] );
 		add_filter( 'wp_prepare_attachment_for_js', [ self::class, 'prepare_for_js' ], 10, 2 );
@@ -44,6 +52,16 @@ class Uploads {
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
 		add_action( 'before_delete_post', [ self::class, 'delete_trip' ] );
 		add_action( 'delete_attachment', [ self::class, 'forget_cached' ] );
+		// New sizes (regenerated, or the photo edited) replace copies the proxy made.
+		add_filter(
+			'wp_update_attachment_metadata',
+			function ( $data, $attachment_id ) {
+				self::forget_cached( (int) $attachment_id );
+				return $data;
+			},
+			10,
+			2
+		);
 	}
 
 	/**
@@ -68,6 +86,9 @@ class Uploads {
 		$trip_id = self::upload_trip();
 		if ( null === $trip_id ) {
 			$file['error'] = __( 'You can’t add photos to this trip.', 'travel-steps' );
+		} elseif ( $trip_id && ! function_exists( 'exif_read_data' ) ) {
+			// Without it there's no knowing when a photo was taken, so no day to put it on.
+			$file['error'] = __( 'Photos can’t be added to trips on this site: its PHP has no exif extension, which reads when and where they were taken.', 'travel-steps' );
 		} elseif ( $trip_id ) {
 			self::$photo_id    = wp_generate_uuid4();
 			self::$uploaded_as = pathinfo( (string) $file['name'], PATHINFO_FILENAME );
@@ -90,6 +111,20 @@ class Uploads {
 
 	private static function subdir( int $trip_id ): string {
 		return '/' . self::DIR . '/' . $trip_id;
+	}
+
+	/**
+	 * Whether a file is in a trip's photo folder.
+	 */
+	public static function is_trip_file( string $file ): bool {
+		return 0 === strpos( wp_normalize_path( $file ), wp_normalize_path( wp_get_upload_dir()['basedir'] ) . '/' . self::DIR . '/' );
+	}
+
+	/**
+	 * Use ImagickEditor wherever core's Imagick editor would be used.
+	 */
+	public static function image_editors( array $editors ): array {
+		return array_map( fn( $editor ) => 'WP_Image_Editor_Imagick' === $editor ? ImagickEditor::class : $editor, $editors );
 	}
 
 	/**
@@ -142,10 +177,128 @@ class Uploads {
 		}
 		update_post_meta( $attachment_id, self::META_PHOTO_ID, self::$photo_id );
 		self::$photo_id = null;
+		// Core hasn't made any copies yet, so this is the original.
+		$file = (string) get_attached_file( $attachment_id );
+		$size = wp_getimagesize( $file );
+		update_post_meta( $attachment_id, self::META_EXIF, Exif::parse( Exif::read( $file ), (int) ( $size[0] ?? 0 ), (int) ( $size[1] ?? 0 ) ) );
 	}
 
 	public static function photo_id( int $attachment_id ): string {
 		return (string) get_post_meta( $attachment_id, self::META_PHOTO_ID, true );
+	}
+
+	/**
+	 * The photo uploaded to a trip with this photo id, or 0.
+	 */
+	public static function attachment( int $trip_id, string $photo_id ): int {
+		if ( ! $trip_id || '' === $photo_id ) {
+			return 0;
+		}
+		$ids = get_posts(
+			[
+				'post_type'      => 'attachment',
+				'post_parent'    => $trip_id,
+				'post_status'    => [ 'private', 'inherit' ],
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+				'meta_key'       => self::META_PHOTO_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'     => $photo_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			]
+		);
+		return (int) ( $ids[0] ?? 0 );
+	}
+
+	/**
+	 * A trip photo at one of the photo proxy's sizes, never the original: the smallest
+	 * copy core made that's at least SHORT_PX on its short side, or one made at that
+	 * size from it (when it's more than twice that) or from the original (when there's
+	 * none), never enlarged. A copy with GPS in it is refused.
+	 *
+	 * @return array{file: string, type: string}|array{body: string, type: string}|\WP_Error
+	 */
+	public static function image( int $attachment_id, string $size ) {
+		$short = self::SHORT_PX[ $size ] ?? self::SHORT_PX['preview'];
+		$fit   = null;
+		foreach ( self::copies( $attachment_id ) as $copy ) {
+			if ( $copy['short'] >= $short && ( ! $fit || $copy['short'] < $fit['short'] ) ) {
+				$fit = $copy;
+			}
+		}
+		if ( $fit && $fit['short'] <= 2 * $short ) {
+			$image = [
+				'file' => $fit['file'],
+				'type' => $fit['type'],
+			];
+		} else {
+			$from  = $fit['file'] ?? (string) wp_get_original_image_path( $attachment_id );
+			$image = is_readable( $from ) ? RestController::shrink_file( $from, $short ) : new \WP_Error( 'travel_steps_no_file', 'The photo’s file is missing.' );
+		}
+		if ( ! is_wp_error( $image ) && self::has_gps( $image ) ) {
+			return new \WP_Error( 'travel_steps_photo_gps', 'A copy of the photo has its location in it.' );
+		}
+		return $image;
+	}
+
+	/**
+	 * The copies core made of a trip photo that show all of it: its sizes but cropped
+	 * ones, and its own file when core kept the original aside ("-scaled", "-rotated").
+	 *
+	 * @return array<array{file: string, type: string, short: int}>
+	 */
+	private static function copies( int $attachment_id ): array {
+		$meta = wp_get_attachment_metadata( $attachment_id );
+		$file = (string) get_attached_file( $attachment_id );
+		if ( ! is_array( $meta ) || empty( $meta['width'] ) || empty( $meta['height'] ) ) {
+			return [];
+		}
+		$copies = [];
+		if ( ! empty( $meta['original_image'] ) ) {
+			$copies[] = [ $file, wp_check_filetype( $file )['type'], $meta['width'], $meta['height'] ];
+		}
+		foreach ( $meta['sizes'] ?? [] as $copy ) {
+			// Allowing a pixel for rounding.
+			if ( abs( $copy['width'] * $meta['height'] - $copy['height'] * $meta['width'] ) <= max( $meta['width'], $meta['height'] ) ) {
+				$copies[] = [ dirname( $file ) . '/' . $copy['file'], $copy['mime-type'], $copy['width'], $copy['height'] ];
+			}
+		}
+		$found = [];
+		foreach ( $copies as [ $path, $type, $width, $height ] ) {
+			if ( is_readable( $path ) ) {
+				$found[] = [
+					'file'  => $path,
+					'type'  => (string) $type,
+					'short' => (int) min( $width, $height ),
+				];
+			}
+		}
+		return $found;
+	}
+
+	/**
+	 * Whether a copy of a photo may have its location in it: GPS in XMP, GPS that
+	 * exif_read_data() finds, or EXIF it can't read. The copies trip photos get have no
+	 * EXIF or XMP at all, so this only turns away what another image editor made.
+	 */
+	public static function has_gps( array $image ): bool {
+		$bytes = $image['body'] ?? (string) file_get_contents( $image['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		// XMP spells it out (exif:GPSLatitude), in any image format.
+		if ( false !== strpos( $bytes, 'GPSLatitude' ) ) {
+			return true;
+		}
+		$exif = false;
+		if ( function_exists( 'exif_read_data' ) ) {
+			$stream = fopen( 'php://memory', 'r+' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+			fwrite( $stream, $bytes ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
+			rewind( $stream );
+			$exif = @exif_read_data( $stream ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Warns on any malformed tag.
+			fclose( $stream ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		}
+		// It reads a file with corrupt EXIF, or none, as one without the EXIF sections.
+		if ( is_array( $exif ) && false !== strpos( (string) ( $exif['SectionsFound'] ?? '' ), 'IFD0' ) ) {
+			return (bool) preg_grep( '/^GPS/', array_keys( $exif ) );
+		}
+		// EXIF it couldn't read (in JPEG, HEIC and AVIF, after "Exif\0\0"; in WebP, a chunk).
+		return false !== strpos( $bytes, "Exif\0\0" ) || ( 0 === strpos( $bytes, 'RIFF' ) && false !== strpos( $bytes, 'EXIF' ) );
 	}
 
 	/**

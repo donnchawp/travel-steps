@@ -304,7 +304,17 @@ class Trips {
 		if ( current_user_can( 'edit_post', $trip->ID ) ) {
 			return array_fill_keys( array_column( self::photos( $trip->ID ), 'id' ), true );
 		}
-		if ( ! self::can_view( $trip ) ) {
+		return self::public_photo_ids( $trip );
+	}
+
+	/**
+	 * Asset ids anyone may fetch, whoever is asking: non-hidden photos of a published
+	 * trip's published steps, and its chosen cover.
+	 *
+	 * @return array<string, true>
+	 */
+	public static function public_photo_ids( \WP_Post $trip ): array {
+		if ( self::TRIP !== $trip->post_type || 'publish' !== $trip->post_status ) {
 			return [];
 		}
 		$ids = [];

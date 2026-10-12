@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class RestController {
 	const NS = 'travel-steps/v1';
-	// Immich's sizes, plus medium: its preview scaled down to this on the short side, for grids.
+	// A photo source's sizes, plus medium: its preview scaled down to this on the short side, for grids.
 	const SIZES           = [ 'thumbnail', 'medium', 'preview' ];
 	const MEDIUM_SHORT_PX = 640;
 
@@ -173,8 +173,9 @@ class RestController {
 	}
 
 	/**
-	 * Stream an Immich thumbnail. Only assets that belong to the trip are served, so
-	 * the Immich server and its API key never have to be reachable from outside.
+	 * Stream a photo from the trip's source. Only assets that belong to the trip are
+	 * served, so the source (an Immich server and its API key) never has to be
+	 * reachable from outside.
 	 *
 	 * @return \WP_Error|void
 	 */
@@ -201,7 +202,8 @@ class RestController {
 
 		$cache = self::cache_file( $asset, $size );
 		if ( ! is_readable( $cache['file'] ) ) {
-			$image = 'medium' === $size ? self::medium( $asset ) : ( new ImmichClient() )->thumbnail( $asset, $size );
+			$source = Trips::source( $trip_id );
+			$image  = 'medium' === $size ? self::medium( $source, $asset ) : $source->image( $asset, $size );
 			if ( is_wp_error( $image ) || '' === $image['body'] ) {
 				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
 			}
@@ -234,13 +236,13 @@ class RestController {
 	 *
 	 * @return array{body: string, type: string}|\WP_Error
 	 */
-	private static function medium( string $asset ) {
+	private static function medium( PhotoSource $source, string $asset ) {
 		$preview = self::cache_file( $asset, 'preview' )['file'];
 		if ( is_readable( $preview ) ) {
 			$type  = is_readable( $preview . '.type' ) ? trim( (string) file_get_contents( $preview . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			$image = [ 'body' => (string) file_get_contents( $preview ), 'type' => $type ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		} else {
-			$image = ( new ImmichClient() )->thumbnail( $asset, 'preview' );
+			$image = $source->image( $asset, 'preview' );
 			if ( is_wp_error( $image ) ) {
 				return $image;
 			}

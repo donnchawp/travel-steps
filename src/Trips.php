@@ -22,7 +22,7 @@ class Trips {
 	const META_END    = '_ts_end';         // Y-m-d, inclusive.
 	const META_ALBUM  = '_ts_album';       // Immich album id (optional).
 	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon].
-	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see ImmichClient::normalise) + step.
+	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
 	const META_HIDDEN = '_ts_hidden';      // array of hidden Immich asset ids.
 	const META_PINNED = '_ts_pinned';      // array of Immich asset ids always shown.
 	const META_COVER  = '_ts_cover';       // Immich asset id chosen for the header, else automatic.
@@ -222,6 +222,13 @@ class Trips {
 			return null;
 		}
 		return [ $from->getTimestamp(), $to->getTimestamp() ];
+	}
+
+	/**
+	 * Where the trip's photos come from. Today that's always Immich.
+	 */
+	public static function source( int $trip_id ): PhotoSource {
+		return new ImmichSource();
 	}
 
 	public static function photos( int $trip_id ): array {

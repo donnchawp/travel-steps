@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Pulls a trip's route from Dawarich, if set up, and photos from Immich, then creates steps.
+ * Pulls a trip's route from Dawarich, if set up, and photos from its photo source, then creates steps.
  *
  * A step is a day: each day with favourites gets a draft step, seeded once with a
  * heading and a place tag per place. After that the step is yours: sync never touches its title,
@@ -21,11 +21,14 @@ class TripSync {
 	const ZONE_MARGIN_S     = 14 * HOUR_IN_SECONDS;
 
 	private DawarichClient $dawarich;
-	private ImmichClient $immich;
+	private ?PhotoSource $source;
 
-	public function __construct( ?DawarichClient $dawarich = null, ?ImmichClient $immich = null ) {
+	/**
+	 * @param PhotoSource|null $source Photos for every trip; by default, each trip's own source.
+	 */
+	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null ) {
 		$this->dawarich = $dawarich ?? new DawarichClient();
-		$this->immich   = $immich ?? new ImmichClient();
+		$this->source   = $source;
 	}
 
 	/**
@@ -67,7 +70,8 @@ class TripSync {
 		$points = Geo::exclude_near( Geo::drop_glitches( $points ), $home );
 
 		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
-		$photos = $this->immich->photos( $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S, (string) get_post_meta( $trip_id, Trips::META_ALBUM, true ) );
+		$source = $this->source ?? Trips::source( $trip_id );
+		$photos = $source->photos( $trip_id, $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S );
 		if ( is_wp_error( $photos ) ) {
 			return $photos;
 		}

@@ -1,12 +1,12 @@
 <?php
 /**
- * End-to-end checks inside WordPress Playground, with fake Dawarich and Immich clients:
+ * End-to-end checks inside WordPress Playground, with a fake Dawarich client and photo source:
  * sync, re-sync, the REST gate, story rendering and the trip pages. Run with `make smoke`.
  * Results go to /out/result.txt, one "ok" or "FAIL" line per check.
  */
 require '/wordpress/wp-load.php';
 
-use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, Days};
+use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, ImmichSource, PhotoSource, Days};
 
 $out = [];
 // Write results even if a fatal error ends the run, with the error as a failure.
@@ -52,12 +52,15 @@ class HomeDawarich extends DawarichClient {
 		return $pts;
 	}
 }
-class FakeImmich extends ImmichClient {
+class FakeSource implements PhotoSource {
 	public array $rows = [];
 	public array $asked = [];
-	public function photos( int $start, int $end, string $album_id = '' ) {
+	public function photos( int $trip_id, int $start, int $end ) {
 		$this->asked = [ $start, $end ];
 		return $this->rows;
+	}
+	public function image( string $photo_id, string $size ) {
+		return new WP_Error( 'fake', 'No images here' );
 	}
 }
 function row( $n, $day, $hm, $lat, $lon, $city, $fav ) {
@@ -65,8 +68,8 @@ function row( $n, $day, $hm, $lat, $lon, $city, $fav ) {
 	return [ 'id' => sprintf( '00000000-0000-4000-8000-%012d', $n ), 't' => $t, 'day' => $day, 'lat' => $lat, 'lon' => $lon,
 		'w' => 400, 'h' => 300, 'city' => $city, 'country' => 'Portugal', 'caption' => '', 'fav' => $fav, 'camera' => 'Fuji X100' ];
 }
-$immich       = new FakeImmich( 'http://x', 'k' );
-$immich->rows = [
+$source       = new FakeSource();
+$source->rows = [
 	row( 1, '2025-05-01', '09:00', 38.7139, -9.1394, 'Lisbon', true ),
 	row( 2, '2025-05-01', '09:30', 38.7140, -9.1390, 'Lisbon', false ),
 	row( 3, '2025-05-01', '14:00', 38.7979, -9.3880, 'Sintra', true ),
@@ -81,14 +84,14 @@ $trip_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Portug
 update_post_meta( $trip_id, Trips::META_START, '2025-05-01' );
 update_post_meta( $trip_id, Trips::META_END, '2025-05-03' );
 
-$sync = new TripSync( new FakeDawarich( 'http://x', 'k' ), $immich );
+$sync = new TripSync( new FakeDawarich( 'http://x', 'k' ), $source );
 $r    = $sync->sync( $trip_id );
 check( 'first sync creates a step per day with favourites', ! is_wp_error( $r ) && 2 === $r['new_steps'], $r );
 
 $steps = Trips::steps( $trip_id, true );
 check( 'two steps', 2 === count( $steps ), count( $steps ) );
 [ $from, $to ] = Trips::range( $trip_id );
-check( 'photos asked for 14h either side of the trip', [ $from - 14 * HOUR_IN_SECONDS, $to + 14 * HOUR_IN_SECONDS ] === $immich->asked, [ $from, $to, $immich->asked ] );
+check( 'photos asked for 14h either side of the trip', [ $from - 14 * HOUR_IN_SECONDS, $to + 14 * HOUR_IN_SECONDS ] === $source->asked, [ $from, $to, $source->asked ] );
 check( 'no photos kept from before the trip', ! in_array( row( 7, '2025-04-30', '20:00', 0, 0, '', 1 )['id'], array_column( Trips::photos( $trip_id ), 'id' ), true ) );
 $d1 = $steps[0]; $d2 = $steps[1] ?? null;
 check( 'steps are drafts', 'draft' === $d1->post_status && 'draft' === $d2->post_status );
@@ -129,11 +132,26 @@ $r = $sync->sync( $trip_id );
 check( 'concurrent sync refused', is_wp_error( $r ) && 'travel_steps_sync_running' === $r->get_error_code() );
 delete_option( 'travel_steps_sync_lock_' . $trip_id );
 
+// A trip's photos come from Immich, from its album when it has one.
+class AlbumImmich extends ImmichClient {
+	public ?string $album = null;
+	public function photos( int $start, int $end, string $album_id = '' ) {
+		$this->album = $album_id;
+		return [];
+	}
+}
+check( 'a trip uses Immich for its photos', Trips::source( $trip_id ) instanceof ImmichSource );
+$album_client = new AlbumImmich( 'http://x', 'k' );
+update_post_meta( $trip_id, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
+( new ImmichSource( $album_client ) )->photos( $trip_id, 0, 1 );
+delete_post_meta( $trip_id, Trips::META_ALBUM );
+check( 'Immich is asked for the trip’s album', '11111111-1111-4111-8111-111111111111' === $album_client->album, $album_client->album );
+
 // Without Dawarich, the photos' own positions make the route.
 $solo_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Photos only', 'post_status' => 'draft' ] );
 update_post_meta( $solo_id, Trips::META_START, '2025-05-01' );
 update_post_meta( $solo_id, Trips::META_END, '2025-05-03' );
-$r = ( new TripSync( new DawarichClient( 'http://x', '' ), $immich ) )->sync( $solo_id );
+$r = ( new TripSync( new DawarichClient( 'http://x', '' ), $source ) )->sync( $solo_id );
 check( 'sync works without a Dawarich key', ! is_wp_error( $r ) && 2 === $r['new_steps'] && 0 === $r['points'], is_wp_error( $r ) ? $r->get_error_message() : $r );
 
 // Dawarich gets times it can read back: an unencoded "+00:00" means " 00:00" in a query string.
@@ -408,7 +426,7 @@ update_option( TravelSteps\Settings::OPTION, array_merge( (array) $home_before, 
 $away_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Day trip', 'post_status' => 'draft' ] );
 update_post_meta( $away_id, Trips::META_START, '2025-05-01' );
 update_post_meta( $away_id, Trips::META_END, '2025-05-01' );
-$r          = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $immich ) )->sync( $away_id );
+$r          = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $source ) )->sync( $away_id );
 $away_stats = get_post_meta( $away_id, Trips::META_STATS, true );
 check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'Portugal' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
 foreach ( array_merge( Trips::steps( $away_id, true ), [ get_post( $away_id ) ] ) as $post ) {

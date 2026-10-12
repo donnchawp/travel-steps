@@ -26,6 +26,7 @@ class Uploads {
 	const META_PHOTO_ID = '_ts_photo_id';
 	const META_EXIF     = '_ts_exif'; // When, where and with what it was taken: see Exif::parse().
 	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in: file name => "mtime:size".
+	const META_VERSION  = '_ts_version'; // Counts new sets of copies, for the proxy's ETag.
 	const DIR           = 'travel-steps';
 	// The photo proxy's sizes, as Immich makes them: at least this on the short side.
 	const SHORT_PX = [
@@ -254,6 +255,7 @@ class Uploads {
 		if ( '' !== self::photo_id( (int) $attachment_id ) ) {
 			self::forget_cached( (int) $attachment_id );
 			delete_post_meta( (int) $attachment_id, self::META_CHECKED );
+			update_post_meta( (int) $attachment_id, self::META_VERSION, 1 + (int) get_post_meta( (int) $attachment_id, self::META_VERSION, true ) );
 		}
 		return $data;
 	}

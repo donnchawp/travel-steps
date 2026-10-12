@@ -211,8 +211,8 @@ class RestController {
 			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
 		}
 		$is_public = 'public' === $access;
-		// An asset's thumbnail doesn't change, so its tag needn't depend on the cache file.
-		$etag = '"' . md5( $asset . '/' . $size ) . '"';
+		$upload = Uploads::attachment( $trip_id, $asset );
+		$etag   = self::etag( $asset, $size, $upload );
 		// Revalidation runs the access check above every time, but costs no image bytes.
 		if ( self::not_modified( $etag, (string) $request->get_header( 'if_none_match' ) ) ) {
 			self::send_cache_headers( $is_public, $etag );
@@ -222,7 +222,6 @@ class RestController {
 
 		$cache = self::cache_file( $asset, $size );
 		if ( ! is_readable( $cache ) ) {
-			$upload = Uploads::attachment( $trip_id, $asset );
 			if ( $upload ) {
 				$image = Uploads::image( $upload, $size );
 			} else {
@@ -246,6 +245,15 @@ class RestController {
 		}
 
 		self::send_file( $is_public, $etag, $cache, is_readable( $cache . '.type' ) ? trim( (string) file_get_contents( $cache . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+	}
+
+	/**
+	 * A photo's ETag at a size. An Immich thumbnail doesn't change; an upload's copies
+	 * do when it's edited, so its version is part of the tag.
+	 */
+	public static function etag( string $asset, string $size, int $upload = 0 ): string {
+		$version = $upload ? (string) get_post_meta( $upload, Uploads::META_VERSION, true ) : '';
+		return '"' . md5( $asset . '/' . $size . ( '' !== $version ? '/' . $version : '' ) ) . '"';
 	}
 
 	private static function send_file( bool $is_public, string $etag, string $file, string $type ): void {

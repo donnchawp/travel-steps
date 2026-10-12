@@ -143,7 +143,7 @@ It ignores the range: the uploads are the trip's own photos, like an album.
   for trip photos, as `Uploads::prepare_for_js()` does for the modal. Confirm
   first that core REST returns them to editors.
 - The proxy's ETag for an upload includes its `_ts_version` attachment meta,
-  which `Uploads::new_copies()` sets to the current time, so an edited upload
+  a counter that `Uploads::new_copies()` increments, so an edited upload
   doesn't keep its old image in browsers that revalidate. Immich photos keep
   today's ETag.
 - `Geocoder::available()` reports whether the data files exist. Sync of an

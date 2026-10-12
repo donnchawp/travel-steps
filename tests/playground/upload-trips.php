@@ -154,3 +154,10 @@ $ut_file    = pathinfo( (string) get_post_meta( $ut_rest_id, '_wp_attached_file'
 $ut_file    = preg_replace( '/-scaled$/', '', $ut_file );
 $ut_json    = wp_json_encode( $get( "/wp/v2/media/$ut_rest_id", [ 'context' => 'edit' ] )->get_data(), JSON_UNESCAPED_SLASHES );
 check( 'core REST names no file for a trip photo, even for editors', false === strpos( $ut_json, $ut_file ) && false === strpos( $ut_json, '/uploads/travel-steps/' ), substr( $ut_json, 0, 800 ) );
+
+// An edited upload gets a new ETag, so browsers that revalidate fetch the new image.
+$ut_asset   = Uploads::photo_id( $ut_rest_id );
+$ut_before  = TravelSteps\RestController::etag( $ut_asset, 'thumbnail', $ut_rest_id );
+wp_update_attachment_metadata( $ut_rest_id, wp_get_attachment_metadata( $ut_rest_id ) );
+check( 'an upload’s ETag changes with its copies', $ut_before !== TravelSteps\RestController::etag( $ut_asset, 'thumbnail', $ut_rest_id ) );
+check( 'an Immich photo’s ETag is as before', '"' . md5( '00000000-0000-4000-8000-000000000001/thumbnail' ) . '"' === TravelSteps\RestController::etag( '00000000-0000-4000-8000-000000000001', 'thumbnail' ) );

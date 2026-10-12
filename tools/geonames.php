@@ -5,9 +5,12 @@
  *
  * Writes, for src/Geocoder.php:
  * - places.tsv:    name, country code, lat, lon; grouped by 1°×1° tile, then by GeoNames id.
- * - index.bin:     Geocoder::TILES + 1 big-endian uint32 byte offsets into places.tsv; tile k
+ * - index.dat:     Geocoder::TILES + 1 big-endian uint32 byte offsets into places.tsv; tile k
  *                  is the bytes from offset k to offset k + 1.
  * - countries.tsv: country code, English name.
+ *
+ * Both inputs are read in full before anything is written, so a missing one leaves
+ * the data as it was.
  */
 require __DIR__ . '/../src/Geocoder.php';
 
@@ -18,16 +21,35 @@ if ( ! $out ) {
 	fwrite( STDERR, "Usage: php tools/geonames.php cities500.txt countryInfo.txt <output dir>\n" );
 	exit( 1 );
 }
+foreach ( [ $cities, $countries ] as $input ) {
+	if ( ! is_readable( $input ) ) {
+		fwrite( STDERR, "Can't read $input\n" );
+		exit( 1 );
+	}
+}
+
+$names = '';
+foreach ( file( $countries, FILE_IGNORE_NEW_LINES ) as $line ) {
+	$f = explode( "\t", $line );
+	if ( '' === $line || '#' === $line[0] || count( $f ) < 5 || '' === trim( $f[4] ) ) {
+		continue;
+	}
+	$names .= $f[0] . "\t" . trim( $f[4] ) . "\n";
+}
 
 $tiles = [];
-$file  = new SplFileObject( $cities );
-foreach ( $file as $line ) {
+foreach ( new SplFileObject( $cities ) as $line ) {
 	$f = explode( "\t", rtrim( (string) $line, "\n" ) );
 	if ( count( $f ) < 9 ) {
 		continue;
 	}
 	// As Immich does: no neighbourhoods (except Australia's suburbs) and no historical places.
 	if ( ( 'PPLX' === $f[7] && 'AU' !== $f[8] ) || 'PPLH' === $f[7] ) {
+		continue;
+	}
+	// Unlike Immich, no numbered arrondissements ("Paris 16 Passy", "Marseille 02"): a
+	// walk across the city would become a string of places. The city itself is there.
+	if ( 'FR' === $f[8] && preg_match( '/^(Paris|Marseille|Lyon) \d/', $f[1] ) ) {
 		continue;
 	}
 	$lat = round( (float) $f[4], 4 );
@@ -52,16 +74,7 @@ for ( $k = 0; $k < Geocoder::TILES; $k++ ) {
 }
 $index .= pack( 'N', $offset );
 fclose( $data );
-file_put_contents( "$out/index.bin", $index );
-
-$names = '';
-foreach ( file( $countries, FILE_IGNORE_NEW_LINES ) as $line ) {
-	$f = explode( "\t", $line );
-	if ( '' === $line || '#' === $line[0] || count( $f ) < 5 || '' === trim( $f[4] ) ) {
-		continue;
-	}
-	$names .= $f[0] . "\t" . trim( $f[4] ) . "\n";
-}
+file_put_contents( "$out/index.dat", $index );
 file_put_contents( "$out/countries.tsv", $names );
 
 echo "$rows places in " . count( $tiles ) . " tiles, $offset bytes\n";

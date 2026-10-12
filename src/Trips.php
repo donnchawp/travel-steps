@@ -116,6 +116,14 @@ class Trips {
 		return (string) apply_filters( 'travel_steps_capability', 'manage_options' );
 	}
 
+	/**
+	 * Whether the current user may edit a trip: it is one, they can edit it, and they
+	 * have the travel-steps capability.
+	 */
+	public static function can_edit_trip( int $trip_id ): bool {
+		return self::TRIP === get_post_type( $trip_id ) && current_user_can( 'edit_post', $trip_id ) && current_user_can( self::capability() );
+	}
+
 	public static function find_by_slug( string $slug ): ?\WP_Post {
 		$posts = get_posts(
 			[
@@ -315,7 +323,7 @@ class Trips {
 
 	private function trip_from_request(): \WP_Post {
 		$trip = get_post( absint( $_POST['trip_id'] ?? 0 ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified by callers.
-		if ( ! $trip || self::TRIP !== $trip->post_type || ! current_user_can( 'edit_post', $trip->ID ) || ! current_user_can( self::capability() ) ) {
+		if ( ! $trip || ! self::can_edit_trip( $trip->ID ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps' ), 403 );
 		}
 		return $trip;

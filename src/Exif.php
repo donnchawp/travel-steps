@@ -8,14 +8,17 @@ namespace TravelSteps;
  */
 class Exif {
 	/**
-	 * @param array $exif  Tags by name, as exif_read_data() gives them (or from_properties()).
-	 * @param int   $width The image's stored width and height, before rotation.
+	 * @param array  $exif  Tags by name, as exif_read_data() gives them (or from_properties()).
+	 * @param int    $width The image's width and height as decoded.
+	 * @param string $type  Its MIME type. HEIF keeps its rotation in the file, which
+	 *                      decoders apply, so its size is already as displayed and its
+	 *                      EXIF orientation is ignored, as the format says to.
 	 * @return array{taken: string, offset: string, lat: ?float, lon: ?float, camera: string, w: int, h: int}
 	 *         taken is the camera's wall-clock time, Y-m-d H:i:s, or empty; offset is
 	 *         its UTC offset, such as +01:00, or empty if the camera didn't record one;
 	 *         w and h are as displayed.
 	 */
-	public static function parse( array $exif, int $width, int $height ): array {
+	public static function parse( array $exif, int $width, int $height, string $type = '' ): array {
 		$kind  = isset( $exif['DateTimeOriginal'] ) ? 'Original' : 'Digitized';
 		$taken = self::time( $exif[ 'DateTime' . $kind ] ?? '' );
 		$lat   = self::coordinate( $exif['GPSLatitude'] ?? null, $exif['GPSLatitudeRef'] ?? '', 90 );
@@ -29,7 +32,7 @@ class Exif {
 		$make   = self::text( $exif['Make'] ?? '' );
 		$model  = self::text( $exif['Model'] ?? '' );
 		// Orientations 5 to 8 turn the photo on its side.
-		if ( in_array( (int) ( $exif['Orientation'] ?? 1 ), [ 5, 6, 7, 8 ], true ) ) {
+		if ( 0 !== strpos( $type, 'image/hei' ) && in_array( (int) ( $exif['Orientation'] ?? 1 ), [ 5, 6, 7, 8 ], true ) ) {
 			[ $width, $height ] = [ $height, $width ];
 		}
 		return [

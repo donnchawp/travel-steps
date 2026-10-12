@@ -57,6 +57,9 @@ check( 'a latitude past the pole is no position', null === $out['lat'], $out );
 
 $rotated = Exif::parse( [ 'Orientation' => 6 ] + $iphone, 4032, 3024 );
 check( 'a photo turned on its side is as displayed', [ 3024, 4032 ] === [ $rotated['w'], $rotated['h'] ], $rotated );
+// HEIF keeps its rotation in the file, which decoders apply, so its size is already as displayed.
+$heic = Exif::parse( [ 'Orientation' => 6 ] + $iphone, 3024, 4032, 'image/heic' );
+check( 'a HEIC’s size is as decoded, whatever its EXIF orientation', [ 3024, 4032 ] === [ $heic['w'], $heic['h'] ], $heic );
 
 check( 'a model that names its make is not doubled', 'Canon EOS R5' === Exif::parse( [ 'Make' => 'Canon', 'Model' => 'Canon EOS R5' ], 1, 1 )['camera'] );
 check( 'padding is trimmed', 'FUJIFILM X100V' === Exif::parse( [ 'Make' => "FUJIFILM \0", 'Model' => "X100V\0\0" ], 1, 1 )['camera'] );

@@ -65,9 +65,9 @@ class HomeDawarich extends DawarichClient {
 }
 class FakeSource implements PhotoSource {
 	public array $rows = [];
-	public array $asked = [];
-	public function photos( int $trip_id, int $start, int $end ) {
-		$this->asked = [ $start, $end ];
+	public ?array $asked = [];
+	public function photos( int $trip_id, ?array $range ) {
+		$this->asked = $range;
 		return $this->rows;
 	}
 	public function image( string $photo_id, string $size ) {
@@ -76,7 +76,7 @@ class FakeSource implements PhotoSource {
 }
 function row( $n, $day, $hm, $lat, $lon, $city, $fav ) {
 	$t = strtotime( "$day $hm UTC" );
-	return [ 'id' => sprintf( '00000000-0000-4000-8000-%012d', $n ), 't' => $t, 'day' => $day, 'lat' => $lat, 'lon' => $lon,
+	return [ 'id' => sprintf( '00000000-0000-4000-8000-%012d', $n ), 't' => $t, 'day' => $day, 'local' => $t, 'zoned' => true, 'lat' => $lat, 'lon' => $lon,
 		'w' => 400, 'h' => 300, 'city' => $city, 'country' => 'Portugal', 'caption' => '', 'fav' => $fav, 'camera' => 'Fuji X100' ];
 }
 $source       = new FakeSource();
@@ -154,9 +154,25 @@ class AlbumImmich extends ImmichClient {
 check( 'a trip uses Immich for its photos', Trips::source( $trip_id ) instanceof ImmichSource );
 $album_client = new AlbumImmich( 'http://x', 'k' );
 update_post_meta( $trip_id, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
-( new ImmichSource( $album_client ) )->photos( $trip_id, 0, 1 );
+( new ImmichSource( $album_client ) )->photos( $trip_id, [ 0, 1 ] );
 delete_post_meta( $trip_id, Trips::META_ALBUM );
 check( 'Immich is asked for the trip’s album', '11111111-1111-4111-8111-111111111111' === $album_client->album, $album_client->album );
+$no_dates = ( new ImmichSource( new AlbumImmich( 'http://x', 'k' ) ) )->photos( $trip_id, null );
+check( 'Immich without an album needs the trip’s dates', is_wp_error( $no_dates ) && 'travel_steps_no_dates' === $no_dates->get_error_code() );
+
+// Sources hand over wall-clock times; sync works out each photo's zone, and the order.
+$zone_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Zones', 'post_status' => 'draft' ] );
+update_post_meta( $zone_trip, Trips::META_START, '2025-05-01' );
+update_post_meta( $zone_trip, Trips::META_END, '2025-05-01' );
+$zone_known          = row( 21, '2025-05-01', '12:00', 38.7139, -9.1394, 'Lisbon', true );
+$zone_known['local'] = $zone_known['t'] + HOUR_IN_SECONDS; // 13:00 where it was taken: UTC+1.
+$zone_bare           = row( 22, '2025-05-01', '10:00', 38.7139, -9.1394, 'Lisbon', true );
+$zone_bare['zoned']  = false; // 10:00 local, no offset: it borrows +1 from the photo beside it.
+$zone_source         = new FakeSource();
+$zone_source->rows   = [ $zone_known, $zone_bare ];
+( new TripSync( new DawarichClient( 'http://x', '' ), $zone_source ) )->sync( $zone_trip );
+$zone_times = array_column( Trips::photos( $zone_trip ), 't', 'id' );
+check( 'sync resolves a time without an offset from its neighbours, and sorts', [ $zone_bare['id'], $zone_known['id'] ] === array_keys( $zone_times ) && strtotime( '2025-05-01 09:00 UTC' ) === $zone_times[ $zone_bare['id'] ], $zone_times );
 
 // Without Dawarich, the photos' own positions make the route.
 $solo_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Photos only', 'post_status' => 'draft' ] );

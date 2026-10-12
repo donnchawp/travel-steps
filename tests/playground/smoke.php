@@ -6,7 +6,7 @@
  */
 require '/wordpress/wp-load.php';
 
-use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, ImmichSource, PhotoSource, Days};
+use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, ImmichSource, PhotoSource, Days, Settings};
 
 $out = [];
 // Write results even if a fatal error ends the run, with the error as a failure.
@@ -27,6 +27,17 @@ function check( string $name, bool $ok, $detail = '' ) {
 
 try {
 check( 'plugin active and classes load', class_exists( TripSync::class ) && post_type_exists( Trips::STEP ) && taxonomy_exists( Trips::PLACE ) );
+
+// Upgrading from site-wide keys before any trip exists: every administrator gets them.
+delete_option( Settings::MIGRATED );
+update_option( Settings::OPTION, [ 'immich_url' => 'http://immich.test', 'immich_key' => 'site-immich', 'dawarich_key' => 'site-dawarich', 'home_lat' => '53.3', 'home_lon' => '-6.2', 'home_radius_km' => 2 ] );
+$second_admin = wp_insert_user( [ 'user_login' => 'admin2', 'user_pass' => wp_generate_password(), 'role' => 'administrator' ] );
+Settings::migrate();
+$moved = [ Settings::account( 1 ), Settings::account( $second_admin ) ];
+check( 'upgrade with no trips: every administrator gets the site’s keys and home', [ 'site-immich', 'site-dawarich', '53.3', '-6.2', 2 ] === array_values( array_intersect_key( $moved[0], array_flip( [ 'immich_key', 'dawarich_key', 'home_lat', 'home_lon', 'home_radius_km' ] ) ) ) && $moved[0] === $moved[1], $moved );
+check( 'upgrade: the site settings keep the URLs but no keys or home', [ 'immich_url' => 'http://immich.test' ] === get_option( Settings::OPTION ), get_option( Settings::OPTION ) );
+delete_user_option( 1, Settings::ACCOUNT );
+delete_user_option( $second_admin, Settings::ACCOUNT );
 
 class FakeDawarich extends DawarichClient {
 	public function points( int $start, int $end ) {
@@ -378,38 +389,39 @@ check( 'albums request gives up quickly', ( $album_calls[0] ?? 99 ) <= 5, $album
 check( 'another Immich server is asked separately', 2 === count( $album_calls ), $album_calls );
 
 // Keys are write-only: blank keeps the saved one, and only "Remove" clears it.
-$saved = array_merge( TravelSteps\Settings::all(), [ 'dawarich_key' => 'dkey', 'immich_key' => 'ikey' ] );
-$kept  = TravelSteps\Settings::sanitize( [ 'dawarich_key' => '', 'immich_key' => 'new' ], $saved );
+$saved = array_merge( TravelSteps\Settings::ACCOUNT_DEFAULTS, [ 'dawarich_key' => 'dkey', 'immich_key' => 'ikey' ] );
+$kept  = TravelSteps\Settings::sanitize_account( [ 'dawarich_key' => '', 'immich_key' => 'new' ], $saved );
 check( 'a blank key field keeps the saved key', 'dkey' === $kept['dawarich_key'] && 'new' === $kept['immich_key'], $kept );
-$gone = TravelSteps\Settings::sanitize( [ 'dawarich_key' => '', 'dawarich_key_remove' => '1' ], $saved );
+$gone = TravelSteps\Settings::sanitize_account( [ 'dawarich_key' => '', 'dawarich_key_remove' => '1' ], $saved );
 check( 'remove clears a saved key, and only that one', '' === $gone['dawarich_key'] && 'ikey' === $gone['immich_key'], $gone );
 
 // Home: a "lat, lon" pair pasted from a map is split; anything else unreadable is an error.
 $saved  = array_merge( $saved, [ 'home_lat' => '53.3', 'home_lon' => '-6.2' ] );
 $errors = [];
-$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => ' 51.8985, -8.4756 ', 'home_lon' => '' ], $saved, $errors );
+$home   = TravelSteps\Settings::sanitize_account( [ 'home_lat' => ' 51.8985, -8.4756 ', 'home_lon' => '' ], $saved, $errors );
 check( 'pasted lat, lon pair is split', '51.8985' === $home['home_lat'] && '-8.4756' === $home['home_lon'] && ! $errors, [ $home['home_lat'], $home['home_lon'], $errors ] );
 $errors = [];
-$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '51°53′N', 'home_lon' => '8°28′W' ], $saved, $errors );
+$home   = TravelSteps\Settings::sanitize_account( [ 'home_lat' => '51°53′N', 'home_lon' => '8°28′W' ], $saved, $errors );
 check( 'unreadable home is an error and keeps the saved one', [ 'home' ] === $errors && '53.3' === $home['home_lat'] && '-6.2' === $home['home_lon'], [ $home['home_lat'], $home['home_lon'], $errors ] );
 $errors = [];
-$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '51.8985', 'home_lon' => '' ], $saved, $errors );
+$home   = TravelSteps\Settings::sanitize_account( [ 'home_lat' => '51.8985', 'home_lon' => '' ], $saved, $errors );
 check( 'half a home is an error', [ 'home' ] === $errors && '53.3' === $home['home_lat'], $errors );
 foreach ( [ [ '48,85', '' ], [ '48,85', '2,35' ], [ '53,35', '-6,26' ] ] as [ $lat, $lon ] ) {
 	$errors = [];
-	$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => $lat, 'home_lon' => $lon ], $saved, $errors );
+	$home   = TravelSteps\Settings::sanitize_account( [ 'home_lat' => $lat, 'home_lon' => $lon ], $saved, $errors );
 	check( "decimal comma ($lat / $lon) is an error, not a pair", [ 'home' ] === $errors && '53.3' === $home['home_lat'], [ $home['home_lat'], $home['home_lon'], $errors ] );
 }
 foreach ( [ '51.8985,-8.4756', '51.8985 -8.4756', '51.8985; -8.4756' ] as $pair ) {
 	$errors = [];
-	$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => $pair, 'home_lon' => '' ], $saved, $errors );
+	$home   = TravelSteps\Settings::sanitize_account( [ 'home_lat' => $pair, 'home_lon' => '' ], $saved, $errors );
 	check( "pair \"$pair\" is split", '51.8985' === $home['home_lat'] && '-8.4756' === $home['home_lon'] && ! $errors, [ $home['home_lat'], $home['home_lon'], $errors ] );
 }
 $errors = [];
-$home   = TravelSteps\Settings::sanitize( [ 'home_lat' => '', 'home_lon' => '' ], $saved, $errors );
+$home   = TravelSteps\Settings::sanitize_account( [ 'home_lat' => '', 'home_lon' => '' ], $saved, $errors );
 check( 'emptying both clears home', '' === $home['home_lat'] && '' === $home['home_lon'] && ! $errors, $errors );
 
-update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test', 'immich_key' => 'key' ] ) );
+update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test' ] ) );
+TravelSteps\Settings::update_account( 1, [ 'immich_key' => 'admin-immich-key' ] + TravelSteps\Settings::ACCOUNT_DEFAULTS );
 // The trips list runs oldest first by start date, with undated drafts on top.
 $later   = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Later trip', 'post_status' => 'publish' ] );
 $earlier = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Earlier trip', 'post_status' => 'publish' ] );
@@ -424,18 +436,21 @@ foreach ( [ $later, $earlier, $undated ] as $id ) {
 }
 
 // A bad fix just before leaving home is caught: the home fixes around it are witnesses.
-$home_before = get_option( TravelSteps\Settings::OPTION );
-update_option( TravelSteps\Settings::OPTION, array_merge( (array) $home_before, [ 'home_lat' => '38.7139', 'home_lon' => '-9.1394', 'home_radius_km' => 1 ] ) );
-$away_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Day trip', 'post_status' => 'draft' ] );
+// Home is the trip author's (Lisbon), not that of whoever syncs (Dublin).
+$traveller = wp_insert_user( [ 'user_login' => 'traveller', 'user_pass' => wp_generate_password(), 'role' => 'author' ] );
+TravelSteps\Settings::update_account( $traveller, [ 'home_lat' => '38.7139', 'home_lon' => '-9.1394', 'home_radius_km' => 1 ] + TravelSteps\Settings::ACCOUNT_DEFAULTS );
+TravelSteps\Settings::update_account( 1, [ 'home_lat' => '53.35', 'home_lon' => '-6.26', 'home_radius_km' => 1 ] + TravelSteps\Settings::account( 1 ) );
+$away_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Day trip', 'post_status' => 'draft', 'post_author' => $traveller ] );
 update_post_meta( $away_id, Trips::META_START, '2025-05-01' );
 update_post_meta( $away_id, Trips::META_END, '2025-05-01' );
 $r          = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $source ) )->sync( $away_id );
 $away_stats = get_post_meta( $away_id, Trips::META_STATS, true );
 check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'Portugal' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
+check( 'sync cuts out the trip author’s home, not the home of whoever syncs', ! is_wp_error( $r ) && $r['points'] <= 12, is_wp_error( $r ) ? $r->get_error_message() : $r );
 foreach ( array_merge( Trips::steps( $away_id, true ), [ get_post( $away_id ) ] ) as $post ) {
 	wp_delete_post( $post->ID, true );
 }
-update_option( TravelSteps\Settings::OPTION, $home_before );
+TravelSteps\Settings::update_account( 1, [ 'home_lat' => '', 'home_lon' => '' ] + TravelSteps\Settings::account( 1 ) );
 
 // A synced trip whose photos have no favourites says why it has no steps.
 $plain_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'No favourites', 'post_status' => 'draft' ] );
@@ -445,7 +460,7 @@ $page = $render( 'trip-edit.php', (string) $plain_id );
 check( 'no favourites: edit page explains why there are no steps', false !== strpos( $page, 'None of the 2 photos' ), substr( $page, strpos( $page, '<h1' ) ?: 0, 600 ) );
 update_post_meta( $plain_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 1, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', false ) ] ) ) );
 check( 'no favourites, one photo: reads naturally', false !== strpos( $render( 'trip-edit.php', (string) $plain_id ), 'only photo isn’t a favourite' ) );
-check( 'favourites present: no warning', false === strpos( $edit, 'is-warning' ) );
+check( 'favourites present: no warning about them', false === strpos( $edit, 'a favourite in Immich' ) && false === strpos( $edit, 'isn’t a favourite' ) );
 wp_delete_post( $plain_id, true );
 
 $_GET = [ 'invalid' => 'home' ];
@@ -737,6 +752,107 @@ foreach ( [ $described, $posted, $loose ] as $id ) {
 	wp_delete_attachment( $id, true );
 }
 wp_delete_post( $other_post, true );
+
+// Each author's own keys and home: a trip always uses its author's, whoever syncs or views it.
+check( 'authors may make trips by default; contributors may not', 'publish_posts' === Trips::capability() && user_can( $author, Trips::capability() ) && ! user_can( $contributor, Trips::capability() ) );
+$person = fn( $login, $role ) => wp_insert_user( [ 'user_login' => $login, 'display_name' => ucfirst( $login ), 'user_pass' => wp_generate_password(), 'role' => $role ] );
+$alice  = $person( 'alice', 'author' );
+$bob    = $person( 'bob', 'author' );
+$carol  = $person( 'carol', 'author' );
+$eddie  = $person( 'eddie', 'editor' );
+Settings::update_account( $alice, [ 'immich_key' => 'alice-immich', 'dawarich_key' => 'alice-dawarich' ] + Settings::ACCOUNT_DEFAULTS );
+Settings::update_account( $bob, [ 'immich_key' => 'bob-immich' ] + Settings::ACCOUNT_DEFAULTS );
+$trip_by = function ( int $user_id ) {
+	$id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'A trip', 'post_status' => 'publish', 'post_author' => $user_id ] );
+	update_post_meta( $id, Trips::META_START, '2025-05-01' );
+	update_post_meta( $id, Trips::META_END, '2025-05-02' );
+	return $id;
+};
+[ $alices, $bobs, $carols ] = array_map( $trip_by, [ $alice, $bob, $carol ] );
+// Every request to Immich or Dawarich, by the key it carried.
+$keys_used = [];
+$status    = 200;
+$servers   = function ( $pre, $args, $url ) use ( &$keys_used, &$status ) {
+	$keys_used[] = $args['headers']['x-api-key'] ?? str_replace( 'Bearer ', '', $args['headers']['Authorization'] ?? '' );
+	$body        = false !== strpos( $url, '/api/search' ) ? '{"assets":{"items":[]}}' : ( false !== strpos( $url, '/thumbnail' ) ? 'IMAGE' : '[]' );
+	return [ 'headers' => [ 'content-type' => 'image/jpeg' ], 'body' => $body, 'response' => [ 'code' => $status, 'message' => '' ], 'cookies' => [], 'filename' => null ];
+};
+add_filter( 'pre_http_request', $servers, 10, 3 );
+wp_set_current_user( 1 );
+$r = ( new TripSync() )->sync( $alices );
+check( 'syncing a trip uses only its author’s keys', ! is_wp_error( $r ) && $keys_used && [] === array_diff( array_unique( $keys_used ), [ 'alice-immich', 'alice-dawarich' ] ), [ is_wp_error( $r ) ? $r->get_error_message() : $r, $keys_used ] );
+$keys_used = [];
+$r         = ( new TripSync() )->sync( $bobs );
+check( '…and another author’s trip only theirs (without Dawarich, none)', ! is_wp_error( $r ) && [ 'bob-immich' ] === array_values( array_unique( $keys_used ) ), $keys_used );
+$keys_used = [];
+wp_set_current_user( 0 );
+Trips::source( $alices )->image( '00000000-0000-4000-8000-000000000001', 'thumbnail' );
+check( 'a visitor’s photo is fetched with the trip author’s key', [ 'alice-immich' ] === $keys_used, $keys_used );
+wp_set_current_user( 1 );
+$r = ( new TripSync() )->sync( $carols );
+check( 'a trip whose author has no Immich key fails to sync, naming them', is_wp_error( $r ) && false !== strpos( $r->get_error_message(), 'Carol' ), is_wp_error( $r ) ? $r->get_error_message() : $r );
+$status = 401;
+$r      = ( new TripSync() )->sync( $bobs );
+$status = 200;
+check( 'a key Immich refuses fails the sync, naming whose it is', is_wp_error( $r ) && false !== strpos( $r->get_error_message(), 'Bob' ), is_wp_error( $r ) ? $r->get_error_message() : $r );
+
+// Only the author changes what a trip pulls in, or syncs it; other editors keep the rest.
+wp_set_current_user( $eddie );
+check( 'an editor can edit another author’s trip, but not sync it', Trips::can_edit_trip( $alices ) && ! Trips::can_sync_trip( $alices ) );
+$_POST = $_REQUEST = [ 'trip_id' => $alices, '_wpnonce' => wp_create_nonce( 'travel_steps_sync' ) ];
+check( '…the sync handler refuses them', 'die' === $stopped( [ new Trips(), 'handle_sync' ] ) );
+$_POST = $_REQUEST = [ 'trip_id' => $alices, 'title' => 'Renamed', 'start' => '2024-01-01', 'end' => '2024-01-02', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+check( '…as does saving new dates', 'die' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && '2025-05-01' === get_post_meta( $alices, Trips::META_START, true ) );
+$_POST = $_REQUEST = [ 'trip_id' => $alices, 'title' => 'Renamed', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+check( '…but they can still rename it', 'redirect' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && 'Renamed' === get_the_title( $alices ) && '2025-05-01' === get_post_meta( $alices, Trips::META_START, true ) );
+$_POST = $_REQUEST = [];
+$keys_used = [];
+$edit      = $render( 'trip-edit.php', (string) $alices );
+check( '…and their edit page has no Sync button and no album list, and asks Immich nothing', false === strpos( $edit, 'travel_steps_sync' ) && false === strpos( $edit, 'name="sync"' ) && false === strpos( $edit, 'name="album"' ) && [] === $keys_used, substr( $edit, strpos( $edit, '<form' ) ?: 0, 1500 ) );
+check( '…with the dates shown but not editable', 1 === preg_match( '/name="start"[^>]*disabled|disabled[^>]*name="start"/', $edit ) );
+check( '…and they can still pin, hide and choose the cover', 200 === $rest_post( "/travel-steps/v1/trips/$alices/photo-state", [ 'asset' => $own_photo, 'state' => 'hidden' ] )->get_status() );
+check( 'an editor of a trip whose author has no Immich key is told so', false !== strpos( $render( 'trip-edit.php', (string) $carols ), 'Carol hasn’t saved an Immich API key' ) );
+wp_set_current_user( $alice );
+$keys_used = [];
+$edit      = $render( 'trip-edit.php', (string) $alices );
+check( 'the author’s own edit page lists their albums, and offers to sync', false !== strpos( $edit, 'name="album"' ) && false !== strpos( $edit, 'travel_steps_sync' ) && [ 'alice-immich' ] === array_values( array_unique( $keys_used ) ), $keys_used );
+remove_filter( 'pre_http_request', $servers, 10 );
+
+// Settings: your own accounts for anyone who makes trips; the site's for administrators.
+$settings_page = $render( 'settings.php', '' );
+check( 'an author’s settings page: only their accounts, and no key printed', false !== strpos( $settings_page, 'name="immich_key"' ) && false === strpos( $settings_page, 'name="immich_url"' ) && false === strpos( $settings_page, 'alice-immich' ) && false === strpos( $settings_page, 'alice-dawarich' ) );
+$_POST = $_REQUEST = [ 'dawarich_url' => 'http://evil.test', '_wpnonce' => wp_create_nonce( 'travel_steps_settings' ) ];
+$site_before = get_option( Settings::OPTION );
+check( 'an author can’t save the site settings', 'die' === $stopped( [ Settings::class, 'handle_save_site' ] ) && $site_before === get_option( Settings::OPTION ) );
+$_POST = $_REQUEST = [ 'immich_key' => 'alice-new', 'home_lat' => '', 'home_lon' => '', '_wpnonce' => wp_create_nonce( 'travel_steps_account' ) ];
+check( 'an author saves their own key, and only theirs', 'redirect' === $stopped( [ Settings::class, 'handle_save_account' ] ) && 'alice-new' === Settings::account( $alice )['immich_key'] && 'alice-dawarich' === Settings::account( $alice )['dawarich_key'] && 'bob-immich' === Settings::account( $bob )['immich_key'] && $site_before === get_option( Settings::OPTION ) );
+$me = $get( '/wp/v2/users/me', [ 'context' => 'edit' ] );
+check( 'no key in the REST user record', 200 === $me->get_status() && false === strpos( wp_json_encode( $me->get_data() ), 'alice-' ), $me->get_status() );
+wp_set_current_user( 1 );
+$settings_page = $render( 'settings.php', '' );
+check( 'an administrator’s settings page: their accounts and the site’s', false !== strpos( $settings_page, 'name="immich_key"' ) && false !== strpos( $settings_page, 'name="immich_url"' ) && false === strpos( $settings_page, 'admin-immich-key' ) && false === strpos( $settings_page, 'alice-' ) );
+$account_before = Settings::account( 1 );
+$_POST = $_REQUEST = [ 'immich_url' => 'http://photos.test', 'dawarich_url' => 'http://dawarich.test', 'place_radius_km' => '3', 'auto_pick' => '6', '_wpnonce' => wp_create_nonce( 'travel_steps_settings' ) ];
+check( 'saving the site settings leaves the administrator’s own untouched', 'redirect' === $stopped( [ Settings::class, 'handle_save_site' ] ) && 'http://photos.test' === Settings::immich_url() && $account_before === Settings::account( 1 ) );
+$_POST = $_REQUEST = [];
+
+// Upgrading from site-wide keys: each trip author gets them, unless they have their own.
+$dave = $person( 'dave', 'author' );
+$trip_by( $dave );
+delete_option( Settings::MIGRATED );
+update_option( Settings::OPTION, [ 'immich_url' => 'http://immich.test', 'dawarich_key' => 'site-dawarich', 'home_lat' => '53.3', 'home_lon' => '-6.2' ] );
+update_option( 'immich_settings', [ 'api_url' => 'http://picker.test', 'api_key' => 'picker-key' ] );
+Settings::migrate();
+check( 'upgrade: a trip author gets the key in effect, Media Picker’s included, and the home', [ 'picker-key', 'site-dawarich', '53.3' ] === [ Settings::account( $dave )['immich_key'], Settings::account( $dave )['dawarich_key'], Settings::account( $dave )['home_lat'] ], Settings::account( $dave ) );
+check( 'upgrade: an author with their own keeps them', 'alice-new' === Settings::account( $alice )['immich_key'] );
+check( 'upgrade: no keys or home left in the site settings', [ 'immich_url' => 'http://immich.test' ] === get_option( Settings::OPTION ), get_option( Settings::OPTION ) );
+update_option( Settings::OPTION, [ 'immich_key' => 'later' ] );
+Settings::update_account( $dave, Settings::ACCOUNT_DEFAULTS );
+Settings::migrate();
+check( 'upgrade: runs once', '' === Settings::account( $dave )['immich_key'] );
+check( 'Media Picker’s key is never used in place of an author’s own', '' === ( new ReflectionProperty( ImmichClient::class, 'api_key' ) )->getValue( TravelSteps\ImmichClient::for_user( $dave ) ) );
+delete_option( 'immich_settings' );
+update_option( Settings::OPTION, [ 'immich_url' => 'http://immich.test' ] );
 
 // Suggested privacy policy text, shown under Settings → Privacy.
 require_once ABSPATH . 'wp-admin/includes/misc.php';

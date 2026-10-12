@@ -20,14 +20,17 @@ class TripSync {
 	// The widest UTC offset: a photo taken on a trip day can be this far outside it in the site's zone.
 	const ZONE_MARGIN_S     = 14 * HOUR_IN_SECONDS;
 
-	private DawarichClient $dawarich;
+	private ?DawarichClient $dawarich;
 	private ?PhotoSource $source;
 
 	/**
-	 * @param PhotoSource|null $source Photos for every trip; by default, each trip's own source.
+	 * By default, each trip uses its author's own Dawarich and photo source.
+	 *
+	 * @param DawarichClient|null $dawarich Location history for every trip.
+	 * @param PhotoSource|null    $source   Photos for every trip.
 	 */
 	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null ) {
-		$this->dawarich = $dawarich ?? new DawarichClient();
+		$this->dawarich = $dawarich;
 		$this->source   = $source;
 	}
 
@@ -59,9 +62,11 @@ class TripSync {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 		}
 		[ $start, $end ] = $range;
-		$home            = Settings::home();
+		// The trip's author's: their location history, and their home to leave out.
+		$author = (int) get_post_field( 'post_author', $trip_id );
+		$home   = Settings::home( $author );
 
-		$points = $this->dawarich->points( $start, $end );
+		$points = ( $this->dawarich ?? DawarichClient::for_user( $author ) )->points( $start, $end );
 		if ( is_wp_error( $points ) ) {
 			return $points;
 		}

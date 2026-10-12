@@ -51,7 +51,11 @@ To add a step by hand, click **Add step**, set its date in the block editor and 
 
 ## Privacy
 
-Creating, editing and syncing trips uses the site's Immich and Dawarich credentials, which reach your whole photo library and location history, so it needs the `manage_options` capability (administrators) rather than just being able to write posts. The same goes for pinning, hiding and choosing a trip's cover photo. To let other roles manage trips, filter it:
+Authors and up can make trips (the `publish_posts` capability); contributors can't. Each person enters their own Immich and Dawarich API keys and home on the settings page, and a trip always uses its author's: when it syncs, when its edit page lists albums, and when the photo proxy fetches a photo for a visitor. Nobody sees or changes anyone else's keys or home, administrators included. Keys are stored as user options (per site on multisite), are never printed back, and aren't in REST.
+
+Only a trip's author can change its dates or album, or sync it, because that draws on their photo library and location history. Others who can edit the trip (editors, administrators) keep the rest: the title and introduction, steps, publishing, and pinning, hiding and choosing the cover. If the author has no Immich key, or Immich refuses it, sync fails and says whose key it is; photos already cached keep being served.
+
+The Immich and Dawarich server URLs are site-wide and only administrators set them, so nobody can point the server at an address of their choosing. To let a different role make trips, filter the capability:
 
 ```php
 add_filter( 'travel_steps_capability', fn() => 'edit_others_posts' );
@@ -84,7 +88,7 @@ Place names for naming spots offline ship in `data/geonames/`: towns of 500 peop
 | `/travel-steps/` | Everyone: published trips (editors also see drafts) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox. Editors can pin and hide photos. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, album, visibility, sync, step list |
-| `/travel-steps/settings` | Admins: Dawarich/Immich URLs and keys, home privacy zone, place radius |
+| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys and home. Admins also: the server URLs, place radius and photos to pick |
 
 ## Setup
 
@@ -92,11 +96,11 @@ Place names for naming spots offline ship in `data/geonames/`: towns of 500 peop
 composer install --no-dev
 ```
 
-Then activate the plugin and open `/travel-steps/settings`:
+Then activate the plugin and open `/travel-steps/settings`. An administrator sets the server URLs under "Site"; everyone who makes trips adds their own keys and home under "Your accounts":
 
-- Dawarich (optional): the URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network), and the API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations. The route joins the places photos were taken with straight lines, dashed where they're over 20 km apart, and the distance is measured along those lines, so a winding drive comes out short and a flight counts. Photos without GPS stay unplaced, and a day without any located photo has no marker.
-- Immich: falls back to the URL and key from *Media Picker for Immich* when that's configured. The key needs `asset.read`, `asset.view` and `album.read`.
-- Home: coordinates and a radius to keep your home off every map. Right-click your home in Google Maps and click the coordinates to copy them, then paste the pair into either field.
+- Dawarich (optional): the URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network), and your API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations. The route joins the places photos were taken with straight lines, dashed where they're over 20 km apart, and the distance is measured along those lines, so a winding drive comes out short and a flight counts. Photos without GPS stay unplaced, and a day without any located photo has no marker.
+- Immich: the URL falls back to the one from *Media Picker for Immich* when that's configured; its key is never used. Your key needs `asset.read`, `asset.view` and `album.read`.
+- Home: coordinates and a radius to keep your home off your trips' maps. Right-click your home in Google Maps and click the coordinates to copy them, then paste the pair into either field.
 
 ## Development
 
@@ -134,7 +138,7 @@ make deploy       # composer install --no-dev, then rsync --delete
 
 If an authentication proxy guards the whole site, trips aren't public until it lets these paths through:
 
-- `/travel-steps/*`: the trip pages. The new and edit routes still need a WordPress login with the trips capability (`manage_options` unless filtered, see above), and settings always needs `manage_options`.
+- `/travel-steps/*`: the trip pages. The new, edit and settings routes still need a WordPress login with the trips capability (`publish_posts` unless filtered, see above).
 - `/wp-json/travel-steps/v1/*`: map data and photos, each checked against the trip's visibility
 - `/wp-content/plugins/travel-steps/*`: scripts, styles and Leaflet
 

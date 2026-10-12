@@ -16,12 +16,12 @@ Travel Steps shows a trip on your own WordPress site as a map beside a day-by-da
 
 Sync creates a draft step for every day with favourite photos, with a heading and a Trip photos block for each place you visited. You write each step up in the block editor and publish it. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map.
 
-Requires an Immich server reachable from your WordPress server; Dawarich is optional. Creating and syncing trips needs the `manage_options` capability by default.
+Requires an Immich server reachable from your WordPress server; Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location; a trip always uses its author's.
 
 == Installation ==
 
 1. Upload the plugin with its `vendor/` directory (or run `composer install --no-dev` in it) and activate it.
-2. Open `/travel-steps/settings` and enter your Immich URL and API key, and optionally Dawarich's and your home location.
+2. Open `/travel-steps/settings`. As an administrator, enter the Immich URL, and optionally Dawarich's, under Site. Everyone who makes trips enters their own Immich API key, and optionally their Dawarich key and home location, under Your accounts.
 3. Create a trip at `/travel-steps/new`, set its dates and press Sync.
 
 == External services ==
@@ -38,11 +38,11 @@ The map on each trip page loads its background images from the OpenStreetMap Fou
 
 = Dawarich (your own server, optional) =
 
-If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawarich server for the location points between the trip's dates. It sends your Dawarich API key and the date range. Nothing is sent to Dawarich at any other time, and visitors never contact it. Dawarich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [dawarich.app](https://dawarich.app).
+If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawarich server for the location points between the trip's dates. It sends the trip author's Dawarich API key and the date range. Nothing is sent to Dawarich at any other time, and visitors never contact it. Dawarich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [dawarich.app](https://dawarich.app).
 
 = Immich (your own server) =
 
-Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends your Immich API key and the date range or album id. The trip edit page also lists your Immich albums. Photos on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
+Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends the trip author's Immich API key and the date range or album id. The trip edit page also lists the author's Immich albums, for the author only. Photos on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
 
 == Credits ==
 

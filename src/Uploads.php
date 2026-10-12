@@ -81,6 +81,9 @@ class Uploads {
 		} elseif ( $trip_id && ! function_exists( 'exif_read_data' ) ) {
 			// Without it there's no knowing when a photo was taken, so no day to put it on.
 			$file['error'] = __( 'Photos can’t be added to trips on this site: its PHP has no exif extension, which reads when and where they were taken.', 'travel-steps' );
+		} elseif ( $trip_id && ! wp_get_image_mime( (string) $file['tmp_name'] ) ) {
+			// Read from its content, not its name: Imagick opens PDFs and videos too.
+			$file['error'] = __( 'Only photos can be added to a trip.', 'travel-steps' );
 		} elseif ( $trip_id ) {
 			self::$photo_id    = wp_generate_uuid4();
 			self::$uploaded_as = pathinfo( (string) $file['name'], PATHINFO_FILENAME );

@@ -502,10 +502,11 @@ require_once ABSPATH . 'wp-admin/includes/image.php';
 $photos_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Uploads', 'post_status' => 'publish' ] );
 $other_post  = wp_insert_post( [ 'post_title' => 'A post', 'post_status' => 'publish' ] );
 $as_photo    = [ 'post_id' => $photos_trip, TravelSteps\Uploads::REQUEST_FLAG => '1' ];
-$upload      = function ( array $request, int $post_id ) use ( $jpeg ) {
+// Big enough that core keeps the original and makes a "-scaled" copy to use.
+$upload      = function ( array $request, int $post_id, int $width = 3000 ) use ( $jpeg ) {
 	$_REQUEST = $request;
 	$tmp      = wp_tempnam( 'IMG_1234.jpg' );
-	file_put_contents( $tmp, $jpeg( 1600, 1200 ) );
+	file_put_contents( $tmp, $jpeg( $width, 2000 ) );
 	$id       = media_handle_sideload( [ 'name' => 'IMG_1234.jpg', 'tmp_name' => $tmp ], $post_id );
 	$_REQUEST = [];
 	return $id;
@@ -517,14 +518,15 @@ $photo_id = is_wp_error( $photo ) ? '' : TravelSteps\Uploads::photo_id( $photo )
 $dir      = "$base/travel-steps/$photos_trip";
 check( 'trip photo: gets a random UUID as its photo id', wp_is_uuid( $photo_id, 4 ), is_wp_error( $photo ) ? $photo->get_error_message() : $photo_id );
 $stored = (string) get_post_meta( $photo, '_wp_attached_file', true );
-$name   = basename( $stored, '.jpg' );
+$name   = basename( $stored, '-scaled.jpg' );
 // The photo id is public in proxy URLs, so it mustn't lead to the file (nginx ignores the deny rule).
-check( 'trip photo: stored in the trip’s folder under a random name that isn’t its id', wp_is_uuid( $name, 4 ) && "travel-steps/$photos_trip/$name.jpg" === $stored && false === strpos( $stored, $photo_id ), $stored );
+check( 'trip photo: stored in the trip’s folder under a random name that isn’t its id', wp_is_uuid( $name, 4 ) && "travel-steps/$photos_trip/$name-scaled.jpg" === $stored && "$name.jpg" === ( wp_get_attachment_metadata( $photo )['original_image'] ?? '' ) && false === strpos( $stored, $photo_id ), $stored );
 $sizes = wp_list_pluck( wp_get_attachment_metadata( $photo )['sizes'] ?? [], 'file' );
 $files = array_map( 'basename', glob( "$dir/*" ) ?: [] );
 check( 'trip photo: its sizes are beside it, under the same name', $sizes && ! array_diff( $sizes, $files ) && [ 'index.html' ] === array_values( preg_grep( "/^$name\\b/", $files, PREG_GREP_INVERT ) ), [ $sizes, $files ] );
 check( 'trip photo: its folders have a deny rule and can’t be listed', "Require all denied\n" === @file_get_contents( "$base/travel-steps/.htaccess" ) && file_exists( "$base/travel-steps/index.html" ) && file_exists( "$dir/index.html" ) );
 check( 'trip photo: a private attachment', 'private' === get_post( $photo )->post_status );
+check( 'trip photo: titled by the name it was uploaded with, not its file name', 'IMG_1234' === get_post( $photo )->post_title && $photo_id === get_post( $photo )->post_name, [ get_post( $photo )->post_title, get_post( $photo )->post_name ] );
 wp_set_current_user( 0 );
 check( 'trip photo: visitors can’t read it from core REST', $get( '/wp/v2/media/' . $photo )->get_status() >= 400 );
 wp_set_current_user( 1 );
@@ -541,9 +543,11 @@ wp_set_current_user( 1 );
 
 // Media listings: the trip's photo modal shows its photos, nothing else shows them.
 $modal = function ( array $asked ) {
-	// As core does: the raw query is in the request, and only known keys reach the filter.
+	// As core does: the raw query is in the request, only known keys reach the filter,
+	// and private attachments are listed only for users who can read others' private posts.
+	$status   = current_user_can( get_post_type_object( 'attachment' )->cap->read_private_posts ) ? 'inherit,private' : 'inherit';
 	$_REQUEST = [ 'query' => $asked ];
-	$args     = apply_filters( 'ajax_query_attachments_args', array_intersect_key( $asked, [ 'post_parent' => 1 ] ) + [ 'post_type' => 'attachment', 'post_status' => 'inherit,private', 'posts_per_page' => -1, 'fields' => 'ids' ] );
+	$args     = apply_filters( 'ajax_query_attachments_args', array_intersect_key( $asked, [ 'post_parent' => 1 ] ) + [ 'post_type' => 'attachment', 'post_status' => $status, 'posts_per_page' => -1, 'fields' => 'ids' ] );
 	$_REQUEST = [];
 	return ( new WP_Query( $args ) )->posts;
 };
@@ -556,7 +560,32 @@ $listed = wp_list_pluck( $get( '/wp/v2/media' )->get_data(), 'id' );
 check( 'REST media list: no trip photos, even for editors', ! in_array( $photo, $listed, true ) && in_array( $loose, $listed, true ) );
 $urls = wp_prepare_attachment_for_js( $photo );
 $js   = wp_json_encode( $urls, JSON_UNESCAPED_SLASHES );
-check( 'trip photo: the modal loads it through the photo proxy', false !== strpos( $urls['url'], "/travel-steps/v1/trips/$photos_trip/photo/$photo_id" ) && false !== strpos( $urls['sizes']['thumbnail']['url'] ?? '', "/photo/$photo_id" ) && false === strpos( $js, wp_get_upload_dir()['baseurl'] . '/travel-steps/' ), $js );
+check( 'trip photo: the modal loads it through the photo proxy', false !== strpos( $urls['url'], "/travel-steps/v1/trips/$photos_trip/photo/$photo_id" ) && false !== strpos( $urls['sizes']['thumbnail']['url'] ?? '', "/photo/$photo_id" ) && false === strpos( $js, wp_get_upload_dir()['baseurl'] . '/travel-steps/' ) && false === strpos( $js, $name ), $js );
+$xmlrpc = apply_filters( 'xmlrpc_prepare_media_item', [ 'link' => wp_get_attachment_url( $photo ), 'thumbnail' => wp_get_attachment_url( $photo ), 'metadata' => wp_get_attachment_metadata( $photo ) ], get_post( $photo ), 'thumbnail' );
+check( 'trip photo: XML-RPC gives no URL or file names for it', [ '', '', [] ] === [ $xmlrpc['link'], $xmlrpc['thumbnail'], $xmlrpc['metadata'] ], $xmlrpc );
+
+// An author allowed to make trips sees their own trip photos, though core lists
+// private attachments only to editors.
+$author = wp_insert_user( [ 'user_login' => 'author', 'user_pass' => wp_generate_password(), 'role' => 'author' ] );
+add_filter( 'travel_steps_capability', fn() => 'upload_files' );
+wp_set_current_user( $author );
+$authors_trip  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'An author’s trip', 'post_status' => 'draft' ] );
+$authors_photo = $upload( [ 'post_id' => $authors_trip, TravelSteps\Uploads::REQUEST_FLAG => '1' ], $authors_trip, 1600 );
+check( 'an author’s trip photo modal lists their photo', is_int( $authors_photo ) && [ $authors_photo ] === $modal( [ 'post_parent' => $authors_trip, TravelSteps\Uploads::REQUEST_FLAG => '1' ] ), is_wp_error( $authors_photo ) ? $authors_photo->get_error_message() : $authors_photo );
+wp_set_current_user( 1 );
+remove_all_filters( 'travel_steps_capability' );
+wp_delete_post( $authors_trip, true );
+
+// A REST upload names its parent in the body, not post_id; it still belongs to the trip whose folder it's in.
+$_REQUEST = [ 'post_id' => $photos_trip, TravelSteps\Uploads::REQUEST_FLAG => '1' ];
+$req      = new WP_REST_Request( 'POST', '/wp/v2/media' );
+$req->set_header( 'Content-Type', 'image/jpeg' );
+$req->set_header( 'Content-Disposition', 'attachment; filename=IMG_5678.jpg' );
+$req->set_body( $jpeg( 800, 600 ) );
+$res      = rest_do_request( $req );
+$_REQUEST = [];
+$rest_photo = (int) ( $res->get_data()['id'] ?? 0 );
+check( 'a REST trip photo upload belongs to the trip', 201 === $res->get_status() && $photos_trip === (int) get_post( $rest_photo )->post_parent && '' !== TravelSteps\Uploads::photo_id( $rest_photo ), [ $res->get_status(), $res->get_data()['message'] ?? '' ] );
 
 // Deleting a trip for good deletes its photos; binning it doesn't.
 $cached = "$base/travel-steps-cache/thumbnail/" . substr( $photo_id, 0, 2 ) . "/$photo_id";
@@ -564,7 +593,7 @@ TravelSteps\RestController::store_cached( $cached, 'IMAGE', 'image/jpeg' );
 wp_trash_post( $photos_trip );
 check( 'binning a trip keeps its photos', get_post( $photo ) && file_exists( "$base/$stored" ) && file_exists( $cached ) );
 wp_delete_post( $photos_trip, true );
-check( 'deleting a trip deletes its photos, their files and cached copies', null === get_post( $photo ) && ! is_dir( $dir ) && ! file_exists( $cached ) && ! file_exists( "$cached.type" ), glob( "$dir/*" ) );
+check( 'deleting a trip deletes its photos, their files and cached copies', null === get_post( $photo ) && null === get_post( $rest_photo ) && ! is_dir( $dir ) && ! file_exists( $cached ) && ! file_exists( "$cached.type" ), glob( "$dir/*" ) );
 check( '…but not ordinary media uploaded to it', null !== get_post( $described ) && file_exists( (string) get_attached_file( $described ) ) );
 foreach ( [ $described, $posted, $loose ] as $id ) {
 	wp_delete_attachment( $id, true );

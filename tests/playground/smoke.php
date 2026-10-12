@@ -155,7 +155,12 @@ update_post_meta( $trip_id, Trips::META_ALBUM, '11111111-1111-4111-8111-11111111
 delete_post_meta( $trip_id, Trips::META_ALBUM );
 check( 'Immich is asked for the trip’s album', '11111111-1111-4111-8111-111111111111' === $album_client->album, $album_client->album );
 $no_dates = ( new ImmichSource( new AlbumImmich( 'http://x', 'k' ) ) )->photos( $trip_id, null );
-check( 'Immich without an album needs the trip’s dates', is_wp_error( $no_dates ) && 'travel_steps_no_dates' === $no_dates->get_error_code() );
+check( 'Immich needs the trip’s dates', is_wp_error( $no_dates ) && 'travel_steps_no_dates' === $no_dates->get_error_code() );
+// Even with an album: taking a trip's dates from its album is #23's to decide.
+update_post_meta( $trip_id, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
+$no_dates = ( new ImmichSource( new AlbumImmich( 'http://x', 'k' ) ) )->photos( $trip_id, null );
+delete_post_meta( $trip_id, Trips::META_ALBUM );
+check( '…even with an album', is_wp_error( $no_dates ) && 'travel_steps_no_dates' === $no_dates->get_error_code() );
 
 // Sources hand over wall-clock times; sync works out each photo's zone, and the order.
 $zone_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Zones', 'post_status' => 'draft' ] );

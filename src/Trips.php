@@ -391,7 +391,9 @@ class Trips {
 		if ( self::can_sync_trip( $trip_id ) ) {
 			foreach ( [ 'start' => self::META_START, 'end' => self::META_END ] as $field => $key ) {
 				$date = sanitize_text_field( $input[ $field ] ?? '' );
-				update_post_meta( $trip_id, $key, preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ? $date : '' );
+				// A real date, not just its shape: 2025-06-32 would leave the trip without a range.
+				$ymd = preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m ) && checkdate( (int) $m[2], (int) $m[3], (int) $m[1] );
+				update_post_meta( $trip_id, $key, $ymd ? $date : '' );
 			}
 			update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', (string) ( $input['album'] ?? '' ) ) );
 			// Left alone when the form doesn't offer the choice.

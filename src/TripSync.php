@@ -28,7 +28,8 @@ class TripSync {
 	 * By default, each trip uses its author's own Dawarich and photo source.
 	 *
 	 * @param DawarichClient|null $dawarich Location history for every trip.
-	 * @param PhotoSource|null    $source   Photos for every trip.
+	 * @param PhotoSource|null    $source   Photos for every trip. Left-out counts and place
+	 *                                      names still follow the trip's own source setting.
 	 * @param Geocoder|null       $geocoder Place names for uploads.
 	 */
 	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null, ?Geocoder $geocoder = null ) {
@@ -86,6 +87,9 @@ class TripSync {
 			}
 			[ $first, $last ] = $days;
 			$range            = Trips::range( $trip_id );
+			if ( ! $range ) { // A typed date that isn't one, such as 2025-06-32.
+				return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+			}
 		}
 		[ $start, $end ] = $range;
 		// The trip's author's: their location history, and their home to leave out.

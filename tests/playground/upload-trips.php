@@ -178,3 +178,15 @@ check( 'a photo that isn’t an upload is fetched from Immich, whatever the trip
 ob_start();
 imagebmp( imagecreatetruecolor( 8, 8 ) );
 check( 'a BMP can’t be a trip photo', is_wp_error( $sideload( $ut_as_photo, $ut_tour, 'scan.bmp', ob_get_clean() ) ) );
+
+// A date that isn't one: refused when saved, and a sync error rather than a crash if stored.
+$ut_bad = $ut_trip( 'Bad date', $ut_author, '2025-06-32' );
+$ut_photo( $ut_bad, [ 'taken' => '2025:07:04 09:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
+$ut_result = ( new TripSync() )->sync( $ut_bad );
+check( 'a stored date that doesn’t exist fails the sync with an error', is_wp_error( $ut_result ), $ut_result );
+wp_set_current_user( $ut_author );
+$_POST = $_REQUEST = [ 'trip_id' => $ut_bad, 'title' => 'Bad date', 'start' => '2025-13-01', 'end' => '2025-02-30', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+$stopped( [ new Trips(), 'handle_save_trip' ] );
+$_POST = $_REQUEST = [];
+wp_set_current_user( 1 );
+check( 'dates that don’t exist aren’t saved', [ '', '' ] === [ get_post_meta( $ut_bad, Trips::META_START, true ), get_post_meta( $ut_bad, Trips::META_END, true ) ] );

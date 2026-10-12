@@ -21,6 +21,9 @@ class Trips {
 	const META_START  = '_ts_start';       // Y-m-d, site timezone.
 	const META_END    = '_ts_end';         // Y-m-d, inclusive.
 	const META_ALBUM  = '_ts_album';       // Immich album id (optional).
+	const META_SOURCE = '_ts_source';      // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
+	const SOURCE_UPLOADS = 'uploads';
+	const SOURCE_IMMICH  = 'immich';
 	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon].
 	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
 	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.
@@ -240,10 +243,20 @@ class Trips {
 	}
 
 	/**
-	 * Where the trip's photos come from. Today that's always Immich, with the trip
-	 * author's key, whoever is asking.
+	 * Whether the trip's photos are the ones uploaded to it, rather than Immich's.
+	 */
+	public static function uses_uploads( int $trip_id ): bool {
+		return self::SOURCE_UPLOADS === get_post_meta( $trip_id, self::META_SOURCE, true );
+	}
+
+	/**
+	 * Where the trip's photos come from: its uploads, or Immich with the trip author's
+	 * key, whoever is asking.
 	 */
 	public static function source( int $trip_id ): PhotoSource {
+		if ( self::uses_uploads( $trip_id ) ) {
+			return new MediaSource();
+		}
 		return new ImmichSource( ImmichClient::for_user( (int) get_post_field( 'post_author', $trip_id ) ) );
 	}
 
@@ -341,8 +354,8 @@ class Trips {
 
 		if ( $trip_id ) {
 			$this->trip_from_request();
-			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'sync' ] ) ) ) {
-				wp_die( esc_html__( 'Only the trip’s author can change its dates or album, or sync it.', 'travel-steps' ), 403 );
+			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'source', 'sync' ] ) ) ) {
+				wp_die( esc_html__( 'Only the trip’s author can change its dates or photos, or sync it.', 'travel-steps' ), 403 );
 			}
 		} elseif ( ! current_user_can( 'edit_posts' ) || ! current_user_can( self::capability() ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to create trips.', 'travel-steps' ), 403 );
@@ -377,6 +390,10 @@ class Trips {
 				update_post_meta( $trip_id, $key, preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ? $date : '' );
 			}
 			update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', (string) ( $input['album'] ?? '' ) ) );
+			// Left alone when the form doesn't offer the choice.
+			if ( isset( $input['source'] ) ) {
+				update_post_meta( $trip_id, self::META_SOURCE, self::SOURCE_UPLOADS === $input['source'] ? self::SOURCE_UPLOADS : self::SOURCE_IMMICH );
+			}
 		}
 
 		$trip = get_post( $trip_id );

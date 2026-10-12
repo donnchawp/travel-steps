@@ -182,3 +182,8 @@ add_filter( 'pre_http_request', $ut_immich_server, 10, 3 );
 $ut_image = TravelSteps\RestController::image( $ut_switched, '00000000-0000-4000-8000-000000000099', 'thumbnail', 0 );
 remove_filter( 'pre_http_request', $ut_immich_server, 10 );
 check( 'a photo that isn’t an upload is fetched from Immich, whatever the trip uses now', ! is_wp_error( $ut_image ) && [ 'wanderer-immich' ] === $ut_keys, [ is_wp_error( $ut_image ) ? $ut_image->get_error_message() : 'ok', $ut_keys ] );
+
+// Only the image types a trip shows: TIFF, PSD and BMP would still go through Imagick.
+ob_start();
+imagebmp( imagecreatetruecolor( 8, 8 ) );
+check( 'a BMP can’t be a trip photo', is_wp_error( $ut_sideload( 'scan.bmp', ob_get_clean() ) ) );

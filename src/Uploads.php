@@ -28,6 +28,8 @@ class Uploads {
 	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in: file name => "mtime:size".
 	const META_VERSION  = '_ts_version'; // Counts new sets of copies, for the proxy's ETag.
 	const DIR           = 'travel-steps';
+	// What a trip photo may be: the types browsers show, and HEIC, which WordPress converts.
+	const PHOTO_TYPES   = [ 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/heic', 'image/heif' ];
 	// The photo proxy's sizes, as Immich makes them: at least this on the short side.
 	const SHORT_PX = [
 		'thumbnail' => 250,
@@ -83,8 +85,8 @@ class Uploads {
 		} elseif ( $trip_id && ! function_exists( 'exif_read_data' ) ) {
 			// Without it there's no knowing when a photo was taken, so no day to put it on.
 			$file['error'] = __( 'Photos can’t be added to trips on this site: its PHP has no exif extension, which reads when and where they were taken.', 'travel-steps' );
-		} elseif ( $trip_id && ! wp_get_image_mime( (string) $file['tmp_name'] ) ) {
-			// Read from its content, not its name: Imagick opens PDFs and videos too.
+		} elseif ( $trip_id && ! in_array( wp_get_image_mime( (string) $file['tmp_name'] ), self::PHOTO_TYPES, true ) ) {
+			// Read from its content, not its name: Imagick opens PDFs, videos, PSDs and more.
 			$file['error'] = __( 'Only photos can be added to a trip.', 'travel-steps' );
 		} elseif ( $trip_id ) {
 			self::$photo_id    = wp_generate_uuid4();

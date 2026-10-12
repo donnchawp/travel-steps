@@ -1,0 +1,67 @@
+<?php
+/**
+ * Builds the geocoder's data from GeoNames: php tools/geonames.php cities500.txt countryInfo.txt data/geonames
+ * Run by `make geonames`, which downloads the two files first.
+ *
+ * Writes, for src/Geocoder.php:
+ * - places.tsv:    name, country code, lat, lon; grouped by 1°×1° tile, then by GeoNames id.
+ * - index.bin:     Geocoder::TILES + 1 big-endian uint32 byte offsets into places.tsv; tile k
+ *                  is the bytes from offset k to offset k + 1.
+ * - countries.tsv: country code, English name.
+ */
+require __DIR__ . '/../src/Geocoder.php';
+
+use TravelSteps\Geocoder;
+
+[ , $cities, $countries, $out ] = $argv + [ null, null, null, null ];
+if ( ! $out ) {
+	fwrite( STDERR, "Usage: php tools/geonames.php cities500.txt countryInfo.txt <output dir>\n" );
+	exit( 1 );
+}
+
+$tiles = [];
+$file  = new SplFileObject( $cities );
+foreach ( $file as $line ) {
+	$f = explode( "\t", rtrim( (string) $line, "\n" ) );
+	if ( count( $f ) < 9 ) {
+		continue;
+	}
+	// As Immich does: no neighbourhoods (except Australia's suburbs) and no historical places.
+	if ( ( 'PPLX' === $f[7] && 'AU' !== $f[8] ) || 'PPLH' === $f[7] ) {
+		continue;
+	}
+	$lat = round( (float) $f[4], 4 );
+	$lon = round( (float) $f[5], 4 );
+	$tiles[ Geocoder::tile( $lat, $lon ) ][ (int) $f[0] ] = str_replace( "\t", ' ', $f[1] ) . "\t" . $f[8] . "\t" . $lat . "\t" . $lon . "\n";
+}
+
+@mkdir( $out, 0755, true );
+$data   = fopen( "$out/places.tsv", 'wb' );
+$index  = '';
+$offset = 0;
+$rows   = 0;
+for ( $k = 0; $k < Geocoder::TILES; $k++ ) {
+	$index .= pack( 'N', $offset );
+	if ( isset( $tiles[ $k ] ) ) {
+		ksort( $tiles[ $k ] );
+		$chunk   = implode( '', $tiles[ $k ] );
+		$offset += strlen( $chunk );
+		$rows   += count( $tiles[ $k ] );
+		fwrite( $data, $chunk );
+	}
+}
+$index .= pack( 'N', $offset );
+fclose( $data );
+file_put_contents( "$out/index.bin", $index );
+
+$names = '';
+foreach ( file( $countries, FILE_IGNORE_NEW_LINES ) as $line ) {
+	$f = explode( "\t", $line );
+	if ( '' === $line || '#' === $line[0] || count( $f ) < 5 || '' === trim( $f[4] ) ) {
+		continue;
+	}
+	$names .= $f[0] . "\t" . trim( $f[4] ) . "\n";
+}
+file_put_contents( "$out/countries.tsv", $names );
+
+echo "$rows places in " . count( $tiles ) . " tiles, $offset bytes\n";

@@ -16,10 +16,31 @@ class ImmichClient {
 
 	private string $base_url;
 	private string $api_key;
+	// Whose key this is, to name in errors.
+	private string $owner = '';
 
-	public function __construct( ?string $base_url = null, ?string $api_key = null ) {
+	public function __construct( ?string $base_url = null, string $api_key = '' ) {
 		$this->base_url = rtrim( $base_url ?? Settings::immich_url(), '/' );
-		$this->api_key  = $api_key ?? Settings::immich_key();
+		$this->api_key  = $api_key;
+	}
+
+	/**
+	 * A client with a user's own key, never anyone else's.
+	 */
+	public static function for_user( int $user_id ): self {
+		$client        = new self( null, Settings::account( $user_id )['immich_key'] );
+		$client->owner = (string) get_the_author_meta( 'display_name', $user_id );
+		return $client;
+	}
+
+	private function no_key(): \WP_Error {
+		return new \WP_Error(
+			'travel_steps_no_immich_key',
+			'' === $this->owner
+				? __( 'No Immich API key configured.', 'travel-steps' )
+				/* translators: %s: a user's name */
+				: sprintf( __( '%s hasn’t saved an Immich API key in Travel Steps settings.', 'travel-steps' ), $this->owner )
+		);
 	}
 
 	/**
@@ -27,7 +48,7 @@ class ImmichClient {
 	 */
 	private function request( string $endpoint, string $method = 'GET', ?array $body = null, int $timeout = 60 ) {
 		if ( '' === $this->api_key ) {
-			return new \WP_Error( 'travel_steps_no_immich_key', __( 'No Immich API key configured.', 'travel-steps' ) );
+			return $this->no_key();
 		}
 		$args = [
 			'method'  => $method,
@@ -46,6 +67,10 @@ class ImmichClient {
 			return $response;
 		}
 		$code = wp_remote_retrieve_response_code( $response );
+		if ( in_array( $code, [ 401, 403 ], true ) && '' !== $this->owner ) {
+			/* translators: 1: a user's name, 2: HTTP status code */
+			return new \WP_Error( 'travel_steps_immich_key_refused', sprintf( __( 'Immich refused %1$s’s API key (HTTP %2$d).', 'travel-steps' ), $this->owner, $code ) );
+		}
 		if ( $code < 200 || $code >= 300 ) {
 			/* translators: %d: HTTP status code */
 			return new \WP_Error( 'travel_steps_immich_error', sprintf( __( 'Immich returned HTTP %d.', 'travel-steps' ), $code ) );
@@ -172,7 +197,7 @@ class ImmichClient {
 	 */
 	public function thumbnail( string $asset_id, string $size ) {
 		if ( '' === $this->api_key ) {
-			return new \WP_Error( 'travel_steps_no_immich_key', __( 'No Immich API key configured.', 'travel-steps' ) );
+			return $this->no_key();
 		}
 		$response = wp_remote_get(
 			$this->base_url . '/api/assets/' . rawurlencode( $asset_id ) . '/thumbnail?size=' . rawurlencode( $size ),

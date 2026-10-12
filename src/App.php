@@ -40,6 +40,7 @@ class App extends BaseApp {
 		// We're already inside init (priority 10), so register directly rather than
 		// via nested add_action( 'init', … ) which won't fire reliably.
 		Trips::register_post_types();
+		Settings::migrate();
 		PhotosBlock::register();
 		Uploads::register();
 
@@ -47,7 +48,8 @@ class App extends BaseApp {
 		add_action( 'admin_post_travel_steps_save_trip', [ $trips, 'handle_save_trip' ] );
 		add_action( 'admin_post_travel_steps_sync', [ $trips, 'handle_sync' ] );
 		add_action( 'admin_post_travel_steps_add_step', [ $trips, 'handle_add_step' ] );
-		add_action( 'admin_post_travel_steps_settings', [ Settings::class, 'handle_save' ] );
+		add_action( 'admin_post_travel_steps_account', [ Settings::class, 'handle_save_account' ] );
+		add_action( 'admin_post_travel_steps_settings', [ Settings::class, 'handle_save_site' ] );
 		add_action( 'rest_api_init', [ new RestController(), 'register_routes' ] );
 		add_filter( 'wp_unique_post_slug', [ Trips::class, 'unique_slug' ], 10, 5 );
 		add_action( 'admin_init', [ self::class, 'suggest_privacy_policy' ] );
@@ -73,6 +75,7 @@ class App extends BaseApp {
 			'<a href="https://osmfoundation.org/wiki/Privacy_Policy">https://osmfoundation.org/wiki/Privacy_Policy</a>'
 		) . '</p>';
 		$text .= '<p>' . esc_html__( 'Photos on trip pages are served by this site. Published trips show the route travelled, with the area around the author’s home left out.', 'travel-steps' ) . '</p>';
+		$text .= '<p>' . esc_html__( 'People who make trips store their own Immich and Dawarich API keys and home location on this site. They are used only to fetch that person’s photos and location history for their trips, and nobody else can see them.', 'travel-steps' ) . '</p>';
 		wp_add_privacy_policy_content( __( 'Travel Steps', 'travel-steps' ), wp_kses_post( $text ) );
 	}
 
@@ -82,7 +85,7 @@ class App extends BaseApp {
 
 	protected function setup_routes(): void {
 		$this->app->route( 'new', 'trip-edit.php', [], Trips::capability() );
-		$this->app->route( 'settings', 'settings.php', [], 'manage_options' );
+		$this->app->route( 'settings', 'settings.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}', 'trip.php' );
 	}
@@ -92,7 +95,7 @@ class App extends BaseApp {
 		if ( current_user_can( Trips::capability() ) ) {
 			$this->app->add_menu_item( 'new', __( 'New trip', 'travel-steps' ), self::url( 'new' ) );
 		}
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( current_user_can( Trips::capability() ) ) {
 			$this->app->add_menu_item( 'settings', __( 'Settings', 'travel-steps' ), self::url( 'settings' ) );
 		}
 	}

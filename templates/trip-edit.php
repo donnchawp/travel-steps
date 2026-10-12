@@ -7,6 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use TravelSteps\App;
 use TravelSteps\DawarichClient;
 use TravelSteps\ImmichClient;
+use TravelSteps\Settings;
 use TravelSteps\Trips;
 use TravelSteps\View;
 
@@ -19,14 +20,18 @@ if ( $slug && ( ! $trip || ! current_user_can( 'edit_post', $trip->ID ) ) ) {
 
 $trip_id = $trip ? $trip->ID : 0;
 $meta    = fn( $key ) => $trip_id ? (string) get_post_meta( $trip_id, $key, true ) : '';
-$albums  = ( new ImmichClient() )->albums();
+// What the trip pulls in uses its author's keys, so only they change it or sync it.
+$author   = $trip ? (int) $trip->post_author : get_current_user_id();
+$is_owner = ! $trip || Trips::can_sync_trip( $trip_id );
+$account  = Settings::account( $author );
+$albums   = $is_owner ? ImmichClient::for_user( $author )->albums() : [];
 $synced  = (int) $meta( Trips::META_SYNCED );
 $error   = $meta( Trips::META_ERROR );
 $stats   = $trip_id ? get_post_meta( $trip_id, Trips::META_STATS, true ) : [];
 $steps   = $trip_id ? Trips::steps( $trip_id, true ) : [];
 $photos  = $synced && ! $steps ? Trips::photos( $trip_id ) : [];
 
-$has_dawarich = ( new DawarichClient() )->configured();
+$has_dawarich = '' !== $account['dawarich_key'];
 
 $page_title = $trip ? sprintf( /* translators: %s: trip title */ __( 'Edit %s', 'travel-steps' ), get_the_title( $trip ) ) : __( 'New trip', 'travel-steps' );
 include __DIR__ . '/_header.php';
@@ -59,6 +64,16 @@ include __DIR__ . '/_header.php';
 		</p>
 	<?php elseif ( $error ) : ?>
 		<p class="ts-notice is-error"><?php echo esc_html( sprintf( /* translators: %s: error message */ __( 'Sync failed: %s', 'travel-steps' ), $error ) ); ?></p>
+	<?php endif; ?>
+	<?php if ( '' === $account['immich_key'] ) : ?>
+		<p class="ts-notice is-warning">
+			<?php if ( $is_owner ) : ?>
+				<?php esc_html_e( 'You haven’t saved an Immich API key, so this trip can’t sync.', 'travel-steps' ); ?>
+				<a href="<?php echo esc_url( App::url( 'settings' ) ); ?>"><?php esc_html_e( 'Add it in settings', 'travel-steps' ); ?></a>
+			<?php else : ?>
+				<?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( '%s hasn’t saved an Immich API key in Travel Steps settings, so this trip can’t sync.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?>
+			<?php endif; ?>
+		</p>
 	<?php endif; ?>
 	<?php $unseen = $trip ? View::unseen_notice( $trip, $steps ) : ''; ?>
 	<?php if ( $unseen ) : ?>
@@ -95,14 +110,17 @@ include __DIR__ . '/_header.php';
 		<div class="ts-form-row">
 			<label>
 				<span><?php esc_html_e( 'First day', 'travel-steps' ); ?></span>
-				<input type="date" name="start" required value="<?php echo esc_attr( $meta( Trips::META_START ) ); ?>">
+				<input type="date" name="start" required value="<?php echo esc_attr( $meta( Trips::META_START ) ); ?>" <?php disabled( ! $is_owner ); ?>>
 			</label>
 			<label>
 				<span><?php esc_html_e( 'Last day', 'travel-steps' ); ?></span>
-				<input type="date" name="end" required value="<?php echo esc_attr( $meta( Trips::META_END ) ); ?>">
+				<input type="date" name="end" required value="<?php echo esc_attr( $meta( Trips::META_END ) ); ?>" <?php disabled( ! $is_owner ); ?>>
 			</label>
 		</div>
 
+		<?php if ( ! $is_owner ) : ?>
+			<p class="ts-muted"><?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'The trip uses %s’s photos and location history, so only they can change its dates or album, or sync it.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?></p>
+		<?php else : ?>
 		<label>
 			<span><?php esc_html_e( 'Photos', 'travel-steps' ); ?></span>
 			<?php if ( is_wp_error( $albums ) ) : ?>
@@ -130,6 +148,7 @@ include __DIR__ . '/_header.php';
 				<small class="ts-muted"><?php esc_html_e( 'Pick an Immich album to choose exactly which photos appear.', 'travel-steps' ); ?></small>
 			<?php endif; ?>
 		</label>
+		<?php endif; ?>
 
 		<label>
 			<span><?php esc_html_e( 'Introduction', 'travel-steps' ); ?></span>
@@ -154,7 +173,9 @@ include __DIR__ . '/_header.php';
 
 		<div class="ts-form-actions">
 			<button type="submit" class="ts-button"><?php esc_html_e( 'Save', 'travel-steps' ); ?></button>
-			<button type="submit" class="ts-button ts-button-secondary" name="sync" value="1"><?php esc_html_e( 'Save and sync', 'travel-steps' ); ?></button>
+			<?php if ( $is_owner ) : ?>
+				<button type="submit" class="ts-button ts-button-secondary" name="sync" value="1"><?php esc_html_e( 'Save and sync', 'travel-steps' ); ?></button>
+			<?php endif; ?>
 		</div>
 	</form>
 
@@ -176,12 +197,14 @@ include __DIR__ . '/_header.php';
 				}
 				?>
 			</p>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="travel_steps_sync">
-				<input type="hidden" name="trip_id" value="<?php echo (int) $trip_id; ?>">
-				<?php wp_nonce_field( 'travel_steps_sync' ); ?>
-				<button type="submit" class="ts-button ts-button-secondary"><?php esc_html_e( 'Sync now', 'travel-steps' ); ?></button>
-			</form>
+			<?php if ( $is_owner ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="travel_steps_sync">
+					<input type="hidden" name="trip_id" value="<?php echo (int) $trip_id; ?>">
+					<?php wp_nonce_field( 'travel_steps_sync' ); ?>
+					<button type="submit" class="ts-button ts-button-secondary"><?php esc_html_e( 'Sync now', 'travel-steps' ); ?></button>
+				</form>
+			<?php endif; ?>
 			<p class="ts-muted">
 				<?php
 				$max_photos = number_format_i18n( ImmichClient::PAGE_SIZE * ImmichClient::MAX_PAGES );

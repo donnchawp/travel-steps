@@ -12,10 +12,21 @@ class DawarichClient {
 
 	private string $base_url;
 	private string $api_key;
+	// Whose key this is, to name in errors.
+	private string $owner = '';
 
-	public function __construct( ?string $base_url = null, ?string $api_key = null ) {
+	public function __construct( ?string $base_url = null, string $api_key = '' ) {
 		$this->base_url = rtrim( $base_url ?? (string) Settings::get( 'dawarich_url' ), '/' );
-		$this->api_key  = $api_key ?? (string) Settings::get( 'dawarich_key' );
+		$this->api_key  = $api_key;
+	}
+
+	/**
+	 * A client with a user's own key, never anyone else's.
+	 */
+	public static function for_user( int $user_id ): self {
+		$client        = new self( null, Settings::account( $user_id )['dawarich_key'] );
+		$client->owner = (string) get_the_author_meta( 'display_name', $user_id );
+		return $client;
 	}
 
 	/**
@@ -65,6 +76,10 @@ class DawarichClient {
 				return $response;
 			}
 			$code = wp_remote_retrieve_response_code( $response );
+			if ( in_array( $code, [ 401, 403 ], true ) && '' !== $this->owner ) {
+				/* translators: 1: a user's name, 2: HTTP status code */
+				return new \WP_Error( 'travel_steps_dawarich_key_refused', sprintf( __( 'Dawarich refused %1$s’s API key (HTTP %2$d).', 'travel-steps' ), $this->owner, $code ) );
+			}
 			if ( 200 !== $code ) {
 				/* translators: %d: HTTP status code */
 				return new \WP_Error( 'travel_steps_dawarich_error', sprintf( __( 'Dawarich returned HTTP %d.', 'travel-steps' ), $code ) );

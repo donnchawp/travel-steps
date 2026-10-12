@@ -108,12 +108,10 @@ class Trips {
 	}
 
 	/**
-	 * Creating, editing and syncing trips uses the site's Immich and Dawarich
-	 * credentials, which reach the owner's whole photo library and location history,
-	 * so it takes more than being able to write posts.
+	 * Who may make trips: authors and up. Each uses their own Immich and Dawarich keys.
 	 */
 	public static function capability(): string {
-		return (string) apply_filters( 'travel_steps_capability', 'manage_options' );
+		return (string) apply_filters( 'travel_steps_capability', 'publish_posts' );
 	}
 
 	/**
@@ -122,6 +120,15 @@ class Trips {
 	 */
 	public static function can_edit_trip( int $trip_id ): bool {
 		return self::TRIP === get_post_type( $trip_id ) && current_user_can( 'edit_post', $trip_id ) && current_user_can( self::capability() );
+	}
+
+	/**
+	 * Whether the current user may change what a trip pulls in (its dates and album) and
+	 * sync it: only its author may, as that uses their keys, library and location history.
+	 * Others who can edit the trip keep the rest.
+	 */
+	public static function can_sync_trip( int $trip_id ): bool {
+		return self::can_edit_trip( $trip_id ) && (int) get_post_field( 'post_author', $trip_id ) === get_current_user_id();
 	}
 
 	public static function find_by_slug( string $slug ): ?\WP_Post {
@@ -233,10 +240,11 @@ class Trips {
 	}
 
 	/**
-	 * Where the trip's photos come from. Today that's always Immich.
+	 * Where the trip's photos come from. Today that's always Immich, with the trip
+	 * author's key, whoever is asking.
 	 */
 	public static function source( int $trip_id ): PhotoSource {
-		return new ImmichSource();
+		return new ImmichSource( ImmichClient::for_user( (int) get_post_field( 'post_author', $trip_id ) ) );
 	}
 
 	public static function photos( int $trip_id ): array {
@@ -333,6 +341,9 @@ class Trips {
 
 		if ( $trip_id ) {
 			$this->trip_from_request();
+			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'sync' ] ) ) ) {
+				wp_die( esc_html__( 'Only the trip’s author can change its dates or album, or sync it.', 'travel-steps' ), 403 );
+			}
 		} elseif ( ! current_user_can( 'edit_posts' ) || ! current_user_can( self::capability() ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to create trips.', 'travel-steps' ), 403 );
 		}
@@ -359,11 +370,14 @@ class Trips {
 		}
 		$trip_id = (int) $result;
 
-		foreach ( [ 'start' => self::META_START, 'end' => self::META_END ] as $field => $key ) {
-			$date = sanitize_text_field( $input[ $field ] ?? '' );
-			update_post_meta( $trip_id, $key, preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ? $date : '' );
+		// Only the author sends these (others' forms leave them out).
+		if ( self::can_sync_trip( $trip_id ) ) {
+			foreach ( [ 'start' => self::META_START, 'end' => self::META_END ] as $field => $key ) {
+				$date = sanitize_text_field( $input[ $field ] ?? '' );
+				update_post_meta( $trip_id, $key, preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ? $date : '' );
+			}
+			update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', (string) ( $input['album'] ?? '' ) ) );
 		}
-		update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', (string) ( $input['album'] ?? '' ) ) );
 
 		$trip = get_post( $trip_id );
 		if ( ! empty( $input['sync'] ) ) {
@@ -375,7 +389,11 @@ class Trips {
 
 	public function handle_sync(): void {
 		check_admin_referer( 'travel_steps_sync' );
-		$this->run_sync_and_redirect( $this->trip_from_request() );
+		$trip = $this->trip_from_request();
+		if ( ! self::can_sync_trip( $trip->ID ) ) {
+			wp_die( esc_html__( 'Only the trip’s author can sync it.', 'travel-steps' ), 403 );
+		}
+		$this->run_sync_and_redirect( $trip );
 	}
 
 	private function run_sync_and_redirect( \WP_Post $trip ): void {

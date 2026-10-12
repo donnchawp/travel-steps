@@ -27,12 +27,12 @@ update_option(
 		Settings::all(),
 		[
 			'immich_url'   => IMMICH,
-			'immich_key'   => 'demo',
 			'dawarich_url' => DAWARICH,
-			'dawarich_key' => 'demo',
 		]
 	)
 );
+// The admin writes the trip, so it uses their keys.
+Settings::update_account( 1, [ 'immich_key' => 'demo', 'dawarich_key' => 'demo' ] + Settings::ACCOUNT_DEFAULTS );
 
 $trip_id = wp_insert_post(
 	[

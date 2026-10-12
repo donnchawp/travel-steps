@@ -661,6 +661,14 @@ $guard = fn( string $body ) => TravelSteps\Uploads::has_gps( [ 'body' => $body, 
 check( 'GPS guard: finds GPS in EXIF', $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), $doolin ) ) );
 check( 'GPS guard: finds GPS in XMP', $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), [ 'xmp_lat' => '53,1.314N', 'xmp_lon' => '9,22.752W' ] ) ) );
 check( 'GPS guard: doesn’t trust EXIF it can’t read', $guard( ts_app1( $jpeg( 30, 20 ), "Exif\0\0\xFF\xFF" ) ) );
+$png = ( function () {
+	ob_start();
+	imagepng( imagecreatetruecolor( 30, 20 ) );
+	return ob_get_clean();
+} )();
+// A PNG's EXIF is a chunk after its header, with no "Exif" marker and nothing exif_read_data() reads.
+$exif_chunk = "II*\0" . pack( 'V', 8 );
+check( 'GPS guard: doesn’t trust EXIF in a PNG', TravelSteps\Uploads::has_gps( [ 'body' => substr( $png, 0, 33 ) . pack( 'N', strlen( $exif_chunk ) ) . 'eXIf' . $exif_chunk . pack( 'N', crc32( 'eXIf' . $exif_chunk ) ) . substr( $png, 33 ), 'type' => 'image/png' ] ) && ! TravelSteps\Uploads::has_gps( [ 'body' => $png, 'type' => 'image/png' ] ) );
 check( 'GPS guard: lets through a photo without EXIF, or with EXIF but no GPS', ! $guard( $jpeg( 30, 20 ) ) && ! $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), array_diff_key( $doolin, [ 'lat' => 1, 'lon' => 1 ] ) ) ) );
 
 $editor = PlaygroundImagick::class;
@@ -677,6 +685,12 @@ check( 'trip photo: no size served has GPS', [] === $served_gps( $images ), $ser
 check( 'trip photo: each of core’s copies served is checked once', count( (array) get_post_meta( $tagged, TravelSteps\Uploads::META_CHECKED, true ) ) === count( array_filter( array_column( $images, 'file' ) ) ), get_post_meta( $tagged, TravelSteps\Uploads::META_CHECKED, true ) );
 $turned = $upload_photo( $doolin + [ 'orientation' => 6 ], 900, 600 );
 check( 'trip photo turned on its side: WordPress has its size as displayed', [ 600, 900 ] === [ wp_get_attachment_metadata( $turned )['width'] ?? 0, wp_get_attachment_metadata( $turned )['height'] ?? 0 ], wp_get_attachment_metadata( $turned ) );
+// Too small for a preview or medium of core's, so the proxy makes them, upright.
+$upright = array_map( fn( $i ) => array_slice( getimagesizefromstring( $i['body'] ?? '' ) ?: [], 0, 2 ), array_intersect_key( $served( $turned ), [ 'medium' => 1, 'preview' => 1 ] ) );
+check( 'trip photo turned on its side: sizes the proxy makes are upright too', [ 'medium' => [ 600, 900 ], 'preview' => [ 600, 900 ] ] === $upright, $upright );
+$preview = TravelSteps\Uploads::image( $tagged, 'preview' );
+file_put_contents( $preview['file'], ts_tagged_jpeg( $jpeg( 40, 30 ), $doolin ) );
+check( 'a checked copy that changes on disk is checked again', is_wp_error( TravelSteps\Uploads::image( $tagged, 'preview' ) ) );
 check( 'trip photo: Imagick reads the same metadata as exif_read_data()', TravelSteps\Exif::parse( exif_read_data( $original ) ) === TravelSteps\Exif::parse( TravelSteps\Exif::imagick( $original ) ), TravelSteps\Exif::imagick( $original ) );
 
 add_filter( 'image_strip_meta', '__return_false' );

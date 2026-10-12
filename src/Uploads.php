@@ -25,7 +25,7 @@ class Uploads {
 	const REQUEST_FLAG  = 'travel_steps_photo';
 	const META_PHOTO_ID = '_ts_photo_id';
 	const META_EXIF     = '_ts_exif'; // When, where and with what it was taken: see Exif::parse().
-	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in, by file name.
+	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in: file name => "mtime:size".
 	const DIR           = 'travel-steps';
 	// The photo proxy's sizes, as Immich makes them: at least this on the short side.
 	const SHORT_PX = [
@@ -223,11 +223,13 @@ class Uploads {
 			];
 			$checked = get_post_meta( $attachment_id, self::META_CHECKED, true ) ?: [];
 			$name    = wp_basename( $fit['file'] );
-			if ( empty( $checked[ $name ] ) ) {
+			// Rewritten without core knowing (regenerated with the plugin off, optimised), it's checked again.
+			$stamp = filemtime( $fit['file'] ) . ':' . filesize( $fit['file'] );
+			if ( ( $checked[ $name ] ?? '' ) !== $stamp ) {
 				if ( self::has_gps( $image ) ) {
 					return $gps;
 				}
-				$checked[ $name ] = true;
+				$checked[ $name ] = $stamp;
 				update_post_meta( $attachment_id, self::META_CHECKED, $checked );
 			}
 			return $image;
@@ -292,7 +294,7 @@ class Uploads {
 	 */
 	public static function has_gps( array $image ): bool {
 		$bytes = $image['body'] ?? (string) file_get_contents( $image['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		// XMP spells it out (exif:GPSLatitude), in any image format.
+		// XMP spells it out (exif:GPSLatitude) where it's plain text, as in JPEG, WebP and HEIF.
 		if ( false !== strpos( $bytes, 'GPSLatitude' ) ) {
 			return true;
 		}
@@ -308,8 +310,10 @@ class Uploads {
 		if ( is_array( $exif ) && false !== strpos( (string) ( $exif['SectionsFound'] ?? '' ), 'IFD0' ) ) {
 			return (bool) preg_grep( '/^GPS/', array_keys( $exif ) );
 		}
-		// EXIF it couldn't read (in JPEG, HEIC and AVIF, after "Exif\0\0"; in WebP, a chunk).
-		return false !== strpos( $bytes, "Exif\0\0" ) || ( 0 === strpos( $bytes, 'RIFF' ) && false !== strpos( $bytes, 'EXIF' ) );
+		// EXIF it couldn't read (in JPEG, HEIC and AVIF, after "Exif\0\0"; in WebP and PNG, a chunk).
+		return false !== strpos( $bytes, "Exif\0\0" )
+			|| ( 0 === strpos( $bytes, 'RIFF' ) && false !== strpos( $bytes, 'EXIF' ) )
+			|| ( 0 === strpos( $bytes, "\x89PNG" ) && false !== strpos( $bytes, 'eXIf' ) );
 	}
 
 	/**

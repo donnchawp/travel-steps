@@ -28,7 +28,7 @@ class RestController {
 			[
 				'methods'             => 'POST',
 				'callback'            => [ $this, 'set_photo_state' ],
-				'permission_callback' => fn( $request ) => Trips::TRIP === get_post_type( (int) $request['id'] ) && current_user_can( 'edit_post', (int) $request['id'] ),
+				'permission_callback' => fn( $request ) => Trips::can_edit_trip( (int) $request['id'] ),
 				'args'                => [
 					'asset' => [
 						'type'     => 'string',
@@ -49,7 +49,7 @@ class RestController {
 			[
 				'methods'             => 'POST',
 				'callback'            => [ $this, 'set_cover' ],
-				'permission_callback' => fn( $request ) => Trips::TRIP === get_post_type( (int) $request['id'] ) && current_user_can( 'edit_post', (int) $request['id'] ),
+				'permission_callback' => fn( $request ) => Trips::can_edit_trip( (int) $request['id'] ),
 				'args'                => [
 					// An asset id, or empty to go back to the automatic cover.
 					'asset' => [

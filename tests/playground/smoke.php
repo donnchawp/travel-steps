@@ -486,6 +486,14 @@ check( 'contributor cannot sync a trip', 'die' === $stopped( [ new Trips(), 'han
 $_POST = $_REQUEST = [ 'trip_id' => 0, 'title' => 'Sneaky', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
 $before = count( get_posts( [ 'post_type' => Trips::TRIP, 'post_status' => 'any', 'posts_per_page' => -1 ] ) );
 check( 'contributor cannot create a trip', 'die' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && $before === count( get_posts( [ 'post_type' => Trips::TRIP, 'post_status' => 'any', 'posts_per_page' => -1 ] ) ) );
+$rest_post = function ( $route, $params ) {
+	$req = new WP_REST_Request( 'POST', $route );
+	foreach ( $params as $k => $v ) { $req->set_param( $k, $v ); }
+	return rest_do_request( $req );
+};
+$own_photo = '00000000-0000-4000-8000-000000000001';
+check( 'contributor cannot pin, hide or choose the cover of their trip', 403 === $rest_post( "/travel-steps/v1/trips/$own_trip/photo-state", [ 'asset' => $own_photo, 'state' => 'hidden' ] )->get_status() && 403 === $rest_post( "/travel-steps/v1/trips/$own_trip/cover", [ 'asset' => '' ] )->get_status() );
+check( 'contributor’s trip page offers no Edit trip button', false === strpos( $render( 'trip.php', (string) $own_trip ), 'Edit trip' ) );
 $_POST = $_REQUEST = [];
 wp_set_current_user( 1 );
 check( 'administrators have the travel-steps capability', current_user_can( Trips::capability() ) );

@@ -14,15 +14,17 @@ if ( ! $trip || ! Trips::can_view( $trip ) ) {
 	return;
 }
 
-$can_edit = current_user_can( 'edit_post', $trip->ID );
-$authed   = $can_edit || 'publish' !== $trip->post_status;
-$steps    = Trips::timeline_steps( $trip, $can_edit );
-$by_step  = Trips::photos_by_step( $trip->ID, $steps );
-$pinned   = array_flip( Trips::pinned( $trip->ID ) );
+$can_edit   = current_user_can( 'edit_post', $trip->ID );
+// Pinning, hiding and choosing the cover also take the travel-steps capability.
+$can_curate = Trips::can_edit_trip( $trip->ID );
+$authed     = $can_edit || 'publish' !== $trip->post_status;
+$steps      = Trips::timeline_steps( $trip, $can_edit );
+$by_step    = Trips::photos_by_step( $trip->ID, $steps );
+$pinned     = array_flip( Trips::pinned( $trip->ID ) );
 
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
 $cover_id     = Trips::cover( $trip->ID );
-$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_edit, $cover_id ) {
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_curate, $cover_id ) {
 	?>
 	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
 		<button type="button" class="ts-photo-open"
@@ -35,7 +37,7 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 					width="<?php echo (int) $photo['w']; ?>" height="<?php echo (int) $photo['h']; ?>"
 				<?php endif; ?>>
 		</button>
-		<?php if ( $can_edit ) : ?>
+		<?php if ( $can_curate ) : ?>
 			<span class="ts-photo-tools">
 				<?php if ( ! empty( $photo['fav'] ) ) : ?>
 					<span class="ts-photo-fav" title="<?php esc_attr_e( 'Favourite in Immich', 'travel-steps' ); ?>">♥</span>
@@ -93,7 +95,7 @@ include __DIR__ . '/_header.php';
 					<li><strong><?php echo esc_html( $value ); ?></strong> <?php echo esc_html( $label ); ?></li>
 				<?php endforeach; ?>
 			</ul>
-			<?php if ( $can_edit && current_user_can( Trips::capability() ) ) : ?>
+			<?php if ( $can_curate ) : ?>
 				<p><a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a></p>
 			<?php endif; ?>
 		</div>

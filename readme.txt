@@ -8,21 +8,21 @@ Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A Polarsteps-style travel journal: photos from Immich, an optional route from Dawarich, and each day's story as a WordPress post.
+A Polarsteps-style travel journal: photos from Immich or uploaded to the trip, an optional route from Dawarich, and each day's story as a WordPress post.
 
 == Description ==
 
-Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app) and are served through WordPress, so Immich stays private.
+Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip; either way they're served through WordPress, so Immich and the original files stay private.
 
 Sync creates a draft step for every day with favourite photos, with a heading and a Trip photos block for each place you visited. You write each step up in the block editor and publish it. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map.
 
-Requires an Immich server reachable from your WordPress server; Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location; a trip always uses its author's.
+Photos come from an Immich server reachable from your WordPress server, or are uploaded to each trip, which needs PHP's exif extension. Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location; a trip always uses its author's.
 
 == Installation ==
 
 1. Upload the plugin with its `vendor/` directory (or run `composer install --no-dev` in it) and activate it.
-2. Open `/travel-steps/settings`. As an administrator, enter the Immich URL, and optionally Dawarich's, under Site. Everyone who makes trips enters their own Immich API key, and optionally their Dawarich key and home location, under Your accounts.
-3. Create a trip at `/travel-steps/new`, set its dates and press Sync.
+2. Open `/travel-steps/settings`. As an administrator, optionally enter the Immich and Dawarich URLs under Site. Everyone who makes trips enters their own Immich API key if they use Immich, and optionally their Dawarich key and home location, under Your accounts.
+3. Create a trip at `/travel-steps/new`. For Immich photos, set its dates and press Sync. For uploads, choose "Photos uploaded to this trip", press Save and add photos, and close the media window when they're in: that syncs the trip if anything changed.
 
 == External services ==
 

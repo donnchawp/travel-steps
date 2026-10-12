@@ -78,13 +78,17 @@ then calls `Days::resolve_times()` and sorts by `t`, for every source.
 `ImmichClient::photos()` stops calling `resolve_times()` and sorting.
 Immich's results don't change: the same function runs over the same rows.
 
-`image()` stays. The proxy serves uploads before it asks the source.
+`image()` leaves the interface. The proxy fetches an upload's image from
+WordPress and any other photo's from Immich, whatever the trip's source is now
+(`RestController::image()`), so a trip switched to uploads keeps its synced
+Immich photos until it syncs again.
 
 ### `ImmichSource`
 
-Album mode ignores the range. Date mode returns the existing "Set the trip
-start and end dates first." error when the range is null, so an Immich trip
-without dates fails as it does today.
+With a range, album mode ignores it. A null range returns the existing "Set
+the trip start and end dates first." error, in album mode too, so an Immich
+trip without dates fails as it does today. Taking an album trip's dates from
+the album is #23.
 
 ### `MediaSource`
 
@@ -104,7 +108,6 @@ New. One row per upload on the trip (attachments with `_ts_photo_id` and
 | `fav` | true |
 
 It ignores the range: the uploads are the trip's own photos, like an album.
-`image()` returns a `WP_Error`.
 
 ### Choosing the source
 

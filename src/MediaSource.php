@@ -27,12 +27,13 @@ class MediaSource implements PhotoSource {
 		$meta   = wp_get_attachment_metadata( $attachment_id ) ?: [];
 		$local  = '' === $exif['taken'] ? null : ( new \DateTimeImmutable( $exif['taken'], new \DateTimeZone( 'UTC' ) ) )->getTimestamp();
 		$offset = self::offset_s( (string) $exif['offset'] );
+		$t      = null === $local ? null : $local - (int) $offset;
 		return [
 			'id'      => Uploads::photo_id( $attachment_id ),
 			'local'   => $local,
 			'zoned'   => null !== $local && null !== $offset,
-			't'       => null === $local ? null : $local - (int) $offset,
-			'day'     => null === $local ? '' : Days::local_day( $exif['taken'], $local, wp_timezone() ),
+			't'       => $t,
+			'day'     => null === $t ? '' : Days::local_day( $exif['taken'], $t, wp_timezone() ),
 			'lat'     => null === $exif['lat'] ? null : (float) $exif['lat'],
 			'lon'     => null === $exif['lon'] ? null : (float) $exif['lon'],
 			'w'       => (int) ( $meta['width'] ?? 0 ),

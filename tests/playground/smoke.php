@@ -173,6 +173,11 @@ $zone_source->rows   = [ $zone_known, $zone_bare ];
 ( new TripSync( new DawarichClient( 'http://x', '' ), $zone_source ) )->sync( $zone_trip );
 $zone_times = array_column( Trips::photos( $zone_trip ), 't', 'id' );
 check( 'sync resolves a time without an offset from its neighbours, and sorts', [ $zone_bare['id'], $zone_known['id'] ] === array_keys( $zone_times ) && strtotime( '2025-05-01 09:00 UTC' ) === $zone_times[ $zone_bare['id'] ], $zone_times );
+// Its step would show up in the step listings checked below.
+foreach ( Trips::steps( $zone_trip, true ) as $zone_step ) {
+	wp_delete_post( $zone_step->ID, true );
+}
+wp_delete_post( $zone_trip, true );
 
 // Without Dawarich, the photos' own positions make the route.
 $solo_id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Photos only', 'post_status' => 'draft' ] );

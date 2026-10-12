@@ -25,6 +25,9 @@ $r = $geo->nearest( 48.8566, 2.3522 );
 check( 'central Paris is Paris, not an arrondissement', [ 'city' => 'Paris', 'country' => 'France' ] === $r, $r );
 $r = $geo->nearest( 43.2965, 5.3698 );
 check( 'central Marseille is Marseille', [ 'city' => 'Marseille', 'country' => 'France' ] === $r, $r );
+// Far from the city's centre, but in the city: not named after a suburb next door.
+$r = array_column( [ $geo->nearest( 48.8584, 2.2945 ), $geo->nearest( 48.8867, 2.3431 ), $geo->nearest( 48.8614, 2.3933 ), $geo->nearest( 43.3606, 5.3122 ) ], 'city' );
+check( 'the Eiffel Tower, Sacré-Cœur, Père Lachaise and L’Estaque are in Paris and Marseille', [ 'Paris', 'Paris', 'Paris', 'Marseille' ] === $r, $r );
 $none = [ 'city' => '', 'country' => '' ];
 $r    = $geo->nearest( 0.0, -30.0 );
 check( 'mid-Atlantic has no name', $none === $r, $r );

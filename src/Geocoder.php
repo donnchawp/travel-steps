@@ -35,11 +35,11 @@ class Geocoder {
 	 * @return array{city: string, country: string}
 	 */
 	public function nearest( float $lat, float $lon ): array {
-		$best   = [ 'city' => '', 'code' => '' ];
-		$best_m = self::MAX_DISTANCE_M;
 		if ( ! is_finite( $lat ) || ! is_finite( $lon ) || abs( $lat ) > 90 || abs( $lon ) > 180 ) {
 			return [ 'city' => '', 'country' => '' ];
 		}
+		$best   = [ 'city' => '', 'code' => '' ];
+		$best_m = self::MAX_DISTANCE_M;
 		foreach ( self::tiles_near( $lat, $lon ) as $tile ) {
 			$rows = $this->rows( $tile );
 			if ( '' === $rows ) {
@@ -74,7 +74,7 @@ class Geocoder {
 
 	/**
 	 * Every tile with ground within MAX_DISTANCE_M of a point, across the ±180° line
-	 * if need be, and all the way round near a pole.
+	 * if need be, and all the way round near a pole. For a real point: |lat| ≤ 90.
 	 *
 	 * @return int[]
 	 */

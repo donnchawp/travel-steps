@@ -116,7 +116,7 @@ class ImmichClient {
 	/**
 	 * Photos in an album, or taken between two unix timestamps when no album is given.
 	 *
-	 * @return array<int, array>|\WP_Error Normalised photo rows, oldest first.
+	 * @return array<int, array>|\WP_Error Photo rows as PhotoSource::photos() describes them.
 	 */
 	public function photos( int $start, int $end, string $album_id = '' ) {
 		$query = [
@@ -152,8 +152,6 @@ class ImmichClient {
 			}
 		}
 
-		$photos = Days::resolve_times( $photos, wp_timezone() );
-		usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
 		return $photos;
 	}
 

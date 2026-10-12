@@ -76,10 +76,11 @@ class TripSync {
 
 		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
 		$source = $this->source ?? Trips::source( $trip_id );
-		$photos = $source->photos( $trip_id, $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S );
+		$photos = $source->photos( $trip_id, [ $start - self::ZONE_MARGIN_S, $end + self::ZONE_MARGIN_S ] );
 		if ( is_wp_error( $photos ) ) {
 			return $photos;
 		}
+		$photos = $this->resolve_times( $photos );
 		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$last   = (string) get_post_meta( $trip_id, Trips::META_END, true );
 		$photos = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
@@ -121,6 +122,16 @@ class TripSync {
 			'points'       => count( $points ),
 			'photos'       => count( $photos ),
 		];
+	}
+
+	/**
+	 * Every source's rows, with exact times in time order. Photos that don't say when
+	 * they were taken can't go on a day, so they're left out.
+	 */
+	private function resolve_times( array $photos ): array {
+		$photos = Days::resolve_times( array_values( array_filter( $photos, fn( $p ) => null !== $p['local'] ) ), wp_timezone() );
+		usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
+		return $photos;
 	}
 
 	/**

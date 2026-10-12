@@ -16,8 +16,13 @@ class ImmichSource implements PhotoSource {
 		$this->client = $client;
 	}
 
-	public function photos( int $trip_id, int $start, int $end ) {
-		return $this->client->photos( $start, $end, (string) get_post_meta( $trip_id, Trips::META_ALBUM, true ) );
+	public function photos( int $trip_id, ?array $range ) {
+		$album = (string) get_post_meta( $trip_id, Trips::META_ALBUM, true );
+		if ( '' === $album && ! $range ) {
+			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+		}
+		[ $start, $end ] = $range ?? [ 0, 0 ];
+		return $this->client->photos( $start, $end, $album );
 	}
 
 	public function image( string $photo_id, string $size ) {

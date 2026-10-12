@@ -931,6 +931,8 @@ array_pop( $GLOBALS['wp_current_filter'] );
 $GLOBALS['current_screen'] = null;
 $suggested = implode( ' ', wp_list_pluck( WP_Privacy_Policy_Content::get_suggested_policy_text(), 'policy_text' ) );
 check( 'privacy policy suggestion names OpenStreetMap', false !== strpos( $suggested, 'OpenStreetMap' ) && false !== strpos( $suggested, 'osmfoundation.org/wiki/Privacy_Policy' ), substr( $suggested, 0, 200 ) );
+
+require '/smoke/upload-trips.php';
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

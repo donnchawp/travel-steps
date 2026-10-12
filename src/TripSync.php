@@ -65,7 +65,15 @@ class TripSync {
 	private function run( int $trip_id ) {
 		$first = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$last  = (string) get_post_meta( $trip_id, Trips::META_END, true );
-		$range = Trips::range( $trip_id );
+		// Dates sync took from a trip's uploads follow them, so photos added on later days
+		// count. One the author has changed since is theirs, and stays.
+		if ( Trips::uses_uploads( $trip_id ) ) {
+			$auto  = get_post_meta( $trip_id, Trips::META_DATES_AUTO, true );
+			$auto  = is_array( $auto ) ? $auto : [ '', '' ];
+			$first = $first === $auto[0] ? '' : $first;
+			$last  = $last === $auto[1] ? '' : $last;
+		}
+		$range = '' !== $first && '' !== $last ? Trips::range( $trip_id ) : null;
 		// Dates that are both set but backwards are the author's to fix. A missing one
 		// is up to the source: uploads can supply it, Immich can't.
 		if ( ! $range && '' !== $first && '' !== $last ) {
@@ -182,7 +190,7 @@ class TripSync {
 
 	/**
 	 * A trip of uploads missing a date takes it from its photos: the first or last
-	 * local day. A date already set is kept.
+	 * local day, remembered so the next sync takes it again. A date already set is kept.
 	 *
 	 * @return array{0: string, 1: string}|\WP_Error The first and last day.
 	 */
@@ -193,14 +201,16 @@ class TripSync {
 				: new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) );
 		}
 		$days  = array_column( $photos, 'day' );
-		$first = $first ?: min( $days );
-		$last  = $last ?: max( $days );
+		$auto  = [ '' === $first ? min( $days ) : '', '' === $last ? max( $days ) : '' ];
+		$first = $first ?: $auto[0];
+		$last  = $last ?: $auto[1];
 		// A date typed after every photo (or before), paired with one from the photos, is backwards.
 		if ( $first > $last ) {
 			return new \WP_Error( 'travel_steps_photos_outside', __( 'None of the trip’s photos were taken between its dates: change or clear them.', 'travel-steps' ) );
 		}
 		update_post_meta( $trip_id, Trips::META_START, $first );
 		update_post_meta( $trip_id, Trips::META_END, $last );
+		update_post_meta( $trip_id, Trips::META_DATES_AUTO, $auto );
 		return [ $first, $last ];
 	}
 

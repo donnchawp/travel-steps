@@ -30,6 +30,12 @@ $albums  = $is_owner && Trips::can_use_immich( $author ) ? ImmichClient::for_use
 $choices = $is_owner ? View::photo_choices( $trip, $albums ) : [];
 // Uploads make the dates optional: sync takes them from the photos.
 $picks_uploads = in_array( Trips::SOURCE_UPLOADS, array_column( array_filter( $choices, fn( $c ) => $c['selected'] ), 'value' ), true );
+$uses_uploads  = $trip && Trips::uses_uploads( $trip_id );
+// Anyone who can edit the trip may add photos to it; only its author syncs.
+$can_add = $uses_uploads && Uploads::available();
+if ( $can_add ) {
+	wp_enqueue_media( [ 'post' => $trip_id ] );
+}
 $synced  = (int) $meta( Trips::META_SYNCED );
 $error   = $meta( Trips::META_ERROR );
 $stats   = $trip_id ? get_post_meta( $trip_id, Trips::META_STATS, true ) : [];
@@ -41,7 +47,7 @@ $has_dawarich = '' !== $account['dawarich_key'];
 wp_app_enqueue_script(
 	'travel-steps-edit',
 	TRAVEL_STEPS_PLUGIN_URL . 'assets/travel-steps-edit.js',
-	[],
+	$can_add ? [ 'media-views' ] : [],
 	filemtime( TRAVEL_STEPS_PLUGIN_DIR . 'assets/travel-steps-edit.js' ),
 	true,
 	'travel-steps'
@@ -78,6 +84,9 @@ include __DIR__ . '/_header.php';
 		</p>
 	<?php elseif ( $error ) : ?>
 		<p class="ts-notice is-error"><?php echo esc_html( sprintf( /* translators: %s: error message */ __( 'Sync failed: %s', 'travel-steps' ), $error ) ); ?></p>
+	<?php endif; ?>
+	<?php if ( isset( $_GET['photos'] ) && ! $is_owner ) : ?>
+		<p class="ts-notice"><?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'The trip’s photos changed. %s needs to sync it to update its steps.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?></p>
 	<?php endif; ?>
 	<?php if ( '' === $account['immich_key'] ) : ?>
 		<p class="ts-notice is-warning">
@@ -200,6 +209,30 @@ include __DIR__ . '/_header.php';
 	</form>
 
 	<?php if ( $trip ) : ?>
+		<?php if ( $uses_uploads ) : ?>
+			<section class="ts-panel ts-uploads" data-trip="<?php echo (int) $trip_id; ?>" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>">
+				<div class="ts-page-head">
+					<h2><?php esc_html_e( 'Photos', 'travel-steps' ); ?></h2>
+					<?php if ( $can_add ) : ?>
+						<button type="button" class="ts-button ts-button-secondary ts-add-photos"><?php esc_html_e( 'Add photos', 'travel-steps' ); ?></button>
+					<?php endif; ?>
+				</div>
+				<p class="ts-muted">
+					<?php
+					$uploaded = count( Uploads::trip_photos( $trip_id ) );
+					echo esc_html(
+						$uploaded
+							/* translators: %s: number of photos */
+							? sprintf( _n( '%s photo uploaded.', '%s photos uploaded.', $uploaded, 'travel-steps' ), number_format_i18n( $uploaded ) )
+							: __( 'No photos uploaded yet.', 'travel-steps' )
+					);
+					if ( ! $can_add ) {
+						echo ' ' . esc_html__( 'This site can’t take uploads: its PHP has no exif extension, which reads when and where photos were taken.', 'travel-steps' );
+					}
+					?>
+				</p>
+			</section>
+		<?php endif; ?>
 		<section class="ts-panel">
 			<h2><?php esc_html_e( 'Sync', 'travel-steps' ); ?></h2>
 			<p class="ts-muted">
@@ -218,7 +251,7 @@ include __DIR__ . '/_header.php';
 				?>
 			</p>
 			<?php if ( $is_owner ) : ?>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<form class="ts-sync-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="travel_steps_sync">
 					<input type="hidden" name="trip_id" value="<?php echo (int) $trip_id; ?>">
 					<?php wp_nonce_field( 'travel_steps_sync' ); ?>

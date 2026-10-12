@@ -14,7 +14,7 @@ class Selection {
 	const BURST_GAP_S = 15;
 
 	/**
-	 * @param array $photos Photo rows for one step, sorted by time (see ImmichClient::normalise).
+	 * @param array $photos Photo rows for one step, sorted by time (see PhotoSource::photos).
 	 * @param array $pinned Asset ids to always show.
 	 * @param array $hidden Asset ids to never show.
 	 * @param int   $limit  How many to auto-pick when the step has no favourites.

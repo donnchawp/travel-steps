@@ -5,3 +5,5 @@
 /tests          export-ignore
 /demo           export-ignore
 /.github        export-ignore
+/docs           export-ignore
+/AGENTS.md      export-ignore

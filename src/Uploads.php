@@ -364,7 +364,7 @@ class Uploads {
 			return $response;
 		}
 		$data = $response->get_data();
-		unset( $data['source_url'], $data['media_details'], $data['missing_image_sizes'], $data['guid'] );
+		unset( $data['source_url'], $data['media_details'], $data['missing_image_sizes'], $data['guid'], $data['filename'] );
 		$data['link'] = '';
 		if ( isset( $data['description']['rendered'] ) ) {
 			$data['description']['rendered'] = '';

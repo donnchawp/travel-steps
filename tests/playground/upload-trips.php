@@ -133,3 +133,16 @@ $ut_cover = $rest_post( "/travel-steps/v1/trips/$ut_tour/cover", [ 'asset' => $u
 $ut_groups = Trips::photos_by_step( $ut_tour, Trips::steps( $ut_tour, true ) );
 $ut_hidden = array_merge( ...array_map( fn( $g ) => array_column( $g['hidden'], 'id' ), array_values( $ut_groups ) ) );
 check( 'an upload can be hidden, pinned and made the cover', [ $ut_ids['dingle'] ] === $ut_hidden && in_array( $ut_ids['paris'], Trips::pinned( $ut_tour ), true ) && 200 === $ut_cover->get_status() && $ut_ids['paris'] === Trips::cover( $ut_tour ), [ $ut_hidden, $ut_cover->get_data() ] );
+
+// Trip photos must be images: Imagick would otherwise open a PDF or a video to read it.
+$ut_sideload = function ( string $name, string $bytes ) use ( $ut_tour ) {
+	$_REQUEST = [ 'post_id' => $ut_tour, Uploads::REQUEST_FLAG => '1' ];
+	$tmp      = wp_tempnam( $name );
+	file_put_contents( $tmp, $bytes );
+	$id       = media_handle_sideload( [ 'name' => $name, 'tmp_name' => $tmp ], $ut_tour );
+	$_REQUEST = [];
+	return $id;
+};
+$ut_pdf = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n";
+check( 'a PDF can’t be a trip photo', is_wp_error( $ut_sideload( 'notes.pdf', $ut_pdf ) ) );
+check( '…even named like a photo', is_wp_error( $ut_sideload( 'IMG_0001.jpg', $ut_pdf ) ) );

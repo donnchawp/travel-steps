@@ -110,3 +110,15 @@ check( 'an upload trip with no uploads and no dates says to add photos', is_wp_e
 $ut_immich = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Immich, undated', 'post_status' => 'draft', 'post_author' => $ut_author ] );
 $ut_result = ( new TripSync() )->sync( $ut_immich );
 check( 'an Immich trip without dates still fails as before', is_wp_error( $ut_result ) && 'travel_steps_no_dates' === $ut_result->get_error_code() );
+
+// Place names for uploads come from the offline geocoder.
+$ut_places = [];
+foreach ( Trips::steps( $ut_tour, true ) as $ut_step ) {
+	$ut_places[ Trips::day( $ut_step ) ] = wp_get_object_terms( $ut_step->ID, Trips::PLACE, [ 'fields' => 'names' ] );
+}
+ksort( $ut_places );
+check( 'an upload trip’s steps are named by the geocoder', [ '2025-06-01' => [ 'Lisdoonvarna' ], '2025-06-02' => [ 'Dingle' ], '2025-06-03' => [ 'Paris' ] ] === $ut_places, $ut_places );
+check( '…and so are its photos', [ 'Lisdoonvarna', 'Ireland' ] === [ Trips::photos( $ut_tour )[0]['city'] ?? '', Trips::photos( $ut_tour )[0]['country'] ?? '' ], Trips::photos( $ut_tour )[0] ?? [] );
+check( '…with no warning about place names', false === ( ( new TripSync() )->sync( $ut_tour )['no_places'] ?? null ) );
+$ut_result = ( new TripSync( null, null, new TravelSteps\Geocoder( '/nowhere' ) ) )->sync( $ut_tour );
+check( 'missing geocoder data is reported', true === ( $ut_result['no_places'] ?? null ), $ut_result );

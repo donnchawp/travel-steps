@@ -29,6 +29,19 @@ class Geocoder {
 	}
 
 	/**
+	 * Whether the data files are there. Without them every point is unnamed, like open
+	 * sea, so a broken deploy would otherwise go unnoticed.
+	 */
+	public function available(): bool {
+		foreach ( [ 'index.dat', 'places.tsv', 'countries.tsv' ] as $file ) {
+			if ( ! is_readable( $this->dir . '/' . $file ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * The nearest town and its country, or empty strings if there's none within
 	 * MAX_DISTANCE_M, or the point isn't one (EXIF can hold NaN, from 0/0).
 	 *

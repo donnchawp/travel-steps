@@ -201,14 +201,14 @@ class RestController {
 		}
 
 		$cache = self::cache_file( $asset, $size );
-		if ( ! is_readable( $cache['file'] ) ) {
+		if ( ! is_readable( $cache ) ) {
 			$source = Trips::source( $trip_id );
 			$image  = 'medium' === $size ? self::medium( $source, $asset ) : $source->image( $asset, $size );
 			if ( is_wp_error( $image ) || '' === $image['body'] ) {
 				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
 			}
 			// Serve what we fetched even if it couldn't be cached.
-			self::store_cached( $cache['file'], $image['body'], $image['type'] );
+			self::cache( $asset, $size, $image );
 			self::send_cache_headers( $is_public, $etag );
 			self::send_type( $image['type'] );
 			header( 'Content-Length: ' . strlen( $image['body'] ) );
@@ -217,9 +217,9 @@ class RestController {
 		}
 
 		self::send_cache_headers( $is_public, $etag );
-		self::send_type( is_readable( $cache['file'] . '.type' ) ? trim( (string) file_get_contents( $cache['file'] . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		header( 'Content-Length: ' . filesize( $cache['file'] ) );
-		readfile( $cache['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		self::send_type( is_readable( $cache . '.type' ) ? trim( (string) file_get_contents( $cache . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		header( 'Content-Length: ' . filesize( $cache ) );
+		readfile( $cache ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 		exit;
 	}
 
@@ -237,7 +237,7 @@ class RestController {
 	 * @return array{body: string, type: string}|\WP_Error
 	 */
 	private static function medium( PhotoSource $source, string $asset ) {
-		$preview = self::cache_file( $asset, 'preview' )['file'];
+		$preview = self::cache_file( $asset, 'preview' );
 		if ( is_readable( $preview ) ) {
 			$type  = is_readable( $preview . '.type' ) ? trim( (string) file_get_contents( $preview . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			$image = [ 'body' => (string) file_get_contents( $preview ), 'type' => $type ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
@@ -246,7 +246,7 @@ class RestController {
 			if ( is_wp_error( $image ) ) {
 				return $image;
 			}
-			self::store_cached( $preview, $image['body'], $image['type'] );
+			self::cache( $asset, 'preview', $image );
 		}
 		$medium = self::shrink( $image['body'], $image['type'] );
 		// Without an image editor, the preview will do.
@@ -301,9 +301,7 @@ class RestController {
 		if ( '' === $body ) {
 			return false;
 		}
-		// The size folder and the one for the id's first two characters.
-		Uploads::unlisted( dirname( $file, 2 ) );
-		Uploads::unlisted( dirname( $file ) );
+		wp_mkdir_p( dirname( $file ) );
 		foreach ( [ $file . '.type' => $type, $file => $body ] as $path => $data ) {
 			$tmp = $path . '.' . wp_generate_password( 8, false ) . '.tmp';
 			if ( strlen( $data ) !== file_put_contents( $tmp, $data ) || ! rename( $tmp, $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.WP.AlternativeFunctions.rename_rename
@@ -337,13 +335,21 @@ class RestController {
 	}
 
 	/**
-	 * Cached thumbnails sit behind a deny rule (Apache) and unguessable asset ids, so
-	 * they're meant to be reached only through the checks above.
+	 * Cached thumbnails sit behind a deny rule (Apache), in folders that can't be
+	 * listed, under unguessable asset ids, so they're meant to be reached only through
+	 * the checks above.
 	 */
-	private static function cache_file( string $asset, string $size ): array {
-		$root = trailingslashit( wp_get_upload_dir()['basedir'] ) . 'travel-steps-cache';
-		Uploads::protect( $root );
-		return [ 'file' => $root . '/' . $size . '/' . substr( $asset, 0, 2 ) . '/' . $asset ];
+	private static function cache_folder( string $asset, string $size ): string {
+		return $size . '/' . substr( $asset, 0, 2 );
+	}
+
+	private static function cache_file( string $asset, string $size ): string {
+		return wp_get_upload_dir()['basedir'] . '/travel-steps-cache/' . self::cache_folder( $asset, $size ) . '/' . $asset;
+	}
+
+	private static function cache( string $asset, string $size, array $image ): void {
+		Uploads::protect( wp_get_upload_dir()['basedir'] . '/travel-steps-cache', self::cache_folder( $asset, $size ) );
+		self::store_cached( self::cache_file( $asset, $size ), $image['body'], $image['type'] );
 	}
 
 	/**
@@ -351,7 +357,7 @@ class RestController {
 	 */
 	public static function delete_cached( string $asset ): void {
 		foreach ( self::SIZES as $size ) {
-			$file = self::cache_file( $asset, $size )['file'];
+			$file = self::cache_file( $asset, $size );
 			wp_delete_file( $file );
 			wp_delete_file( $file . '.type' );
 		}

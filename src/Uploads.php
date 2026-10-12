@@ -38,7 +38,7 @@ class Uploads {
 		add_filter( 'wp_prepare_attachment_for_js', [ self::class, 'prepare_for_js' ], 10, 2 );
 		add_filter( 'ajax_query_attachments_args', [ self::class, 'modal_query' ] );
 		add_filter( 'rest_attachment_query', [ self::class, 'exclude' ] );
-		add_action( 'pre_get_posts', [ self::class, 'library_list' ] );
+		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
 		add_action( 'before_delete_post', [ self::class, 'delete_trip' ] );
 		add_action( 'delete_attachment', [ self::class, 'forget_cached' ] );
 	}
@@ -54,9 +54,7 @@ class Uploads {
 		}
 		$trip_id = isset( $_REQUEST['post_id'] ) ? absint( $_REQUEST['post_id'] ) : 0;
 		// phpcs:enable
-		$allowed = $trip_id && Trips::TRIP === get_post_type( $trip_id )
-			&& current_user_can( Trips::capability() ) && current_user_can( 'edit_post', $trip_id );
-		return $allowed ? $trip_id : null;
+		return Trips::can_edit_trip( $trip_id ) ? $trip_id : null;
 	}
 
 	/**
@@ -80,31 +78,39 @@ class Uploads {
 		if ( ! $trip_id ) {
 			return $dirs;
 		}
-		self::protect( $dirs['basedir'] . '/' . self::DIR );
-		$dirs['subdir'] = '/' . self::DIR . '/' . $trip_id;
-		$dirs['path']   = $dirs['basedir'] . $dirs['subdir'];
+		$dirs['subdir'] = self::subdir( $trip_id );
+		$dirs['path']   = self::protect( $dirs['basedir'] . '/' . self::DIR, (string) $trip_id );
 		$dirs['url']    = $dirs['baseurl'] . $dirs['subdir'];
-		self::unlisted( $dirs['path'] );
 		return $dirs;
 	}
 
-	/**
-	 * Keep a folder's files from being served directly: a deny rule for Apache (it
-	 * covers the folders inside too), and an index against directory listings.
-	 */
-	public static function protect( string $dir ): void {
-		self::unlisted( $dir );
-		if ( ! file_exists( $dir . '/.htaccess' ) ) {
-			file_put_contents( $dir . '/.htaccess', "Require all denied\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		}
+	private static function subdir( int $trip_id ): string {
+		return '/' . self::DIR . '/' . $trip_id;
 	}
 
 	/**
-	 * Create a folder with an empty index.html, so a server that lists directories
-	 * shows nothing of it, deny rule or not; on nginx the file names are the secret.
-	 * Plain HTML, as uploads often aren't allowed to run PHP.
+	 * Make the folders from $root down to $root/$path, so that their files can only be
+	 * reached through the plugin: a deny rule at the root for Apache (it covers the
+	 * folders inside), and in every folder an empty index.html, so a server that lists
+	 * directories shows nothing; on nginx the file names are the secret. Plain HTML,
+	 * as uploads often aren't allowed to run PHP.
+	 *
+	 * @return string The innermost folder.
 	 */
-	public static function unlisted( string $dir ): void {
+	public static function protect( string $root, string $path = '' ): string {
+		$dir = $root;
+		self::unlisted( $dir );
+		if ( ! file_exists( $root . '/.htaccess' ) ) {
+			file_put_contents( $root . '/.htaccess', "Require all denied\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		}
+		foreach ( array_filter( explode( '/', $path ) ) as $folder ) {
+			$dir .= '/' . $folder;
+			self::unlisted( $dir );
+		}
+		return $dir;
+	}
+
+	private static function unlisted( string $dir ): void {
 		if ( ! file_exists( $dir . '/index.html' ) ) {
 			wp_mkdir_p( $dir );
 			file_put_contents( $dir . '/index.html', '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
@@ -143,7 +149,7 @@ class Uploads {
 		$response['url'] = RestController::photo_url( $trip_id, $photo_id, 'preview', true );
 		$response['link'] = '';
 		foreach ( array_keys( $response['sizes'] ?? [] ) as $size ) {
-			$proxy                              = in_array( $size, [ 'thumbnail', 'medium' ], true ) ? $size : 'preview';
+			$proxy                              = in_array( $size, RestController::SIZES, true ) ? $size : 'preview';
 			$response['sizes'][ $size ]['url'] = RestController::photo_url( $trip_id, $photo_id, $proxy, true );
 		}
 		return $response;
@@ -157,11 +163,11 @@ class Uploads {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Core checks the nonce and capability before this filter runs.
 		$asked   = isset( $_REQUEST['query'] ) && is_array( $_REQUEST['query'] ) ? wp_unslash( $_REQUEST['query'] ) : [];
 		// phpcs:enable
-		$trip_id = absint( $asked['post_parent'] ?? 0 );
 		if ( empty( $asked[ self::REQUEST_FLAG ] ) ) {
 			return self::exclude( $query );
 		}
-		if ( ! $trip_id || Trips::TRIP !== get_post_type( $trip_id ) || ! current_user_can( 'edit_post', $trip_id ) ) {
+		$trip_id = absint( $asked['post_parent'] ?? 0 );
+		if ( ! Trips::can_edit_trip( $trip_id ) ) {
 			$query['post__in'] = [ 0 ];
 			return $query;
 		}
@@ -174,7 +180,7 @@ class Uploads {
 	 * Leave trip photos out of a media query.
 	 */
 	public static function exclude( array $query ): array {
-		$query['meta_query']   = (array) ( $query['meta_query'] ?? [] ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		$query['meta_query']   = (array) ( ( $query['meta_query'] ?? [] ) ?: [] ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 		$query['meta_query'][] = [ 'key' => self::META_PHOTO_ID, 'compare' => 'NOT EXISTS' ];
 		return $query;
 	}
@@ -183,9 +189,8 @@ class Uploads {
 	 * The Media Library's list view, which doesn't go through the modal's query.
 	 */
 	public static function library_list( \WP_Query $query ): void {
-		global $pagenow;
-		if ( is_admin() && $query->is_main_query() && 'upload.php' === $pagenow ) {
-			$query->set( 'meta_query', self::exclude( [ 'meta_query' => $query->get( 'meta_query' ) ?: [] ] )['meta_query'] );
+		if ( $query->is_main_query() ) {
+			$query->set( 'meta_query', self::exclude( $query->query_vars )['meta_query'] );
 		}
 	}
 
@@ -210,7 +215,7 @@ class Uploads {
 		foreach ( $photos as $attachment_id ) {
 			wp_delete_attachment( $attachment_id, true );
 		}
-		$dir = wp_get_upload_dir()['basedir'] . '/' . self::DIR . '/' . $post_id;
+		$dir = wp_get_upload_dir()['basedir'] . self::subdir( $post_id );
 		if ( is_dir( $dir ) && [ $dir . '/index.html' ] === glob( $dir . '/*' ) ) {
 			wp_delete_file( $dir . '/index.html' );
 			rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir

@@ -82,6 +82,34 @@ include __DIR__ . '/_header.php';
 			endif;
 			?>
 		</p>
+		<?php
+		$counts   = array_map( fn( $key ) => absint( $_GET[ $key ] ?? 0 ), [ 'outside' => 'outside', 'untimed' => 'untimed', 'home' => 'home', 'unlocated' => 'unlocated' ] );
+		$left_out = array_filter(
+			[
+				/* translators: %s: number of photos */
+				$counts['outside'] ? sprintf( __( '%s outside the trip’s dates', 'travel-steps' ), number_format_i18n( $counts['outside'] ) ) : '',
+				/* translators: %s: number of photos */
+				$counts['untimed'] ? sprintf( __( '%s with no time taken (often sent through a messaging app, or a screenshot)', 'travel-steps' ), number_format_i18n( $counts['untimed'] ) ) : '',
+				/* translators: %s: number of photos */
+				$counts['home'] ? sprintf( __( '%s taken at home', 'travel-steps' ), number_format_i18n( $counts['home'] ) ) : '',
+			]
+		);
+		?>
+		<?php if ( $left_out ) : ?>
+			<p class="ts-notice is-warning"><?php echo esc_html( sprintf( /* translators: %s: a list of counts, such as "1 outside the trip's dates, 2 taken at home" */ __( 'Left out: %s.', 'travel-steps' ), implode( ', ', $left_out ) ) ); ?></p>
+		<?php endif; ?>
+		<?php if ( $counts['unlocated'] ) : ?>
+			<p class="ts-notice is-warning">
+				<?php
+				/* translators: %s: number of photos */
+				echo esc_html( sprintf( _n( '%s photo has no location, so it isn’t on the map.', '%s photos have no location, so they aren’t on the map.', $counts['unlocated'], 'travel-steps' ), number_format_i18n( $counts['unlocated'] ) ) );
+				echo ' ' . esc_html__( 'iPhone browsers drop it unless you turn on Options → Location before uploading; messaging apps strip it.', 'travel-steps' );
+				?>
+			</p>
+		<?php endif; ?>
+		<?php if ( ! empty( $_GET['no_places'] ) ) : ?>
+			<p class="ts-notice is-warning"><?php esc_html_e( 'Place names are unavailable: the plugin’s geonames data is missing.', 'travel-steps' ); ?></p>
+		<?php endif; ?>
 	<?php elseif ( $error ) : ?>
 		<p class="ts-notice is-error"><?php echo esc_html( sprintf( /* translators: %s: error message */ __( 'Sync failed: %s', 'travel-steps' ), $error ) ); ?></p>
 	<?php endif; ?>

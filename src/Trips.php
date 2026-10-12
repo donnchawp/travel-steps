@@ -444,16 +444,19 @@ class Trips {
 			exit;
 		}
 		delete_post_meta( $trip->ID, self::META_ERROR );
-		wp_safe_redirect(
-			add_query_arg(
-				[
-					'synced'       => '1',
-					'new_steps'    => (int) $result['new_steps'],
-					'skipped_days' => (int) $result['skipped_days'],
-				],
-				self::url( $trip, 'edit' )
-			)
-		);
+		$args = [
+			'synced'       => '1',
+			'new_steps'    => (int) $result['new_steps'],
+			'skipped_days' => (int) $result['skipped_days'],
+		];
+		// For a trip of uploads: what sync left out or couldn't place, for the notice.
+		if ( isset( $result['left_out'] ) ) {
+			$args += array_map( 'intval', $result['left_out'] ) + [
+				'unlocated' => (int) $result['unlocated'],
+				'no_places' => (int) $result['no_places'],
+			];
+		}
+		wp_safe_redirect( add_query_arg( $args, self::url( $trip, 'edit' ) ) );
 		exit;
 	}
 

@@ -313,6 +313,9 @@ class RestController {
 		if ( is_wp_error( $editor ) ) {
 			return $editor;
 		}
+		// A JPEG whose EXIF says it's turned (an original), as core turns its copies: the
+		// copy keeps no orientation tag to turn it by.
+		$editor->maybe_exif_rotate();
 		$size = $editor->get_size();
 		if ( min( $size['width'], $size['height'] ) > $short ) {
 			$resized = $size['width'] >= $size['height'] ? $editor->resize( null, $short ) : $editor->resize( $short, null );

@@ -245,6 +245,9 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-form fieldset p { margin: 0; }
 .ts-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
 .ts-form-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+/* .ts-button's display would otherwise win over the hidden attribute. */
+.ts-body [hidden] { display: none !important; }
+.ts-dates-hint { margin-top: -.5rem; }
 .ts-panel { margin-top: 2rem; padding: 1rem 1.25rem; border-radius: var(--ts-radius); background: var(--ts-surface); box-shadow: var(--ts-shadow); }
 .ts-panel h2 { margin: .25rem 0; font-size: 1.2rem; }
 .ts-step-list { padding-left: 1.4rem; }

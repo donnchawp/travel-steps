@@ -134,6 +134,14 @@ class Trips {
 		return self::can_edit_trip( $trip_id ) && (int) get_post_field( 'post_author', $trip_id ) === get_current_user_id();
 	}
 
+	/**
+	 * Whether a user can take a trip's photos from Immich. The site always has an Immich
+	 * URL (it falls back to the default container), so it's their key that decides.
+	 */
+	public static function can_use_immich( int $user_id ): bool {
+		return '' !== Settings::account( $user_id )['immich_key'];
+	}
+
 	public static function find_by_slug( string $slug ): ?\WP_Post {
 		$posts = get_posts(
 			[

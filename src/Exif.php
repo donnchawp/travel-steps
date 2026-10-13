@@ -77,6 +77,33 @@ class Exif {
 		return $exif;
 	}
 
+	/**
+	 * When a file's name says it was taken: a Mac screenshot's, an Android camera's
+	 * (PXL_ or IMG_ and the date and time) or WhatsApp's (IMG- and the date only).
+	 *
+	 * @param string $name The name it was uploaded with, without its extension.
+	 * @return array{0: string, 1: string}|null The date (Y-m-d) and time (H:i, or empty
+	 *         if the name has none), or null if the name has no date.
+	 */
+	public static function from_name( string $name ): ?array {
+		$patterns = [
+			'/^Screenshot (\d{4})-(\d\d)-(\d\d) at (\d\d)\.(\d\d)\.\d\d/',
+			'/^(?:PXL|IMG)_(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)\d\d/',
+			'/^IMG-(\d{4})(\d\d)(\d\d)-WA\d+/',
+		];
+		foreach ( $patterns as $pattern ) {
+			if ( ! preg_match( $pattern, $name, $m ) ) {
+				continue;
+			}
+			if ( ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+				return null;
+			}
+			$time = isset( $m[5] ) && (int) $m[4] < 24 && (int) $m[5] < 60 ? "$m[4]:$m[5]" : '';
+			return [ "$m[1]-$m[2]-$m[3]", $time ];
+		}
+		return null;
+	}
+
 	private static function text( $value ): string {
 		return is_string( $value ) ? trim( $value, " \0" ) : '';
 	}

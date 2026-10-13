@@ -25,6 +25,7 @@ class Uploads {
 	const REQUEST_FLAG  = 'travel_steps_photo';
 	const META_PHOTO_ID = '_ts_photo_id';
 	const META_EXIF     = '_ts_exif'; // When, where and with what it was taken: see Exif::parse().
+	const META_TAKEN    = '_ts_taken'; // A time the author gave one with none in its EXIF: Y-m-d H:i:s, wall clock.
 	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in: file name => "mtime:size".
 	const META_VERSION  = '_ts_version'; // Counts new sets of copies, for the proxy's ETag.
 	const DIR           = 'travel-steps';
@@ -493,6 +494,45 @@ class Uploads {
 				'meta_key'       => self::META_PHOTO_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 			]
 		);
+	}
+
+	/**
+	 * A trip's uploads with no time taken in their EXIF, whether or not their author has
+	 * given them one.
+	 *
+	 * @return int[]
+	 */
+	public static function untimed( int $trip_id ): array {
+		$ids = self::trip_photos( $trip_id );
+		update_meta_cache( 'post', $ids );
+		return array_values( array_filter( $ids, fn( $id ) => '' === ( get_post_meta( $id, self::META_EXIF, true )['taken'] ?? '' ) ) );
+	}
+
+	/**
+	 * Keep the times the author gave the trip's uploads with none in their EXIF. A date
+	 * and a time keep one, both empty forget it, and anything else is left alone: a
+	 * date filled in from the file name with no time shouldn't stop the trip saving.
+	 *
+	 * @param array $taken From the trip form: photo id => [ 'date' => Y-m-d, 'time' => H:i ].
+	 */
+	public static function save_times( int $trip_id, array $taken ): void {
+		foreach ( self::untimed( $trip_id ) as $attachment_id ) {
+			$given = $taken[ self::photo_id( $attachment_id ) ] ?? null;
+			if ( ! is_array( $given ) ) {
+				continue;
+			}
+			$date = is_string( $given['date'] ?? null ) ? trim( $given['date'] ) : '';
+			$time = is_string( $given['time'] ?? null ) ? trim( $given['time'] ) : '';
+			if ( '' === $date && '' === $time ) {
+				delete_post_meta( $attachment_id, self::META_TAKEN );
+				continue;
+			}
+			// Exactly as typed: rolled-over dates and times (30 February, 25:00) aren't any.
+			$at = \DateTimeImmutable::createFromFormat( '!Y-m-d H:i', "$date $time" );
+			if ( $at && $at->format( 'Y-m-d H:i' ) === "$date $time" ) {
+				update_post_meta( $attachment_id, self::META_TAKEN, $at->format( 'Y-m-d H:i:s' ) );
+			}
+		}
 	}
 
 	/**

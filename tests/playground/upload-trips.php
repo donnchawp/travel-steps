@@ -230,3 +230,45 @@ $stopped( [ new Trips(), 'handle_save_trip' ] );
 $_POST = $_REQUEST = [];
 wp_set_current_user( 1 );
 check( 'dates that don’t exist aren’t saved', [ '', '' ] === [ get_post_meta( $ut_bad, Trips::META_START, true ), get_post_meta( $ut_bad, Trips::META_END, true ) ] );
+
+// An upload with no time taken can be given one, which sync uses as if the camera had
+// written it without an offset. A time in its EXIF wins.
+$ut_given = $ut_trip( 'Given times', $ut_author, '2025-06-01', '2025-06-02' );
+$ut_dated = $ut_photo( $ut_given, [ 'taken' => '2025:06:01 10:00:00', 'offset' => '+01:00' ] + $ut_doolin + $ut_iphone );
+$ut_sent  = $ut_photo( $ut_given, [] );
+update_post_meta( $ut_sent, Uploads::META_TAKEN, '2025-06-02 15:30:00' );
+update_post_meta( $ut_dated, Uploads::META_TAKEN, '2025-06-02 09:00:00' );
+$ut_rows = array_column( ( new MediaSource() )->photos( $ut_given, null ), null, 'id' );
+$ut_row  = $ut_rows[ Uploads::photo_id( $ut_sent ) ] ?? [];
+check( 'an upload given a time: that wall-clock time and its day, not zoned', strtotime( '2025-06-02 15:30:00 UTC' ) === ( $ut_row['local'] ?? null ) && false === $ut_row['zoned'] && '2025-06-02' === $ut_row['day'], $ut_row );
+check( '…but a time in its EXIF wins over one given', strtotime( '2025-06-01 10:00:00 UTC' ) === ( $ut_rows[ Uploads::photo_id( $ut_dated ) ]['local'] ?? null ) );
+$ut_result = ( new TripSync() )->sync( $ut_given );
+$ut_synced = array_column( Trips::photos( $ut_given ), null, 'id' )[ Uploads::photo_id( $ut_sent ) ] ?? [];
+check( 'syncing puts it on its day, with no location without Dawarich', ! is_wp_error( $ut_result ) && 0 === $ut_result['left_out']['untimed'] && 2 === $ut_result['new_steps'] && '2025-06-02' === Trips::photo_day( $ut_synced ) && null === $ut_synced['lat'], is_wp_error( $ut_result ) ? $ut_result->get_error_message() : [ $ut_result, $ut_synced ] );
+// Its offset is the nearest zoned photo's (+01:00), so 14:30 UTC: Dawarich was in Lisbon then.
+( new TripSync( new FakeDawarich( 'http://x', 'k' ) ) )->sync( $ut_given );
+$ut_synced = array_column( Trips::photos( $ut_given ), null, 'id' )[ Uploads::photo_id( $ut_sent ) ] ?? [];
+check( '…and where the route was at that time with Dawarich', strtotime( '2025-06-02 14:30:00 UTC' ) === ( $ut_synced['t'] ?? null ) && 38.7139 === round( (float) ( $ut_synced['lat'] ?? 0 ), 4 ), $ut_synced );
+
+// The author gives times in the trip form, a date and a time for each upload with none.
+$ut_none_id = Uploads::photo_id( $ut_sent );
+$ut_times   = function ( array $taken ) use ( $ut_given, $stopped ) {
+	$_POST  = $_REQUEST = [ 'trip_id' => $ut_given, 'title' => 'Given times', 'start' => '2025-06-01', 'end' => '2025-06-02', 'status' => 'publish', 'taken' => $taken, '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );
+	$_POST  = $_REQUEST = [];
+	return $result;
+};
+$ut_taken = fn( int $id ) => get_post_meta( $id, Uploads::META_TAKEN, true );
+wp_set_current_user( $ut_author );
+check( 'the author saves a date and time', 'redirect' === $ut_times( [ $ut_none_id => [ 'date' => '2025-06-01', 'time' => '08:15' ] ] ) && '2025-06-01 08:15:00' === $ut_taken( $ut_sent ), $ut_taken( $ut_sent ) );
+check( '…a date alone changes nothing, and the trip still saves', 'redirect' === $ut_times( [ $ut_none_id => [ 'date' => '2025-06-02', 'time' => '' ] ] ) && '2025-06-01 08:15:00' === $ut_taken( $ut_sent ) );
+check( '…nor does a time that doesn’t exist', 'redirect' === $ut_times( [ $ut_none_id => [ 'date' => '2025-06-02', 'time' => '25:00' ] ] ) && '2025-06-01 08:15:00' === $ut_taken( $ut_sent ) );
+check( '…nor a date that doesn’t exist', 'redirect' === $ut_times( [ $ut_none_id => [ 'date' => '2025-02-30', 'time' => '10:00' ] ] ) && '2025-06-01 08:15:00' === $ut_taken( $ut_sent ) );
+$ut_times( [ Uploads::photo_id( $ut_dated ) => [ 'date' => '2025-06-02', 'time' => '10:00' ] ] );
+check( '…an upload with a time in its EXIF isn’t given one', '2025-06-02 09:00:00' === $ut_taken( $ut_dated ), $ut_taken( $ut_dated ) );
+$ut_times( [ Uploads::photo_id( $ut_none ) => [ 'date' => '2025-06-02', 'time' => '10:00' ] ] );
+check( '…nor is another trip’s upload', '' === $ut_taken( $ut_none ), $ut_taken( $ut_none ) );
+check( '…and both cleared forgets the time', 'redirect' === $ut_times( [ $ut_none_id => [ 'date' => '', 'time' => '' ] ] ) && '' === $ut_taken( $ut_sent ) && ! metadata_exists( 'post', $ut_sent, Uploads::META_TAKEN ) );
+wp_set_current_user( $eddie );
+check( 'another editor can’t give times', 'die' === $ut_times( [ $ut_none_id => [ 'date' => '2025-06-01', 'time' => '08:15' ] ] ) && '' === $ut_taken( $ut_sent ) );
+wp_set_current_user( 1 );

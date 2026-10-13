@@ -44,12 +44,14 @@ deploy-dry: deploy-dest ## Show what deploy would copy and delete
 deploy-dest:
 	@test -n "$(DEPLOY_DEST)" || { echo "Set DEPLOY_DEST in Makefile.local or on the command line (make deploy DEPLOY_DEST=host:/path/)"; exit 1; }
 
-dist: ## Build dist/travel-steps.zip: the plugin as installed, with runtime deps only
+dist: ## Build dist/: the plugin zip (runtime deps only) and the demo's files, all release assets
 	composer install --no-dev
 	rm -rf dist && mkdir -p dist/travel-steps
 	$(RSYNC) --quiet ./ dist/travel-steps/
 	cd dist && zip -qr travel-steps.zip travel-steps && rm -rf travel-steps
-	@echo dist/travel-steps.zip
+	cp demo/setup.php dist/demo-setup.php
+	cp demo/fake-services.php dist/demo-fake-services.php
+	@ls dist/*
 
 geonames: ## Rebuild the place names in data/geonames from GeoNames (cities500 and countryInfo)
 	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \

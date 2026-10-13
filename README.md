@@ -116,7 +116,7 @@ make smoke   # end-to-end in WordPress Playground with fake Dawarich/Immich clie
 make demo    # the Playground demo, from this checkout, at http://127.0.0.1:9400
 ```
 
-The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release and fetches those two files from `master`.
+The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release, and takes those two files from it too, so the demo and the plugin always match. `make dist` builds all three; attach every file in `dist/` to a release.
 
 `make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections, the trip pages, and trips of uploaded photos and their pages.
 

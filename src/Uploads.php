@@ -56,6 +56,9 @@ class Uploads {
 		add_filter( 'rest_attachment_query', [ self::class, 'exclude' ] );
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
 		add_action( 'load-post.php', [ self::class, 'edit_screen' ] );
+		add_action( 'load-async-upload.php', [ self::class, 'fetch_form' ] );
+		// Before redirect_canonical(), which would send it to the file.
+		add_action( 'template_redirect', [ self::class, 'attachment_page' ], 1 );
 		add_action( 'before_delete_post', [ self::class, 'delete_trip' ] );
 		add_action( 'delete_attachment', [ self::class, 'forget_cached' ] );
 		add_filter( 'wp_update_attachment_metadata', [ self::class, 'new_copies' ], 10, 2 );
@@ -364,12 +367,39 @@ class Uploads {
 	 */
 	public static function edit_screen(): void {
 		$post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only reads which post the screen is for.
-		if ( ! $post_id || '' === self::photo_id( $post_id ) ) {
+		// Core refuses anyone who can't edit it; they aren't told where its trip is.
+		if ( ! $post_id || '' === self::photo_id( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) {
 			return;
 		}
 		$trip = get_post( (int) get_post_field( 'post_parent', $post_id ) );
 		wp_safe_redirect( $trip ? Trips::url( $trip, 'edit' ) : admin_url() );
 		exit;
+	}
+
+	/**
+	 * The old uploader's detail form (async-upload.php?fetch=) prints a file's name and
+	 * URL to anyone who can upload. Not for a trip photo.
+	 */
+	public static function fetch_form(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Core checks nothing more for this form; this only refuses it.
+		$attachment_id = isset( $_REQUEST['attachment_id'] ) ? absint( $_REQUEST['attachment_id'] ) : 0;
+		if ( $attachment_id && ! empty( $_REQUEST['fetch'] ) && '' !== self::photo_id( $attachment_id ) ) {
+			wp_die( esc_html__( 'Trip photos are managed on their trip’s page.', 'travel-steps' ), 403 );
+		}
+		// phpcs:enable
+	}
+
+	/**
+	 * A trip photo's attachment page would redirect to its file, or show it: it gets a
+	 * 404 instead, whoever is asking.
+	 */
+	public static function attachment_page(): void {
+		global $wp_query;
+		if ( is_attachment() && '' !== self::photo_id( (int) get_queried_object_id() ) ) {
+			$wp_query->set_404();
+			status_header( 404 );
+			nocache_headers();
+		}
 	}
 
 	/**

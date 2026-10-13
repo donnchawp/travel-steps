@@ -161,7 +161,25 @@ $up_to = $ut_location( [ TravelSteps\Uploads::class, 'edit_screen' ] );
 check( 'core’s attachment screen for a trip photo sends you to its trip instead', false !== strpos( $up_to, '/trip/private-screen/edit' ), $up_to );
 $_GET = [ 'post' => (string) $alices, 'action' => 'edit' ];
 check( '…and leaves any other post alone', 'returned' === $stopped( [ TravelSteps\Uploads::class, 'edit_screen' ] ) );
+wp_set_current_user( $up_nokey );
+$_GET = [ 'post' => (string) $up_pid, 'action' => 'edit' ];
+check( '…and someone who can’t edit the photo isn’t told where its trip is', 'returned' === $stopped( [ TravelSteps\Uploads::class, 'edit_screen' ] ) );
 $_GET = [];
+// The old uploader's detail form (async-upload.php?fetch=) prints a file's name and URL
+// to anyone who can upload: not for trip photos.
+$_REQUEST = [ 'attachment_id' => (string) $up_pid, 'fetch' => '3' ];
+check( 'the old uploader’s detail form refuses a trip photo', 'die' === $stopped( [ TravelSteps\Uploads::class, 'fetch_form' ] ) );
+$_REQUEST = [ 'attachment_id' => (string) $up_pid ];
+check( '…but not the upload it’s part of', 'returned' === $stopped( [ TravelSteps\Uploads::class, 'fetch_form' ] ) );
+$_REQUEST = [];
+// Its attachment page would redirect to the file (or show it): a trip photo has none.
+wp_set_current_user( $ut_author );
+$up_query = $GLOBALS['wp_query'];
+$GLOBALS['wp_query'] = $GLOBALS['wp_the_query'] = new WP_Query( [ 'attachment_id' => $up_pid ] );
+$up_was_attachment   = is_attachment();
+TravelSteps\Uploads::attachment_page();
+check( 'a trip photo’s attachment page is a 404, even for its uploader', $up_was_attachment && is_404() && ! is_attachment() );
+$GLOBALS['wp_query'] = $GLOBALS['wp_the_query'] = $up_query;
 wp_set_current_user( 1 );
 wp_delete_post( $up_priv, true );
 

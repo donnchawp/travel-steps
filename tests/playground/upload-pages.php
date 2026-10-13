@@ -72,6 +72,17 @@ check( 'with neither: no select, and a line saying what’s needed', [] === $up_
 $up_opts = $up_choices( $up_edit( $carol, (string) $carols ) );
 check( 'an Immich trip whose author has no key keeps Immich chosen', [ 'uploads', 'immich' ] === array_keys( $up_opts ) && false !== strpos( $up_opts['immich'], 'selected' ), $up_opts );
 
+// An Immich trip with an album can take its dates from the album too.
+$up_album_trip = $trip_by( $alice );
+update_post_meta( $up_album_trip, Trips::META_ALBUM, '11111111-2222-4333-8444-555555555555' );
+$up_html = $up_edit( $alice, (string) $up_album_trip );
+check( 'an Immich trip with an album: the dates are optional, with the hint shown', 0 === $up_required( $up_html ) && 1 === preg_match( '/<small[^>]*ts-dates-hint[^>]*>/', $up_html, $up_hint ) && false === strpos( $up_hint[0], 'hidden' ), $up_choices( $up_html ) );
+delete_post_meta( $up_album_trip, Trips::META_ALBUM );
+$up_html = $up_edit( $alice, (string) $up_album_trip );
+check( '…all Immich photos: they’re required, with the hint hidden', 2 === $up_required( $up_html ) && 1 === preg_match( '/<small[^>]*ts-dates-hint[^>]*hidden/', $up_html ) );
+wp_set_current_user( 1 );
+wp_delete_post( $up_album_trip, true );
+
 // Immich can't list albums: the album id stays typed beside "All Immich photos".
 $up_offline = $person( 'offline', 'author' );
 Settings::update_account( $up_offline, [ 'immich_key' => 'offline-immich' ] + Settings::ACCOUNT_DEFAULTS );
@@ -82,6 +93,7 @@ $up_html = $up_edit( $up_offline, (string) $up_offline_trip );
 $status  = 200;
 $up_opts = $up_choices( $up_html );
 check( 'Immich can’t list albums: all Immich photos chosen, the album id typed beside it', false !== strpos( $up_opts['immich'] ?? '', 'selected' ) && 1 === preg_match( '/name="album"[^>]*value="11111111-2222-4333-8444-555555555555"/', $up_html ) && false !== strpos( $up_html, 'Could not list Immich albums' ), $up_opts );
+check( '…and the dates stay required', 2 === $up_required( $up_html ) );
 wp_set_current_user( 1 );
 
 // The Photos panel: how many uploads, and a button to add more, for anyone who can edit the trip.

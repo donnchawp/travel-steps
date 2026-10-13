@@ -15,11 +15,13 @@
 		const hint = form.querySelector( '.ts-dates-hint' );
 		choice.addEventListener( 'change', () => {
 			const uploads = 'uploads' === choice.value;
-			// A trip of uploads can take its dates from the photos (not the Photos panel's dates).
+			// Uploads or an album can give the trip its dates; all Immich photos can't.
+			// (Only the trip's dates, not the Photos panel's.)
+			const picked = 'immich' !== choice.value;
 			[ form.elements.start, form.elements.end ].forEach( ( input ) => {
-				input.required = ! uploads;
+				input.required = ! picked;
 			} );
-			hint.hidden = ! uploads;
+			hint.hidden = ! picked;
 			// A new trip of uploads has nothing to sync yet: saving it opens the media modal.
 			if ( isNew ) {
 				save.textContent = uploads ? save.dataset.uploadsLabel : save.dataset.label;

@@ -30,8 +30,10 @@ $account  = Settings::account( $author );
 // Null when the author has no Immich key: Immich isn't offered then.
 $albums  = $is_owner && Trips::can_use_immich( $author ) ? ImmichClient::for_user( $author )->albums() : null;
 $choices = $is_owner ? View::photo_choices( $trip, $albums ) : [];
-// Uploads make the dates optional: sync takes them from the photos.
-$picks_uploads = (bool) wp_list_filter( $choices, [ 'value' => Trips::SOURCE_UPLOADS, 'selected' => true ] );
+$picked        = array_column( wp_list_filter( $choices, [ 'selected' => true ] ), 'value' );
+$picks_uploads = [ Trips::SOURCE_UPLOADS ] === $picked;
+// Uploads or an album make the dates optional: sync takes them from the photos.
+$picks_photos  = $picked && [ Trips::SOURCE_IMMICH ] !== $picked;
 $uses_uploads  = $trip && Trips::uses_uploads( $trip_id );
 $can_upload    = Uploads::available();
 // Anyone who can edit the trip may add photos to it; only its author syncs.
@@ -175,15 +177,15 @@ include __DIR__ . '/_header.php';
 		<div class="ts-form-row">
 			<label>
 				<span><?php esc_html_e( 'First day', 'travel-steps' ); ?></span>
-				<input type="date" name="start" <?php echo $picks_uploads ? '' : 'required'; ?> value="<?php echo esc_attr( $meta( Trips::META_START ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+				<input type="date" name="start" <?php echo $picks_photos ? '' : 'required'; ?> value="<?php echo esc_attr( $meta( Trips::META_START ) ); ?>" <?php disabled( ! $is_owner ); ?>>
 			</label>
 			<label>
 				<span><?php esc_html_e( 'Last day', 'travel-steps' ); ?></span>
-				<input type="date" name="end" <?php echo $picks_uploads ? '' : 'required'; ?> value="<?php echo esc_attr( $meta( Trips::META_END ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+				<input type="date" name="end" <?php echo $picks_photos ? '' : 'required'; ?> value="<?php echo esc_attr( $meta( Trips::META_END ) ); ?>" <?php disabled( ! $is_owner ); ?>>
 			</label>
 		</div>
 		<?php if ( $is_owner ) : ?>
-			<small class="ts-muted ts-dates-hint" <?php echo $picks_uploads ? '' : 'hidden'; ?>><?php esc_html_e( 'Leave empty to take them from the photos.', 'travel-steps' ); ?></small>
+			<small class="ts-muted ts-dates-hint" <?php echo $picks_photos ? '' : 'hidden'; ?>><?php esc_html_e( 'Leave empty to take them from the photos.', 'travel-steps' ); ?></small>
 		<?php endif; ?>
 
 		<?php if ( ! $is_owner ) : ?>

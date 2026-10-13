@@ -156,11 +156,52 @@ delete_post_meta( $trip_id, Trips::META_ALBUM );
 check( 'Immich is asked for the trip’s album', '11111111-1111-4111-8111-111111111111' === $album_client->album, $album_client->album );
 $no_dates = ( new ImmichSource( new AlbumImmich( 'http://x', 'k' ) ) )->photos( $trip_id, null );
 check( 'Immich needs the trip’s dates', is_wp_error( $no_dates ) && 'travel_steps_no_dates' === $no_dates->get_error_code() );
-// Even with an album: taking a trip's dates from its album is #23's to decide.
+// With an album it doesn't: the album says which photos belong to the trip.
 update_post_meta( $trip_id, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
-$no_dates = ( new ImmichSource( new AlbumImmich( 'http://x', 'k' ) ) )->photos( $trip_id, null );
+$album_client = new AlbumImmich( 'http://x', 'k' );
+$album_rows   = ( new ImmichSource( $album_client ) )->photos( $trip_id, null );
 delete_post_meta( $trip_id, Trips::META_ALBUM );
-check( '…even with an album', is_wp_error( $no_dates ) && 'travel_steps_no_dates' === $no_dates->get_error_code() );
+check( '…but with an album, Immich fetches it without them', [] === $album_rows && '11111111-1111-4111-8111-111111111111' === $album_client->album, $album_rows );
+
+// An Immich trip with an album takes its missing dates from the album's photos, as a
+// trip of uploads does, and they follow the album until the author changes them.
+class RowsImmich extends ImmichClient {
+	public array $rows = [];
+	public function photos( int $start, int $end, string $album_id = '' ) {
+		return $this->rows;
+	}
+}
+$album_immich       = new RowsImmich( 'http://x', 'k' );
+$album_immich->rows = [
+	row( 31, '2025-05-01', '10:00', 38.7139, -9.1394, 'Lisbon', true ),
+	row( 32, '2025-05-02', '11:00', 37.0194, -7.9304, 'Faro', true ),
+];
+$album_sync = new TripSync( new FakeDawarich( 'http://x', 'k' ), new ImmichSource( $album_immich ) );
+$album_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Album', 'post_status' => 'draft' ] );
+update_post_meta( $album_trip, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
+$album_dates = fn() => [ get_post_meta( $album_trip, Trips::META_START, true ), get_post_meta( $album_trip, Trips::META_END, true ) ];
+$r = $album_sync->sync( $album_trip );
+check( 'an album trip with no dates syncs, taking them from the album', ! is_wp_error( $r ) && 2 === $r['new_steps'] && [ '2025-05-01', '2025-05-02' ] === $album_dates(), [ is_wp_error( $r ) ? $r->get_error_message() : $r, $album_dates() ] );
+check( '…and reports no left-out counts', is_array( $r ) && ! isset( $r['left_out'] ), $r );
+$album_immich->rows[] = row( 33, '2025-05-04', '09:00', 37.0194, -7.9304, 'Faro', true );
+$album_sync->sync( $album_trip );
+check( '…they follow a photo added to the album on a later day', [ '2025-05-01', '2025-05-04' ] === $album_dates(), $album_dates() );
+update_post_meta( $album_trip, Trips::META_END, '2025-05-03' );
+$album_immich->rows[] = row( 34, '2025-04-30', '09:00', 38.7139, -9.1394, 'Lisbon', true );
+$album_sync->sync( $album_trip );
+check( '…a date the author typed stays, while the other still follows', [ '2025-04-30', '2025-05-03' ] === $album_dates(), $album_dates() );
+$album_empty = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Empty album', 'post_status' => 'draft' ] );
+update_post_meta( $album_empty, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
+$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), new ImmichSource( new RowsImmich( 'http://x', 'k' ) ) ) )->sync( $album_empty );
+check( 'an empty album with no dates asks for them', is_wp_error( $r ) && 'The album has no photos, so set the trip’s dates.' === $r->get_error_message(), is_wp_error( $r ) ? $r->get_error_message() : $r );
+delete_post_meta( $album_empty, Trips::META_ALBUM );
+$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), new ImmichSource( $album_immich ) ) )->sync( $album_empty );
+check( 'an Immich trip with no album and no dates still needs them', is_wp_error( $r ) && 'Set the trip start and end dates first.' === $r->get_error_message(), is_wp_error( $r ) ? $r->get_error_message() : $r );
+foreach ( Trips::steps( $album_trip, true ) as $album_step ) {
+	wp_delete_post( $album_step->ID, true );
+}
+wp_delete_post( $album_trip, true );
+wp_delete_post( $album_empty, true );
 
 // Sources hand over wall-clock times; sync works out each photo's zone, and the order.
 $zone_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Zones', 'post_status' => 'draft' ] );

@@ -73,10 +73,11 @@ class TripSync {
 			$first = $first === $auto[0] ? '' : $first;
 			$last  = $last === $auto[1] ? '' : $last;
 		}
-		$range = '' !== $first && '' !== $last ? Trips::range( $trip_id ) : null;
+		$both  = '' !== $first && '' !== $last;
+		$range = $both ? Trips::range( $trip_id ) : null;
 		// Dates that are both set but backwards are the author's to fix. A missing one
 		// is up to the source: uploads can supply it, Immich can't.
-		if ( ! $range && '' !== $first && '' !== $last ) {
+		if ( ! $range && $both ) {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 		}
 

@@ -29,10 +29,11 @@ $account  = Settings::account( $author );
 $albums  = $is_owner && Trips::can_use_immich( $author ) ? ImmichClient::for_user( $author )->albums() : null;
 $choices = $is_owner ? View::photo_choices( $trip, $albums ) : [];
 // Uploads make the dates optional: sync takes them from the photos.
-$picks_uploads = in_array( Trips::SOURCE_UPLOADS, array_column( array_filter( $choices, fn( $c ) => $c['selected'] ), 'value' ), true );
+$picks_uploads = (bool) wp_list_filter( $choices, [ 'value' => Trips::SOURCE_UPLOADS, 'selected' => true ] );
 $uses_uploads  = $trip && Trips::uses_uploads( $trip_id );
+$can_upload    = Uploads::available();
 // Anyone who can edit the trip may add photos to it; only its author syncs.
-$can_add = $uses_uploads && Uploads::available();
+$can_add = $uses_uploads && $can_upload;
 if ( $can_add ) {
 	wp_enqueue_media( [ 'post' => $trip_id ] );
 }
@@ -83,26 +84,32 @@ include __DIR__ . '/_header.php';
 			?>
 		</p>
 		<?php
-		$counts   = array_map( fn( $key ) => absint( $_GET[ $key ] ?? 0 ), [ 'outside' => 'outside', 'untimed' => 'untimed', 'home' => 'home', 'unlocated' => 'unlocated' ] );
-		$left_out = array_filter(
+		$left_out = [];
+		foreach (
 			[
 				/* translators: %s: number of photos */
-				$counts['outside'] ? sprintf( __( '%s outside the trip’s dates', 'travel-steps' ), number_format_i18n( $counts['outside'] ) ) : '',
+				'outside' => __( '%s outside the trip’s dates', 'travel-steps' ),
 				/* translators: %s: number of photos */
-				$counts['untimed'] ? sprintf( __( '%s with no time taken (often sent through a messaging app, or a screenshot)', 'travel-steps' ), number_format_i18n( $counts['untimed'] ) ) : '',
+				'untimed' => __( '%s with no time taken (often sent through a messaging app, or a screenshot)', 'travel-steps' ),
 				/* translators: %s: number of photos */
-				$counts['home'] ? sprintf( __( '%s taken at home', 'travel-steps' ), number_format_i18n( $counts['home'] ) ) : '',
-			]
-		);
+				'home'    => __( '%s taken at home', 'travel-steps' ),
+			] as $key => $format
+		) {
+			$count = absint( $_GET[ $key ] ?? 0 );
+			if ( $count ) {
+				$left_out[] = sprintf( $format, number_format_i18n( $count ) );
+			}
+		}
+		$unlocated = absint( $_GET['unlocated'] ?? 0 );
 		?>
 		<?php if ( $left_out ) : ?>
 			<p class="ts-notice is-warning"><?php echo esc_html( sprintf( /* translators: %s: a list of counts, such as "1 outside the trip's dates, 2 taken at home" */ __( 'Left out: %s.', 'travel-steps' ), implode( ', ', $left_out ) ) ); ?></p>
 		<?php endif; ?>
-		<?php if ( $counts['unlocated'] ) : ?>
+		<?php if ( $unlocated ) : ?>
 			<p class="ts-notice is-warning">
 				<?php
 				/* translators: %s: number of photos */
-				echo esc_html( sprintf( _n( '%s photo has no location, so it isn’t on the map.', '%s photos have no location, so they aren’t on the map.', $counts['unlocated'], 'travel-steps' ), number_format_i18n( $counts['unlocated'] ) ) );
+				echo esc_html( sprintf( _n( '%s photo has no location, so it isn’t on the map.', '%s photos have no location, so they aren’t on the map.', $unlocated, 'travel-steps' ), number_format_i18n( $unlocated ) ) );
 				echo ' ' . esc_html__( 'iPhone browsers drop it unless you turn on Options → Location before uploading; messaging apps strip it.', 'travel-steps' );
 				?>
 			</p>
@@ -116,7 +123,7 @@ include __DIR__ . '/_header.php';
 	<?php if ( isset( $_GET['photos'] ) && ! $is_owner ) : ?>
 		<p class="ts-notice"><?php echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'The trip’s photos changed. %s needs to sync it to update its steps.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) ); ?></p>
 	<?php endif; ?>
-	<?php if ( $trip && ! $uses_uploads && '' === $account['immich_key'] ) : ?>
+	<?php if ( $trip && ! $uses_uploads && ! Trips::can_use_immich( $author ) ) : ?>
 		<p class="ts-notice is-warning">
 			<?php if ( $is_owner ) : ?>
 				<?php esc_html_e( 'You haven’t saved an Immich API key, so this trip can’t sync.', 'travel-steps' ); ?>
@@ -187,7 +194,7 @@ include __DIR__ . '/_header.php';
 					<option value="<?php echo esc_attr( $choice['value'] ); ?>" <?php selected( $choice['selected'] ); ?> <?php disabled( $choice['disabled'] ); ?>><?php echo esc_html( $choice['label'] ); ?></option>
 				<?php endforeach; ?>
 			</select>
-			<?php if ( ! Uploads::available() ) : ?>
+			<?php if ( ! $can_upload ) : ?>
 				<small class="ts-muted"><?php esc_html_e( 'Uploading photos needs PHP’s exif extension, which reads when and where they were taken. This site doesn’t have it.', 'travel-steps' ); ?></small>
 			<?php endif; ?>
 			<?php if ( null === $albums ) : ?>
@@ -238,7 +245,7 @@ include __DIR__ . '/_header.php';
 
 	<?php if ( $trip ) : ?>
 		<?php if ( $uses_uploads ) : ?>
-			<section class="ts-panel ts-uploads" data-trip="<?php echo (int) $trip_id; ?>" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>" data-finishing="<?php esc_attr_e( 'Finishing uploads…', 'travel-steps' ); ?>">
+			<section class="ts-panel ts-uploads" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>" data-finishing="<?php esc_attr_e( 'Finishing uploads…', 'travel-steps' ); ?>">
 				<div class="ts-page-head">
 					<h2><?php esc_html_e( 'Photos', 'travel-steps' ); ?></h2>
 					<?php if ( $can_add ) : ?>

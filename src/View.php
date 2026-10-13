@@ -240,7 +240,8 @@ class View {
 			// When Immich can't list albums, the album id is typed beside the select.
 			$current = Trips::SOURCE_IMMICH;
 		}
-		$choice = fn( string $value, string $label, bool $disabled = false ) => [
+		$all_immich = __( 'All Immich photos taken during the trip', 'travel-steps' );
+		$choice     = fn( string $value, string $label, bool $disabled = false ) => [
 			'value'    => $value,
 			'label'    => $label,
 			'selected' => $value === $current,
@@ -255,18 +256,18 @@ class View {
 				$choices[] = $choice(
 					$current,
 					Trips::SOURCE_IMMICH === $current
-						? __( 'All Immich photos taken during the trip', 'travel-steps' )
+						? $all_immich
 						/* translators: %s: Immich album id */
 						: sprintf( __( 'Immich album %s', 'travel-steps' ), $current )
 				);
 			}
 			return $choices;
 		}
-		$choices[] = $choice( Trips::SOURCE_IMMICH, __( 'All Immich photos taken during the trip', 'travel-steps' ) );
+		$choices[] = $choice( Trips::SOURCE_IMMICH, $all_immich );
 		$listed    = is_array( $albums ) ? $albums : [];
 		// An album Immich no longer lists (deleted, or not visible to this key) stays
 		// selected, so saving the form for something else doesn't drop it.
-		if ( $current === $saved_album && '' !== $saved_album && ! in_array( $saved_album, array_column( $listed, 'id' ), true ) ) {
+		if ( $current === $saved_album && ! in_array( $saved_album, array_column( $listed, 'id' ), true ) ) {
 			/* translators: %s: Immich album id */
 			$choices[] = $choice( $saved_album, sprintf( __( 'Album not found in Immich (%s)', 'travel-steps' ), $saved_album ) );
 		}

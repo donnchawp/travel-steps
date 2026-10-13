@@ -23,9 +23,7 @@
 			// A new trip of uploads has nothing to sync yet: saving it opens the media modal.
 			if ( isNew ) {
 				save.textContent = uploads ? save.dataset.uploadsLabel : save.dataset.label;
-				if ( sync ) {
-					sync.hidden = uploads;
-				}
+				sync.hidden = uploads;
 			}
 		} );
 	}
@@ -37,16 +35,17 @@
 	if ( ! button || ! window.wp || ! wp.media ) {
 		return;
 	}
-	const trip = parseInt( panel.dataset.trip, 10 );
+	const trip = parseInt( form.elements.trip_id.value, 10 );
+	// Only the author's page has these.
+	const syncForm = document.querySelector( '.ts-sync-form' );
+	const syncButton = form.querySelector( 'button[name="sync"]' );
 	let frame = null;
 	let changed = false;
 	let waiting = false;
 	let dirty = false;
-	if ( form ) {
-		form.addEventListener( 'input', () => {
-			dirty = true;
-		} );
-	}
+	form.addEventListener( 'input', () => {
+		dirty = true;
+	} );
 	const busy = () => wp.Uploader.queue.some( ( attachment ) => attachment.get( 'uploading' ) );
 	// Leaving the page would cut off uploads still going.
 	window.addEventListener( 'beforeunload', ( event ) => {
@@ -59,9 +58,8 @@
 	// syncs it; anyone else's reloads to say the author needs to. Unsaved changes to the
 	// trip form are saved on the way (and synced, for the author).
 	function leave() {
-		const syncForm = document.querySelector( '.ts-sync-form' );
-		if ( dirty && form ) {
-			form.requestSubmit( syncForm ? form.querySelector( 'button[name="sync"]' ) : null );
+		if ( dirty ) {
+			form.requestSubmit( syncButton );
 			return;
 		}
 		if ( syncForm ) {

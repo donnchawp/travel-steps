@@ -255,7 +255,10 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-untimed-row img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; }
 .ts-untimed-name { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; }
 .ts-untimed-name small { display: block; }
-.ts-untimed-when { display: flex; gap: .5rem; margin-left: auto; }
+.ts-untimed-when { display: flex; flex-wrap: wrap; gap: .5rem; margin-left: auto; }
+.ts-form .ts-untimed-when input { width: auto; }
+/* The form's gap already spaces it from the fields above. */
+.ts-form > .ts-panel { margin-top: 1rem; }
 .ts-panel { margin-top: 2rem; padding: 1rem 1.25rem; border-radius: var(--ts-radius); background: var(--ts-surface); box-shadow: var(--ts-shadow); }
 .ts-panel h2 { margin: .25rem 0; font-size: 1.2rem; }
 .ts-step-list { padding-left: 1.4rem; }

@@ -3,8 +3,9 @@
 namespace TravelSteps;
 
 /**
- * What a photo's EXIF says about when and where it was taken, and with what. No
- * WordPress dependencies so it can be tested standalone.
+ * What a photo's EXIF says about when and where it was taken, and with what, and
+ * what its file name says when that's all there is. No WordPress dependencies so it
+ * can be tested standalone.
  */
 class Exif {
 	/**

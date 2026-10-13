@@ -159,7 +159,6 @@ $up_rows = function ( string $html ): array {
 	return $rows;
 };
 $up_value = fn( string $row, string $field ) => preg_match( '/name="taken\[[^\]]+\]\[' . $field . '\]"[^>]*value="([^"]*)"/', $row, $m ) ? $m[1] : null;
-wp_set_current_user( $ut_author );
 $up_html = $render( 'trip-edit.php', (string) $up_times );
 $up_list = $up_rows( $up_html );
 check( 'the Photos panel lists the uploads with no time taken, open while one has none', 1 === preg_match( '/<details[^>]*id="ts-untimed"[^>]*\sopen/', $up_html ) && false !== strpos( $up_html, '4 with no time taken' ) && [] === array_diff( [ $up_wa, $up_shot, $up_set, $up_plain ], array_keys( $up_list ) ) && 4 === count( $up_list ), array_keys( $up_list ) );
@@ -169,12 +168,11 @@ check( '…a screenshot’s name, its date and time', [ '2025-03-18', '17:42' ] 
 check( '…a saved time wins over the name, and isn’t marked as from it', [ '2025-03-19', '09:05' ] === [ $up_value( $up_list[ $up_set ] ?? '', 'date' ), $up_value( $up_list[ $up_set ] ?? '', 'time' ) ] && false === strpos( $up_list[ $up_set ] ?? '', 'From the file name' ), $up_list[ $up_set ] ?? '' );
 check( '…and a name with no date leaves both empty', [ '', '' ] === [ $up_value( $up_list[ $up_plain ] ?? '', 'date' ), $up_value( $up_list[ $up_plain ] ?? '', 'time' ) ] && false === strpos( $up_list[ $up_plain ] ?? '', 'From the file name' ) );
 check( '…the inputs are the author’s to change', false === strpos( implode( '', $up_list ), 'disabled' ) );
-// The Photos panel is outside the trip form: its inputs and button name it.
-check( '…sent with the trip form, by a Save and sync button of their own', 1 === preg_match( '/<form[^>]*id="ts-trip-form"/', $up_html ) && 8 === substr_count( implode( '', $up_list ), 'form="ts-trip-form"' ) && 1 === preg_match( '/<details[^>]*id="ts-untimed".*?<button type="submit" form="ts-trip-form" name="sync" value="1"[^>]*>Save and sync</s', $up_html ) );
+check( '…inside the trip form, so Save sends them', 1 === preg_match( '/<form[^>]*ts-trip-form.*?id="ts-untimed".*?class="ts-form-actions".*?<\/form>/s', $up_html ) );
 wp_set_current_user( $eddie );
 $up_html = $render( 'trip-edit.php', (string) $up_times );
 $up_list = $up_rows( $up_html );
-check( 'another editor sees the list, but can’t change the times or sync', 4 === count( $up_list ) && 8 === substr_count( implode( '', $up_list ), 'disabled=' ) && 0 === preg_match( '/id="ts-untimed".*?form="ts-trip-form" name="sync"/s', $up_html ) );
+check( 'another editor sees the list, but can’t change the times', 4 === count( $up_list ) && 8 === substr_count( implode( '', $up_list ), 'disabled=' ) );
 wp_set_current_user( $ut_author );
 foreach ( [ $up_wa, $up_shot, $up_plain ] as $up_id ) {
 	update_post_meta( TravelSteps\Uploads::attachment( $up_times, $up_id ), TravelSteps\Uploads::META_TAKEN, '2025-03-18 12:00:00' );

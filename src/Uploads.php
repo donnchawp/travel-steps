@@ -440,12 +440,12 @@ class Uploads {
 	 */
 	public static function modal_query( array $query ): array {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Core checks the nonce and capability before this filter runs.
-		$asked   = isset( $_REQUEST['query'] ) && is_array( $_REQUEST['query'] ) ? wp_unslash( $_REQUEST['query'] ) : [];
+		$asked   = ! empty( $_REQUEST['query'][ self::REQUEST_FLAG ] );
+		$trip_id = absint( $_REQUEST['query']['post_parent'] ?? 0 );
 		// phpcs:enable
-		if ( empty( $asked[ self::REQUEST_FLAG ] ) ) {
+		if ( ! $asked ) {
 			return self::exclude( $query );
 		}
-		$trip_id = absint( $asked['post_parent'] ?? 0 );
 		if ( ! Trips::can_edit_trip( $trip_id ) ) {
 			$query['post__in'] = [ 0 ];
 			return $query;

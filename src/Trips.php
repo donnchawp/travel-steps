@@ -143,6 +143,24 @@ class Trips {
 		return '' !== Settings::account( $user_id )['immich_key'];
 	}
 
+	/**
+	 * A step only goes into a trip its saver can edit. Core lets anyone who can write a
+	 * step set its parent (wp-admin's parent_id, XML-RPC's post_parent), and a published
+	 * step shows on the trip and makes the trip's photos from its day public. Without a
+	 * user (cron, WP-CLI), the code saving it is trusted.
+	 */
+	public static function step_parent( array $data, array $postarr ): array {
+		if ( self::STEP !== $data['post_type'] || ! get_current_user_id() ) {
+			return $data;
+		}
+		$saved  = empty( $postarr['ID'] ) ? 0 : (int) get_post_field( 'post_parent', (int) $postarr['ID'] );
+		$parent = (int) $data['post_parent'];
+		if ( $parent && $parent !== $saved && ! self::can_edit_trip( $parent ) ) {
+			$data['post_parent'] = $saved;
+		}
+		return $data;
+	}
+
 	public static function find_by_slug( string $slug ): ?\WP_Post {
 		$posts = get_posts(
 			[

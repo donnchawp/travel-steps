@@ -935,6 +935,21 @@ $GLOBALS['current_screen'] = null;
 $suggested = implode( ' ', wp_list_pluck( WP_Privacy_Policy_Content::get_suggested_policy_text(), 'policy_text' ) );
 check( 'privacy policy suggestion names OpenStreetMap', false !== strpos( $suggested, 'OpenStreetMap' ) && false !== strpos( $suggested, 'osmfoundation.org/wiki/Privacy_Policy' ), substr( $suggested, 0, 200 ) );
 
+// A step belongs to a trip its author can edit: anyone else's published step would
+// show on the trip and make its photos from that day public.
+$step_parent = function ( int $user, array $postarr ) {
+	wp_set_current_user( $user );
+	$id = isset( $postarr['ID'] ) ? wp_update_post( $postarr ) : wp_insert_post( $postarr + [ 'post_type' => Trips::STEP, 'post_title' => 'Mine', 'post_status' => 'publish' ] );
+	wp_set_current_user( 1 );
+	return (int) get_post_field( 'post_parent', $id );
+};
+check( 'another author can’t add a step to a trip', $bobs !== $step_parent( $alice, [ 'post_parent' => $bobs ] ) );
+$alice_step = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_title' => 'Mine', 'post_status' => 'publish', 'post_author' => $alice, 'post_parent' => $alices ] );
+check( '…or move their own step into it, which keeps its trip', $alices === $step_parent( $alice, [ 'ID' => $alice_step, 'post_parent' => $bobs ] ) );
+check( '…but the trip’s author can', $bobs === $step_parent( $bob, [ 'post_parent' => $bobs ] ) );
+check( '…and so can an editor who can edit the trip', $bobs === $step_parent( $eddie, [ 'post_parent' => $bobs ] ) );
+check( '…and moving a step out of a trip is allowed', 0 === $step_parent( $alice, [ 'ID' => $alice_step, 'post_parent' => 0 ] ) );
+
 require '/smoke/upload-trips.php';
 require '/smoke/upload-pages.php';
 } catch ( Throwable $e ) {

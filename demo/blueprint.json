@@ -35,7 +35,7 @@
 			"path": "/wordpress/wp-content/mu-plugins/travel-steps-demo.php",
 			"data": {
 				"resource": "url",
-				"url": "https://raw.githubusercontent.com/donnchawp/travel-steps/master/demo/fake-services.php"
+				"url": "https://github.com/donnchawp/travel-steps/releases/latest/download/demo-fake-services.php"
 			}
 		},
 		{
@@ -43,7 +43,7 @@
 			"path": "/wordpress/travel-steps-demo-setup.php",
 			"data": {
 				"resource": "url",
-				"url": "https://raw.githubusercontent.com/donnchawp/travel-steps/master/demo/setup.php"
+				"url": "https://github.com/donnchawp/travel-steps/releases/latest/download/demo-setup.php"
 			}
 		},
 		{

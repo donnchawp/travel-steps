@@ -18,6 +18,10 @@ class MediaSource implements PhotoSource {
 		return array_map( [ self::class, 'row' ], $ids );
 	}
 
+	public function needs_dates( int $trip_id ): bool {
+		return false;
+	}
+
 	/**
 	 * An upload as a photo row, from what was read from its original (Exif::parse()),
 	 * or the time its author gave it if that has none, and its size as displayed (the

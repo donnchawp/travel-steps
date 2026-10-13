@@ -63,11 +63,12 @@ class TripSync {
 	 *         left_out, unlocated and no_places only for a trip of uploads.
 	 */
 	private function run( int $trip_id ) {
-		$first = (string) get_post_meta( $trip_id, Trips::META_START, true );
-		$last  = (string) get_post_meta( $trip_id, Trips::META_END, true );
-		// Dates sync took from a trip's photos (its uploads or album) follow them, so photos
-		// added on later days count. One the author has changed since is theirs, and stays.
-		if ( Trips::dates_from_photos( $trip_id ) ) {
+		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
+		$last   = (string) get_post_meta( $trip_id, Trips::META_END, true );
+		$source = $this->source ?? Trips::source( $trip_id );
+		// Dates sync took from a trip's own photos (its uploads or album) follow them, so
+		// photos added on later days count. One the author has changed is theirs, and stays.
+		if ( ! $source->needs_dates( $trip_id ) ) {
 			$auto  = get_post_meta( $trip_id, Trips::META_DATES_AUTO, true );
 			$auto  = is_array( $auto ) ? $auto : [ '', '' ];
 			$first = $first === $auto[0] ? '' : $first;
@@ -82,7 +83,6 @@ class TripSync {
 		}
 
 		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
-		$source = $this->source ?? Trips::source( $trip_id );
 		$photos = $source->photos( $trip_id, $range ? [ $range[0] - self::ZONE_MARGIN_S, $range[1] + self::ZONE_MARGIN_S ] : null );
 		if ( is_wp_error( $photos ) ) {
 			return $photos;
@@ -200,9 +200,12 @@ class TripSync {
 			if ( $untimed ) {
 				return new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) );
 			}
-			return Trips::uses_uploads( $trip_id )
-				? new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) )
-				: new \WP_Error( 'travel_steps_no_photos', __( 'The album has no photos, so set the trip’s dates.', 'travel-steps' ) );
+			return new \WP_Error(
+				'travel_steps_no_photos',
+				Trips::uses_uploads( $trip_id )
+					? __( 'Add photos to the trip, or set its dates.', 'travel-steps' )
+					: __( 'The album has no photos, so set the trip’s dates.', 'travel-steps' )
+			);
 		}
 		$days  = array_column( $photos, 'day' );
 		$auto  = [ '' === $first ? min( $days ) : '', '' === $last ? max( $days ) : '' ];

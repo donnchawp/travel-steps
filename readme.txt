@@ -8,7 +8,7 @@ Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A Polarsteps-style travel journal: photos from Immich or uploaded to the trip, an optional route from Dawarich, and each day's story as a WordPress post.
+A Polarsteps-style travel journal: photos from Immich or uploaded to the trip, an optional route from Dawarich, and each day's story as a post.
 
 == Description ==
 

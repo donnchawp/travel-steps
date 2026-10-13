@@ -143,7 +143,7 @@ $up_named  = fn( string $name ) => $sideload( [ 'post_id' => $up_times, TravelSt
 $up_dated  = TravelSteps\Uploads::photo_id( $up_photo( $up_times, '2025:03:17 10:00:00' ) );
 $up_wa     = TravelSteps\Uploads::photo_id( $up_named( 'IMG-20250318-WA0001.jpg' ) );
 $up_shot   = TravelSteps\Uploads::photo_id( $up_named( 'Screenshot 2025-03-18 at 17.42.01.jpg' ) );
-$up_set_id = $up_named( 'PXL_20250101_010101.jpg' );
+$up_set_id = $up_named( 'IMG_20250101_010101.jpg' );
 $up_set    = TravelSteps\Uploads::photo_id( $up_set_id );
 $up_plain  = TravelSteps\Uploads::photo_id( $up_named( 'IMG_1234.jpg' ) );
 update_post_meta( $up_set_id, TravelSteps\Uploads::META_TAKEN, '2025-03-19 09:05:00' );

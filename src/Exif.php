@@ -80,7 +80,8 @@ class Exif {
 
 	/**
 	 * When a file's name says it was taken: a Mac screenshot's, an Android camera's
-	 * (PXL_ or IMG_ and the date and time) or WhatsApp's (IMG- and the date only).
+	 * (IMG_ and the date and time) or WhatsApp's (IMG- and the date only). Not a
+	 * Pixel's (PXL_): its time is UTC, and a time with no offset is taken as local.
 	 *
 	 * @param string $name The name it was uploaded with, without its extension.
 	 * @return array{0: string, 1: string}|null The date (Y-m-d) and time (H:i, or empty
@@ -89,7 +90,7 @@ class Exif {
 	public static function from_name( string $name ): ?array {
 		$patterns = [
 			'/^Screenshot (\d{4})-(\d\d)-(\d\d) at (\d\d)\.(\d\d)\.\d\d/',
-			'/^(?:PXL|IMG)_(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)\d\d/',
+			'/^IMG_(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)\d\d/',
 			'/^IMG-(\d{4})(\d\d)(\d\d)-WA\d+/',
 		];
 		foreach ( $patterns as $pattern ) {

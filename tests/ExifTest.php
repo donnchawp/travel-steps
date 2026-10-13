@@ -75,12 +75,12 @@ check( 'Imagick’s properties read the same as exif_read_data()', Exif::parse( 
 
 // When a file's name says it was taken, for photos whose EXIF doesn't.
 check( 'a Mac screenshot’s name: its date and time', [ '2025-03-18', '17:42' ] === Exif::from_name( 'Screenshot 2025-03-18 at 17.42.01' ) );
-check( 'a Pixel photo’s name, with its milliseconds', [ '2025-03-18', '17:42' ] === Exif::from_name( 'PXL_20250318_174201123' ) );
+check( 'a Pixel photo’s name is UTC, so no time of its own', null === Exif::from_name( 'PXL_20250318_174201123' ) );
 check( 'an Android camera’s IMG_ name', [ '2025-03-18', '17:42' ] === Exif::from_name( 'IMG_20250318_174201' ) );
 check( 'a WhatsApp name: its date, no time', [ '2025-03-18', '' ] === Exif::from_name( 'IMG-20250318-WA0001' ) );
 check( 'a camera’s counter is no date', null === Exif::from_name( 'IMG_1234' ) );
 check( 'a UUID is no date', null === Exif::from_name( '0b1f5c3e-8d2a-4f6b-9c7e-1a2b3c4d5e6f' ) );
 check( 'a date that doesn’t exist is none', null === Exif::from_name( 'IMG-20251318-WA0001' ) );
-check( 'a time that doesn’t exist leaves the date', [ '2025-03-18', '' ] === Exif::from_name( 'PXL_20250318_256001' ) );
+check( 'a time that doesn’t exist leaves the date', [ '2025-03-18', '' ] === Exif::from_name( 'IMG_20250318_256001' ) );
 
 exit( $failures ? 1 : 0 );

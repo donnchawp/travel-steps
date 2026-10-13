@@ -39,6 +39,8 @@
 	// Only the author's page has these.
 	const syncForm = document.querySelector( '.ts-sync-form' );
 	const syncButton = form.querySelector( 'button[name="sync"]' );
+	const count = panel.querySelector( 'p' );
+	const counted = count.textContent;
 	let frame = null;
 	let changed = false;
 	let waiting = false;
@@ -51,6 +53,7 @@
 	window.addEventListener( 'beforeunload', ( event ) => {
 		if ( busy() ) {
 			event.preventDefault();
+			event.returnValue = '';
 		}
 	} );
 
@@ -72,21 +75,27 @@
 		window.location.assign( url );
 	}
 
+	function stopWaiting() {
+		wp.Uploader.queue.off( 'change:uploading remove reset', finished );
+		waiting = false;
+		count.textContent = counted;
+	}
+
+	function finished() {
+		if ( ! busy() ) {
+			stopWaiting();
+			closed();
+		}
+	}
+
 	function closed() {
 		if ( waiting ) {
 			return;
 		}
 		if ( busy() ) {
-			// Done, or closing, with uploads still going: finish them, then carry on.
+			// Closing with uploads still going: finish them, then carry on.
 			waiting = true;
-			panel.querySelector( 'p' ).textContent = panel.dataset.finishing;
-			const finished = () => {
-				if ( ! busy() ) {
-					wp.Uploader.queue.off( 'change:uploading remove reset', finished );
-					waiting = false;
-					closed();
-				}
-			};
+			count.textContent = panel.dataset.finishing;
 			wp.Uploader.queue.on( 'change:uploading remove reset', finished );
 			return;
 		}
@@ -119,6 +128,10 @@
 			} );
 			// What makes an upload one of the trip's photos (Uploads::REQUEST_FLAG).
 			frame.on( 'open', () => {
+				// Reopened while waiting: the next close carries on instead.
+				if ( waiting ) {
+					stopWaiting();
+				}
 				frame.uploader.uploader.param( 'post_id', trip );
 				frame.uploader.uploader.param( 'travel_steps_photo', 1 );
 			} );

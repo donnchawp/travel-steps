@@ -252,7 +252,7 @@ include __DIR__ . '/_header.php';
 						<button type="button" class="ts-button ts-button-secondary ts-add-photos"><?php esc_html_e( 'Add photos', 'travel-steps' ); ?></button>
 					<?php endif; ?>
 				</div>
-				<p class="ts-muted">
+				<p class="ts-muted" aria-live="polite">
 					<?php
 					$uploaded = count( Uploads::trip_photos( $trip_id ) );
 					echo esc_html(

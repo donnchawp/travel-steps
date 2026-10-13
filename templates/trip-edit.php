@@ -35,6 +35,9 @@ $can_upload    = Uploads::available();
 // Anyone who can edit the trip may add photos to it; only its author syncs.
 $can_add = $uses_uploads && $can_upload;
 if ( $can_add ) {
+	// Core hooks nothing here; other plugins' media sources (an Immich picker, say) would
+	// add photos that aren't trip photos, and some expect wp-admin and fail on this page.
+	remove_all_actions( 'wp_enqueue_media' );
 	wp_enqueue_media( [ 'post' => $trip_id ] );
 }
 $synced  = (int) $meta( Trips::META_SYNCED );

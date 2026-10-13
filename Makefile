@@ -44,13 +44,15 @@ deploy-dry: deploy-dest ## Show what deploy would copy and delete
 deploy-dest:
 	@test -n "$(DEPLOY_DEST)" || { echo "Set DEPLOY_DEST in Makefile.local or on the command line (make deploy DEPLOY_DEST=host:/path/)"; exit 1; }
 
-dist: ## Build dist/: the plugin zip (runtime deps only) and the demo's files, all release assets
-	composer install --no-dev
+# Built from the last commit, not the working tree, so untracked and uncommitted files stay out of a release.
+dist: ## Build dist/ from HEAD: the plugin zip (runtime deps only) and the demo's files, all release assets
 	rm -rf dist && mkdir -p dist/travel-steps
-	$(RSYNC) --quiet ./ dist/travel-steps/
+	git archive HEAD | tar -x -C dist/travel-steps
+	composer install --no-dev --no-interaction --quiet --working-dir=dist/travel-steps
+	find dist/travel-steps -mindepth 1 -name '.*' -prune -exec rm -rf {} +
 	cd dist && zip -qr travel-steps.zip travel-steps && rm -rf travel-steps
-	cp demo/setup.php dist/demo-setup.php
-	cp demo/fake-services.php dist/demo-fake-services.php
+	git show HEAD:demo/setup.php > dist/demo-setup.php
+	git show HEAD:demo/fake-services.php > dist/demo-fake-services.php
 	@ls dist/*
 
 geonames: ## Rebuild the place names in data/geonames from GeoNames (cities500 and countryInfo)

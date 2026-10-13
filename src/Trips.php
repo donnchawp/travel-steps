@@ -385,7 +385,7 @@ class Trips {
 
 		if ( $trip_id ) {
 			$this->trip_from_request();
-			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'photos', 'sync' ] ) ) ) {
+			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'photos', 'taken', 'sync' ] ) ) ) {
 				wp_die( esc_html__( 'Only the trip’s author can change its dates or photos, or sync it.', 'travel-steps' ), 403 );
 			}
 		} elseif ( ! current_user_can( 'edit_posts' ) || ! current_user_can( self::capability() ) ) {
@@ -433,6 +433,10 @@ class Trips {
 					$album = self::SOURCE_IMMICH === $photos ? (string) ( $input['album'] ?? '' ) : $photos;
 					update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', $album ) );
 				}
+			}
+			// Times given to uploads with none taken, in the Photos panel.
+			if ( isset( $input['taken'] ) && is_array( $input['taken'] ) ) {
+				Uploads::save_times( $trip_id, $input['taken'] );
 			}
 		}
 

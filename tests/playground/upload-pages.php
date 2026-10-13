@@ -125,15 +125,68 @@ $up_want = array_map( 'strval', $up_result['left_out'] + [ 'unlocated' => $up_re
 check( 'syncing a trip of uploads passes what it left out to the notice', $up_want === array_intersect_key( $up_args, $up_want ) && array_filter( $up_want ), [ $up_want, $up_to ] );
 $_GET    = [ 'synced' => '1', 'new_steps' => '0', 'outside' => '1', 'untimed' => '1', 'home' => '1', 'unlocated' => '1', 'no_places' => '0' ];
 $up_html = $render( 'trip-edit.php', (string) $ut_tour );
-check( 'the notice: what was left out, and why', false !== strpos( $up_html, 'Left out: 1 outside the trip’s dates, 1 with no time taken (often sent through a messaging app, or a screenshot), 1 taken at home.' ), substr( $up_html, strpos( $up_html, 'Synced.' ) ?: 0, 800 ) );
+check( 'the notice: what was left out, and why, linking to the uploads with no time', false !== strpos( $up_html, 'Left out: 1 outside the trip’s dates, <a href="#ts-untimed">1 with no time taken (often sent through a messaging app, or a screenshot)</a>, 1 taken at home.' ), substr( $up_html, strpos( $up_html, 'Synced.' ) ?: 0, 800 ) );
 check( '…and the photo with no location', false !== strpos( $up_html, '1 photo has no location, so it isn’t on the map. iPhone browsers drop it unless you turn on Options → Location before uploading; messaging apps strip it.' ) );
 $_GET    = [ 'synced' => '1', 'new_steps' => '0', 'untimed' => '2', 'no_places' => '1' ];
 $up_html = $render( 'trip-edit.php', (string) $ut_tour );
 $_GET    = [];
-check( '…only counts above zero, and missing place names', false !== strpos( $up_html, 'Left out: 2 with no time taken (often sent through a messaging app, or a screenshot).' ) && false === strpos( $up_html, 'outside the trip’s dates' ) && false === strpos( $up_html, 'no location' ) && false !== strpos( $up_html, 'Place names are unavailable: the plugin’s geonames data is missing.' ) );
+check( '…only counts above zero, and missing place names', false !== strpos( $up_html, 'Left out: <a href="#ts-untimed">2 with no time taken (often sent through a messaging app, or a screenshot)</a>.' ) && false === strpos( $up_html, 'outside the trip’s dates' ) && false === strpos( $up_html, 'no location' ) && false !== strpos( $up_html, 'Place names are unavailable: the plugin’s geonames data is missing.' ) );
 wp_set_current_user( $alice );
 $up_to = $up_with_servers( fn() => $up_sync( $alices ) );
 check( 'an Immich trip’s sync passes no left-out counts', false !== strpos( $up_to, 'synced=1' ) && false === strpos( $up_to, 'untimed' ), $up_to );
+
+// Uploads with no time taken are listed in the Photos panel, for the author to give them
+// one: from the name they were uploaded with until a time is saved.
+wp_set_current_user( $ut_author );
+$up_times  = $ut_trip( 'Times', $ut_author, '2025-03-17', '2025-03-19' );
+$up_named  = fn( string $name ) => $sideload( [ 'post_id' => $up_times, TravelSteps\Uploads::REQUEST_FLAG => '1' ], $up_times, $name, ts_tagged_jpeg( $jpeg( 600, 400 ), [] ) );
+$up_dated  = TravelSteps\Uploads::photo_id( $up_photo( $up_times, '2025:03:17 10:00:00' ) );
+$up_wa     = TravelSteps\Uploads::photo_id( $up_named( 'IMG-20250318-WA0001.jpg' ) );
+$up_shot   = TravelSteps\Uploads::photo_id( $up_named( 'Screenshot 2025-03-18 at 17.42.01.jpg' ) );
+$up_set_id = $up_named( 'PXL_20250101_010101.jpg' );
+$up_set    = TravelSteps\Uploads::photo_id( $up_set_id );
+$up_plain  = TravelSteps\Uploads::photo_id( $up_named( 'IMG_1234.jpg' ) );
+update_post_meta( $up_set_id, TravelSteps\Uploads::META_TAKEN, '2025-03-19 09:05:00' );
+// Each listed upload's row, by photo id.
+$up_rows = function ( string $html ): array {
+	$rows = [];
+	foreach ( array_slice( explode( '<li class="ts-untimed-row"', $html ), 1 ) as $row ) {
+		$row = substr( $row, 0, strpos( $row, '</li>' ) ?: strlen( $row ) );
+		if ( preg_match( '/name="taken\[([^\]]+)\]\[date\]"/', $row, $m ) ) {
+			$rows[ $m[1] ] = $row;
+		}
+	}
+	return $rows;
+};
+$up_value = fn( string $row, string $field ) => preg_match( '/name="taken\[[^\]]+\]\[' . $field . '\]"[^>]*value="([^"]*)"/', $row, $m ) ? $m[1] : null;
+wp_set_current_user( $ut_author );
+$up_html = $render( 'trip-edit.php', (string) $up_times );
+$up_list = $up_rows( $up_html );
+check( 'the Photos panel lists the uploads with no time taken, open while one has none', 1 === preg_match( '/<details[^>]*id="ts-untimed"[^>]*\sopen/', $up_html ) && false !== strpos( $up_html, '4 with no time taken' ) && [] === array_diff( [ $up_wa, $up_shot, $up_set, $up_plain ], array_keys( $up_list ) ) && 4 === count( $up_list ), array_keys( $up_list ) );
+check( '…each with its thumbnail and the name it was uploaded with', false !== strpos( $up_list[ $up_wa ] ?? '', 'IMG-20250318-WA0001' ) && false !== strpos( $up_list[ $up_wa ] ?? '', esc_url( TravelSteps\RestController::photo_url( $up_times, $up_wa, 'thumbnail', true ) ) ), $up_list[ $up_wa ] ?? '' );
+check( '…a WhatsApp name fills in the date only, and says so', [ '2025-03-18', '' ] === [ $up_value( $up_list[ $up_wa ] ?? '', 'date' ), $up_value( $up_list[ $up_wa ] ?? '', 'time' ) ] && false !== strpos( $up_list[ $up_wa ] ?? '', 'From the file name' ), $up_list[ $up_wa ] ?? '' );
+check( '…a screenshot’s name, its date and time', [ '2025-03-18', '17:42' ] === [ $up_value( $up_list[ $up_shot ] ?? '', 'date' ), $up_value( $up_list[ $up_shot ] ?? '', 'time' ) ] );
+check( '…a saved time wins over the name, and isn’t marked as from it', [ '2025-03-19', '09:05' ] === [ $up_value( $up_list[ $up_set ] ?? '', 'date' ), $up_value( $up_list[ $up_set ] ?? '', 'time' ) ] && false === strpos( $up_list[ $up_set ] ?? '', 'From the file name' ), $up_list[ $up_set ] ?? '' );
+check( '…and a name with no date leaves both empty', [ '', '' ] === [ $up_value( $up_list[ $up_plain ] ?? '', 'date' ), $up_value( $up_list[ $up_plain ] ?? '', 'time' ) ] && false === strpos( $up_list[ $up_plain ] ?? '', 'From the file name' ) );
+check( '…the inputs are the author’s to change', false === strpos( implode( '', $up_list ), 'disabled' ) );
+// The Photos panel is outside the trip form: its inputs and button name it.
+check( '…sent with the trip form, by a Save and sync button of their own', 1 === preg_match( '/<form[^>]*id="ts-trip-form"/', $up_html ) && 8 === substr_count( implode( '', $up_list ), 'form="ts-trip-form"' ) && 1 === preg_match( '/<details[^>]*id="ts-untimed".*?<button type="submit" form="ts-trip-form" name="sync" value="1"[^>]*>Save and sync</s', $up_html ) );
+wp_set_current_user( $eddie );
+$up_html = $render( 'trip-edit.php', (string) $up_times );
+$up_list = $up_rows( $up_html );
+check( 'another editor sees the list, but can’t change the times or sync', 4 === count( $up_list ) && 8 === substr_count( implode( '', $up_list ), 'disabled=' ) && 0 === preg_match( '/id="ts-untimed".*?form="ts-trip-form" name="sync"/s', $up_html ) );
+wp_set_current_user( $ut_author );
+foreach ( [ $up_wa, $up_shot, $up_plain ] as $up_id ) {
+	update_post_meta( TravelSteps\Uploads::attachment( $up_times, $up_id ), TravelSteps\Uploads::META_TAKEN, '2025-03-18 12:00:00' );
+}
+$up_html = $render( 'trip-edit.php', (string) $up_times );
+check( 'once every one has a time, the list stays, closed', 1 === preg_match( '/<details[^>]*id="ts-untimed"[^>]*>/', $up_html, $up_tag ) && false === strpos( $up_tag[0], 'open' ) && 4 === count( $up_rows( $up_html ) ), $up_tag[0] ?? '' );
+$up_timed = $ut_trip( 'All timed', $ut_author );
+$up_photo( $up_timed, '2025:03:17 10:00:00' );
+check( 'an upload trip whose uploads all have times taken has no list', false === strpos( $render( 'trip-edit.php', (string) $up_timed ), 'ts-untimed' ) );
+wp_set_current_user( 1 );
+wp_delete_post( $up_times, true );
+wp_delete_post( $up_timed, true );
 
 // Wording on a trip of uploads, where every upload is a favourite and Immich plays no part.
 wp_set_current_user( $ut_author );

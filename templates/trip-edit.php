@@ -6,7 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 use TravelSteps\App;
 use TravelSteps\DawarichClient;
+use TravelSteps\Exif;
 use TravelSteps\ImmichClient;
+use TravelSteps\RestController;
 use TravelSteps\Settings;
 use TravelSteps\Trips;
 use TravelSteps\Uploads;
@@ -100,13 +102,15 @@ include __DIR__ . '/_header.php';
 		) {
 			$count = absint( $_GET[ $key ] ?? 0 );
 			if ( $count ) {
-				$left_out[] = sprintf( $format, number_format_i18n( $count ) );
+				$text = esc_html( sprintf( $format, number_format_i18n( $count ) ) );
+				// They're listed in the Photos panel, to be given times.
+				$left_out[] = 'untimed' === $key ? '<a href="#ts-untimed">' . $text . '</a>' : $text;
 			}
 		}
 		$unlocated = absint( $_GET['unlocated'] ?? 0 );
 		?>
 		<?php if ( $left_out ) : ?>
-			<p class="ts-notice is-warning"><?php echo esc_html( sprintf( /* translators: %s: a list of counts, such as "1 outside the trip's dates, 2 taken at home" */ __( 'Left out: %s.', 'travel-steps' ), implode( ', ', $left_out ) ) ); ?></p>
+			<p class="ts-notice is-warning"><?php echo wp_kses( sprintf( /* translators: %s: a list of counts, such as "1 outside the trip's dates, 2 taken at home" */ esc_html__( 'Left out: %s.', 'travel-steps' ), implode( ', ', $left_out ) ), [ 'a' => [ 'href' => true ] ] ); ?></p>
 		<?php endif; ?>
 		<?php if ( $unlocated ) : ?>
 			<p class="ts-notice is-warning">
@@ -158,7 +162,7 @@ include __DIR__ . '/_header.php';
 		</p>
 	<?php endif; ?>
 
-	<form class="ts-form ts-trip-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+	<form class="ts-form ts-trip-form" id="ts-trip-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="travel_steps_save_trip">
 		<input type="hidden" name="trip_id" value="<?php echo (int) $trip_id; ?>">
 		<?php wp_nonce_field( 'travel_steps_save_trip' ); ?>
@@ -269,6 +273,56 @@ include __DIR__ . '/_header.php';
 					}
 					?>
 				</p>
+				<?php
+				// Uploads with no time taken in their EXIF, and the times their author gave them.
+				// The panel is outside the trip form, so its inputs and button name the form.
+				$taken = [];
+				foreach ( Uploads::untimed( $trip_id ) as $attachment_id ) {
+					$taken[ $attachment_id ] = (string) get_post_meta( $attachment_id, Uploads::META_TAKEN, true );
+				}
+				?>
+				<?php if ( $taken ) : ?>
+					<details class="ts-untimed" id="ts-untimed" <?php echo in_array( '', $taken, true ) ? 'open' : ''; ?>>
+						<summary>
+							<?php
+							/* translators: %s: number of photos */
+							echo esc_html( sprintf( _n( '%s with no time taken', '%s with no time taken', count( $taken ), 'travel-steps' ), number_format_i18n( count( $taken ) ) ) );
+							?>
+						</summary>
+						<?php if ( $is_owner ) : ?>
+							<p class="ts-muted"><?php esc_html_e( 'Give each a date and time to put it on that day’s step. Times from a file name are kept once you save.', 'travel-steps' ); ?></p>
+						<?php endif; ?>
+						<ul class="ts-untimed-list">
+							<?php
+							foreach ( $taken as $attachment_id => $given ) :
+								$photo_id = Uploads::photo_id( $attachment_id );
+								$name     = (string) get_post_field( 'post_title', $attachment_id );
+								$named    = '' === $given ? Exif::from_name( $name ) : null;
+								[ $date, $time ] = '' !== $given ? [ substr( $given, 0, 10 ), substr( $given, 11, 5 ) ] : ( $named ?? [ '', '' ] );
+								$field    = 'taken[' . $photo_id . ']';
+								?>
+								<li class="ts-untimed-row">
+									<img src="<?php echo esc_url( RestController::photo_url( $trip_id, $photo_id, 'thumbnail', true ) ); ?>" alt="" width="64" height="64" loading="lazy">
+									<span class="ts-untimed-name">
+										<?php echo esc_html( $name ); ?>
+										<?php if ( $named ) : ?>
+											<small class="ts-muted"><?php esc_html_e( 'From the file name', 'travel-steps' ); ?></small>
+										<?php endif; ?>
+									</span>
+									<span class="ts-untimed-when">
+										<?php /* translators: %s: the name a photo was uploaded with */ ?>
+										<input type="date" form="ts-trip-form" name="<?php echo esc_attr( $field ); ?>[date]" value="<?php echo esc_attr( $date ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Day %s was taken', 'travel-steps' ), $name ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+										<?php /* translators: %s: the name a photo was uploaded with */ ?>
+										<input type="time" form="ts-trip-form" name="<?php echo esc_attr( $field ); ?>[time]" value="<?php echo esc_attr( $time ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Time %s was taken', 'travel-steps' ), $name ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+									</span>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+						<?php if ( $is_owner ) : ?>
+							<button type="submit" form="ts-trip-form" name="sync" value="1" class="ts-button ts-button-secondary"><?php esc_html_e( 'Save and sync', 'travel-steps' ); ?></button>
+						<?php endif; ?>
+					</details>
+				<?php endif; ?>
 			</section>
 		<?php endif; ?>
 		<section class="ts-panel">

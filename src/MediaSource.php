@@ -19,13 +19,16 @@ class MediaSource implements PhotoSource {
 	}
 
 	/**
-	 * An upload as a photo row, from what was read from its original (Exif::parse())
-	 * and its size as displayed (the attachment metadata).
+	 * An upload as a photo row, from what was read from its original (Exif::parse()),
+	 * or the time its author gave it if that has none, and its size as displayed (the
+	 * attachment metadata).
 	 */
 	private static function row( int $attachment_id ): array {
 		$exif   = ( get_post_meta( $attachment_id, Uploads::META_EXIF, true ) ?: [] ) + Exif::parse( [] );
+		// A time the author gave it is as a camera would have written it, with no offset.
+		$taken  = $exif['taken'] ?: (string) get_post_meta( $attachment_id, Uploads::META_TAKEN, true );
 		$meta   = wp_get_attachment_metadata( $attachment_id ) ?: [];
-		$local  = '' === $exif['taken'] ? null : ( new \DateTimeImmutable( $exif['taken'], new \DateTimeZone( 'UTC' ) ) )->getTimestamp();
+		$local  = '' === $taken ? null : ( new \DateTimeImmutable( $taken, new \DateTimeZone( 'UTC' ) ) )->getTimestamp();
 		$offset = self::offset_s( (string) $exif['offset'] );
 		$t      = null === $local ? null : $local - (int) $offset;
 		return [
@@ -33,7 +36,7 @@ class MediaSource implements PhotoSource {
 			'local'   => $local,
 			'zoned'   => null !== $local && null !== $offset,
 			't'       => $t,
-			'day'     => null === $t ? '' : Days::local_day( $exif['taken'], $t, wp_timezone() ),
+			'day'     => null === $t ? '' : Days::local_day( $taken, $t, wp_timezone() ),
 			'lat'     => null === $exif['lat'] ? null : (float) $exif['lat'],
 			'lon'     => null === $exif['lon'] ? null : (float) $exif['lon'],
 			'w'       => (int) ( $meta['width'] ?? 0 ),

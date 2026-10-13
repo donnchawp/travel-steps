@@ -194,9 +194,9 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-photo-state[aria-pressed="true"], .ts-photo-cover[aria-pressed="true"] { background: var(--ts-accent); }
 .ts-photo-fav { color: #ff7a9c; }
 
-.ts-more-photos { margin-top: .75rem; }
-.ts-more-photos summary { cursor: pointer; color: var(--ts-accent); font-weight: 600; font-size: .9rem; }
-.ts-more-photos[open] summary { margin-bottom: .5rem; }
+.ts-more-photos, .ts-untimed { margin-top: .75rem; }
+.ts-more-photos summary, .ts-untimed summary { cursor: pointer; color: var(--ts-accent); font-weight: 600; font-size: .9rem; }
+.ts-more-photos[open] summary, .ts-untimed[open] summary { margin-bottom: .5rem; }
 
 .ts-pin span {
 	display: grid;
@@ -250,9 +250,7 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 /* The media modal is light whatever the page's colour scheme: keep the page's ink out of it. */
 .ts-body .media-modal { color: #1d2327; }
 .ts-dates-hint { margin-top: -.5rem; }
-.ts-untimed { margin-top: .75rem; }
-.ts-untimed summary { cursor: pointer; color: var(--ts-accent); font-weight: 600; font-size: .9rem; }
-.ts-untimed-list { list-style: none; margin: .5rem 0 0; padding: 0; }
+.ts-untimed-list { list-style: none; margin: 0; padding: 0; }
 .ts-untimed-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; padding: .4rem 0; }
 .ts-untimed-row img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; }
 .ts-untimed-name { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; }

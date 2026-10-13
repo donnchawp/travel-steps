@@ -497,15 +497,21 @@ class Uploads {
 	}
 
 	/**
-	 * A trip's uploads with no time taken in their EXIF, whether or not their author has
-	 * given them one.
+	 * Of a trip's uploads (from trip_photos()), those with no time taken in their EXIF,
+	 * and the time their author gave each ('' if none).
 	 *
-	 * @return int[]
+	 * @param int[] $ids
+	 * @return array<int, string> Attachment id => Y-m-d H:i:s or ''.
 	 */
-	public static function untimed( int $trip_id ): array {
-		$ids = self::trip_photos( $trip_id );
+	public static function untimed( array $ids ): array {
 		update_meta_cache( 'post', $ids );
-		return array_values( array_filter( $ids, fn( $id ) => '' === ( get_post_meta( $id, self::META_EXIF, true )['taken'] ?? '' ) ) );
+		$taken = [];
+		foreach ( $ids as $id ) {
+			if ( '' === ( get_post_meta( $id, self::META_EXIF, true )['taken'] ?? '' ) ) {
+				$taken[ $id ] = (string) get_post_meta( $id, self::META_TAKEN, true );
+			}
+		}
+		return $taken;
 	}
 
 	/**
@@ -516,15 +522,16 @@ class Uploads {
 	 * @param array $taken From the trip form: photo id => [ 'date' => Y-m-d, 'time' => H:i ].
 	 */
 	public static function save_times( int $trip_id, array $taken ): void {
-		foreach ( self::untimed( $trip_id ) as $attachment_id ) {
+		foreach ( self::untimed( self::trip_photos( $trip_id ) ) as $attachment_id => $stored ) {
 			$given = $taken[ self::photo_id( $attachment_id ) ] ?? null;
 			if ( ! is_array( $given ) ) {
 				continue;
 			}
-			$date = is_string( $given['date'] ?? null ) ? trim( $given['date'] ) : '';
-			$time = is_string( $given['time'] ?? null ) ? trim( $given['time'] ) : '';
+			[ $date, $time ] = array_map( fn( $key ) => is_string( $given[ $key ] ?? null ) ? trim( $given[ $key ] ) : '', [ 'date', 'time' ] );
 			if ( '' === $date && '' === $time ) {
-				delete_post_meta( $attachment_id, self::META_TAKEN );
+				if ( '' !== $stored ) {
+					delete_post_meta( $attachment_id, self::META_TAKEN );
+				}
 				continue;
 			}
 			// Exactly as typed: rolled-over dates and times (30 February, 25:00) aren't any.

@@ -15,8 +15,8 @@
 		const hint = form.querySelector( '.ts-dates-hint' );
 		choice.addEventListener( 'change', () => {
 			const uploads = 'uploads' === choice.value;
-			// A trip of uploads can take its dates from the photos.
-			form.querySelectorAll( 'input[name="start"], input[name="end"]' ).forEach( ( input ) => {
+			// A trip of uploads can take its dates from the photos (not the Photos panel's dates).
+			[ form.elements.start, form.elements.end ].forEach( ( input ) => {
 				input.required = ! uploads;
 			} );
 			hint.hidden = ! uploads;
@@ -45,9 +45,8 @@
 	let changed = false;
 	let waiting = false;
 	let dirty = false;
-	// Including the times typed in the Photos panel, which is outside the form but sent with it.
-	document.addEventListener( 'input', ( event ) => {
-		dirty = dirty || event.target.form === form;
+	form.addEventListener( 'input', () => {
+		dirty = true;
 	} );
 	const busy = () => wp.Uploader.queue.some( ( attachment ) => attachment.get( 'uploading' ) );
 	// Leaving the page would cut off uploads still going.

@@ -162,7 +162,7 @@ include __DIR__ . '/_header.php';
 		</p>
 	<?php endif; ?>
 
-	<form class="ts-form ts-trip-form" id="ts-trip-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+	<form class="ts-form ts-trip-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="travel_steps_save_trip">
 		<input type="hidden" name="trip_id" value="<?php echo (int) $trip_id; ?>">
 		<?php wp_nonce_field( 'travel_steps_save_trip' ); ?>
@@ -236,6 +236,76 @@ include __DIR__ . '/_header.php';
 			</select>
 		</label>
 
+		<?php if ( $uses_uploads ) : ?>
+		<section class="ts-panel ts-uploads" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>" data-finishing="<?php esc_attr_e( 'Finishing uploads…', 'travel-steps' ); ?>">
+			<div class="ts-page-head">
+				<h2><?php esc_html_e( 'Photos', 'travel-steps' ); ?></h2>
+				<?php if ( $can_add ) : ?>
+					<button type="button" class="ts-button ts-button-secondary ts-add-photos"><?php esc_html_e( 'Add photos', 'travel-steps' ); ?></button>
+				<?php endif; ?>
+			</div>
+			<p class="ts-muted" aria-live="polite">
+				<?php
+				$uploads  = Uploads::trip_photos( $trip_id );
+				$uploaded = count( $uploads );
+				echo esc_html(
+					$uploaded
+						/* translators: %s: number of photos */
+						? sprintf( _n( '%s photo uploaded.', '%s photos uploaded.', $uploaded, 'travel-steps' ), number_format_i18n( $uploaded ) )
+						: __( 'No photos uploaded yet.', 'travel-steps' )
+				);
+				if ( ! $can_add ) {
+					echo ' ' . esc_html__( 'This site can’t take uploads: its PHP has no exif extension, which reads when and where photos were taken.', 'travel-steps' );
+				}
+				?>
+			</p>
+			<?php
+			// Uploads with no time taken in their EXIF, and the times their author gave them.
+			$taken = Uploads::untimed( $uploads );
+			_prime_post_caches( array_keys( $taken ), false, false ); // Their names, in one query.
+			?>
+			<?php if ( $taken ) : ?>
+				<details class="ts-untimed" id="ts-untimed" <?php echo in_array( '', $taken, true ) ? 'open' : ''; ?>>
+					<summary>
+						<?php
+						/* translators: %s: number of photos */
+						echo esc_html( sprintf( _n( '%s with no time taken', '%s with no time taken', count( $taken ), 'travel-steps' ), number_format_i18n( count( $taken ) ) ) );
+						?>
+					</summary>
+					<?php if ( $is_owner ) : ?>
+						<p class="ts-muted"><?php esc_html_e( 'Give each a date and time to put it on that day’s step. Times from a file name are kept once you save.', 'travel-steps' ); ?></p>
+					<?php endif; ?>
+					<ul class="ts-untimed-list">
+						<?php
+						foreach ( $taken as $attachment_id => $given ) :
+							$photo_id = Uploads::photo_id( $attachment_id );
+							$name     = (string) get_post_field( 'post_title', $attachment_id );
+							$named    = '' === $given ? Exif::from_name( $name ) : null;
+							[ $date, $time ] = $named ?? [ substr( $given, 0, 10 ), substr( $given, 11, 5 ) ];
+							$field    = 'taken[' . $photo_id . ']';
+							?>
+							<li class="ts-untimed-row">
+								<img src="<?php echo esc_url( RestController::photo_url( $trip_id, $photo_id, 'thumbnail', true ) ); ?>" alt="" width="64" height="64" loading="lazy">
+								<span class="ts-untimed-name">
+									<?php echo esc_html( $name ); ?>
+									<?php if ( $named ) : ?>
+										<small class="ts-muted"><?php esc_html_e( 'From the file name', 'travel-steps' ); ?></small>
+									<?php endif; ?>
+								</span>
+								<span class="ts-untimed-when">
+									<?php /* translators: %s: the name a photo was uploaded with */ ?>
+									<input type="date" name="<?php echo esc_attr( $field ); ?>[date]" value="<?php echo esc_attr( $date ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Day %s was taken', 'travel-steps' ), $name ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+									<?php /* translators: %s: the name a photo was uploaded with */ ?>
+									<input type="time" name="<?php echo esc_attr( $field ); ?>[time]" value="<?php echo esc_attr( $time ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Time %s was taken', 'travel-steps' ), $name ) ); ?>" <?php disabled( ! $is_owner ); ?>>
+								</span>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				</details>
+			<?php endif; ?>
+		</section>
+		<?php endif; ?>
+
 		<div class="ts-form-actions">
 			<?php
 			$save_label = __( 'Save', 'travel-steps' );
@@ -251,80 +321,6 @@ include __DIR__ . '/_header.php';
 	</form>
 
 	<?php if ( $trip ) : ?>
-		<?php if ( $uses_uploads ) : ?>
-			<section class="ts-panel ts-uploads" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>" data-finishing="<?php esc_attr_e( 'Finishing uploads…', 'travel-steps' ); ?>">
-				<div class="ts-page-head">
-					<h2><?php esc_html_e( 'Photos', 'travel-steps' ); ?></h2>
-					<?php if ( $can_add ) : ?>
-						<button type="button" class="ts-button ts-button-secondary ts-add-photos"><?php esc_html_e( 'Add photos', 'travel-steps' ); ?></button>
-					<?php endif; ?>
-				</div>
-				<p class="ts-muted" aria-live="polite">
-					<?php
-					$uploaded = count( Uploads::trip_photos( $trip_id ) );
-					echo esc_html(
-						$uploaded
-							/* translators: %s: number of photos */
-							? sprintf( _n( '%s photo uploaded.', '%s photos uploaded.', $uploaded, 'travel-steps' ), number_format_i18n( $uploaded ) )
-							: __( 'No photos uploaded yet.', 'travel-steps' )
-					);
-					if ( ! $can_add ) {
-						echo ' ' . esc_html__( 'This site can’t take uploads: its PHP has no exif extension, which reads when and where photos were taken.', 'travel-steps' );
-					}
-					?>
-				</p>
-				<?php
-				// Uploads with no time taken in their EXIF, and the times their author gave them.
-				// The panel is outside the trip form, so its inputs and button name the form.
-				$taken = [];
-				foreach ( Uploads::untimed( $trip_id ) as $attachment_id ) {
-					$taken[ $attachment_id ] = (string) get_post_meta( $attachment_id, Uploads::META_TAKEN, true );
-				}
-				?>
-				<?php if ( $taken ) : ?>
-					<details class="ts-untimed" id="ts-untimed" <?php echo in_array( '', $taken, true ) ? 'open' : ''; ?>>
-						<summary>
-							<?php
-							/* translators: %s: number of photos */
-							echo esc_html( sprintf( _n( '%s with no time taken', '%s with no time taken', count( $taken ), 'travel-steps' ), number_format_i18n( count( $taken ) ) ) );
-							?>
-						</summary>
-						<?php if ( $is_owner ) : ?>
-							<p class="ts-muted"><?php esc_html_e( 'Give each a date and time to put it on that day’s step. Times from a file name are kept once you save.', 'travel-steps' ); ?></p>
-						<?php endif; ?>
-						<ul class="ts-untimed-list">
-							<?php
-							foreach ( $taken as $attachment_id => $given ) :
-								$photo_id = Uploads::photo_id( $attachment_id );
-								$name     = (string) get_post_field( 'post_title', $attachment_id );
-								$named    = '' === $given ? Exif::from_name( $name ) : null;
-								[ $date, $time ] = '' !== $given ? [ substr( $given, 0, 10 ), substr( $given, 11, 5 ) ] : ( $named ?? [ '', '' ] );
-								$field    = 'taken[' . $photo_id . ']';
-								?>
-								<li class="ts-untimed-row">
-									<img src="<?php echo esc_url( RestController::photo_url( $trip_id, $photo_id, 'thumbnail', true ) ); ?>" alt="" width="64" height="64" loading="lazy">
-									<span class="ts-untimed-name">
-										<?php echo esc_html( $name ); ?>
-										<?php if ( $named ) : ?>
-											<small class="ts-muted"><?php esc_html_e( 'From the file name', 'travel-steps' ); ?></small>
-										<?php endif; ?>
-									</span>
-									<span class="ts-untimed-when">
-										<?php /* translators: %s: the name a photo was uploaded with */ ?>
-										<input type="date" form="ts-trip-form" name="<?php echo esc_attr( $field ); ?>[date]" value="<?php echo esc_attr( $date ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Day %s was taken', 'travel-steps' ), $name ) ); ?>" <?php disabled( ! $is_owner ); ?>>
-										<?php /* translators: %s: the name a photo was uploaded with */ ?>
-										<input type="time" form="ts-trip-form" name="<?php echo esc_attr( $field ); ?>[time]" value="<?php echo esc_attr( $time ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Time %s was taken', 'travel-steps' ), $name ) ); ?>" <?php disabled( ! $is_owner ); ?>>
-									</span>
-								</li>
-							<?php endforeach; ?>
-						</ul>
-						<?php if ( $is_owner ) : ?>
-							<button type="submit" form="ts-trip-form" name="sync" value="1" class="ts-button ts-button-secondary"><?php esc_html_e( 'Save and sync', 'travel-steps' ); ?></button>
-						<?php endif; ?>
-					</details>
-				<?php endif; ?>
-			</section>
-		<?php endif; ?>
 		<section class="ts-panel">
 			<h2><?php esc_html_e( 'Sync', 'travel-steps' ); ?></h2>
 			<p class="ts-muted">

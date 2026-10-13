@@ -435,7 +435,7 @@ class Trips {
 				}
 			}
 			// Times given to uploads with none taken, in the Photos panel.
-			if ( isset( $input['taken'] ) && is_array( $input['taken'] ) ) {
+			if ( is_array( $input['taken'] ?? null ) ) {
 				Uploads::save_times( $trip_id, $input['taken'] );
 			}
 		}

@@ -249,11 +249,24 @@ check( 'syncing puts it on its day, with no location without Dawarich', ! is_wp_
 ( new TripSync( new FakeDawarich( 'http://x', 'k' ) ) )->sync( $ut_given );
 $ut_synced = array_column( Trips::photos( $ut_given ), null, 'id' )[ Uploads::photo_id( $ut_sent ) ] ?? [];
 check( '…and where the route was at that time with Dawarich', strtotime( '2025-06-02 14:30:00 UTC' ) === ( $ut_synced['t'] ?? null ) && 38.7139 === round( (float) ( $ut_synced['lat'] ?? 0 ), 4 ), $ut_synced );
+// A time outside the trip's dates has no route point near it: no location, still on its day.
+update_post_meta( $ut_sent, Uploads::META_TAKEN, '2025-06-03 15:30:00' );
+update_post_meta( $ut_given, Trips::META_END, '2025-06-03' );
+( new TripSync( new class( 'http://x', 'k' ) extends FakeDawarich {
+	public function points( int $start, int $end ) {
+		return array_values( array_filter( parent::points( $start, $end ), fn( $p ) => $p[2] < strtotime( '2025-06-03 00:00:00 UTC' ) ) );
+	}
+} ) )->sync( $ut_given );
+$ut_synced = array_column( Trips::photos( $ut_given ), null, 'id' )[ Uploads::photo_id( $ut_sent ) ] ?? [];
+check( '…or no location, still on its day, with no route point near that time', '2025-06-03' === Trips::photo_day( $ut_synced ) && null === $ut_synced['lat'], $ut_synced );
+update_post_meta( $ut_given, Trips::META_END, '2025-06-02' );
+update_post_meta( $ut_sent, Uploads::META_TAKEN, '2025-06-02 15:30:00' );
 
 // The author gives times in the trip form, a date and a time for each upload with none.
 $ut_none_id = Uploads::photo_id( $ut_sent );
-$ut_times   = function ( array $taken ) use ( $ut_given, $stopped ) {
-	$_POST  = $_REQUEST = [ 'trip_id' => $ut_given, 'title' => 'Given times', 'start' => '2025-06-01', 'end' => '2025-06-02', 'status' => 'publish', 'taken' => $taken, '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+// The author's form also sends the dates; another editor's sends neither.
+$ut_times   = function ( array $taken, bool $dates = true ) use ( $ut_given, $stopped ) {
+	$_POST  = $_REQUEST = [ 'trip_id' => $ut_given, 'title' => 'Given times', 'status' => 'publish', 'taken' => $taken, '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ] + ( $dates ? [ 'start' => '2025-06-01', 'end' => '2025-06-02' ] : [] );
 	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );
 	$_POST  = $_REQUEST = [];
 	return $result;
@@ -270,5 +283,5 @@ $ut_times( [ Uploads::photo_id( $ut_none ) => [ 'date' => '2025-06-02', 'time' =
 check( '…nor is another trip’s upload', '' === $ut_taken( $ut_none ), $ut_taken( $ut_none ) );
 check( '…and both cleared forgets the time', 'redirect' === $ut_times( [ $ut_none_id => [ 'date' => '', 'time' => '' ] ] ) && '' === $ut_taken( $ut_sent ) && ! metadata_exists( 'post', $ut_sent, Uploads::META_TAKEN ) );
 wp_set_current_user( $eddie );
-check( 'another editor can’t give times', 'die' === $ut_times( [ $ut_none_id => [ 'date' => '2025-06-01', 'time' => '08:15' ] ] ) && '' === $ut_taken( $ut_sent ) );
+check( 'another editor can’t give times', 'die' === $ut_times( [ $ut_none_id => [ 'date' => '2025-06-01', 'time' => '08:15' ] ], false ) && '' === $ut_taken( $ut_sent ) );
 wp_set_current_user( 1 );

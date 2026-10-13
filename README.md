@@ -22,6 +22,8 @@ A trip (a `ts_trip` post) has a date range and takes its photos from Immich (eve
 
 A trip of uploads uses every photo uploaded to it, and needs no dates: left empty, they're taken from its first and last photo, and move with the photos as you add or delete them. A date you change yourself stays put. Uploads with no capture time can't go on a day until you give them one, so sync leaves them out, along with those outside the trip's dates and those taken at home, and the notice after a sync counts each. Places are named offline, from the GeoNames data the plugin ships (see Privacy).
 
+A trip with an Immich album needs no dates either: left empty, they're taken from the album's first and last photo, and move with it as you add photos to the album. A date you change yourself stays put. A trip of all your Immich photos needs both, since they're what picks the photos.
+
 Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position.
 
 Publish the days you want shown. Draft steps and their photos stay private, but a published trip's map route, distance and country count cover all its dates, unpublished days included. To keep a day's whereabouts private, leave it outside the trip's dates.

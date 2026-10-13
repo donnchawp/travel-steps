@@ -65,9 +65,9 @@ class TripSync {
 	private function run( int $trip_id ) {
 		$first = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$last  = (string) get_post_meta( $trip_id, Trips::META_END, true );
-		// Dates sync took from a trip's uploads follow them, so photos added on later days
-		// count. One the author has changed since is theirs, and stays.
-		if ( Trips::uses_uploads( $trip_id ) ) {
+		// Dates sync took from a trip's photos (its uploads or album) follow them, so photos
+		// added on later days count. One the author has changed since is theirs, and stays.
+		if ( Trips::dates_from_photos( $trip_id ) ) {
 			$auto  = get_post_meta( $trip_id, Trips::META_DATES_AUTO, true );
 			$auto  = is_array( $auto ) ? $auto : [ '', '' ];
 			$first = $first === $auto[0] ? '' : $first;
@@ -76,7 +76,7 @@ class TripSync {
 		$both  = '' !== $first && '' !== $last;
 		$range = $both ? Trips::range( $trip_id ) : null;
 		// Dates that are both set but backwards are the author's to fix. A missing one
-		// is up to the source: uploads can supply it, Immich can't.
+		// is up to the source: uploads and an album can supply it, all of Immich can't.
 		if ( ! $range && $both ) {
 			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 		}
@@ -190,16 +190,19 @@ class TripSync {
 	}
 
 	/**
-	 * A trip of uploads missing a date takes it from its photos: the first or last
-	 * local day, remembered so the next sync takes it again. A date already set is kept.
+	 * A trip of uploads or an album missing a date takes it from its photos: the first or
+	 * last local day, remembered so the next sync takes it again. A date already set is kept.
 	 *
 	 * @return array{0: string, 1: string}|\WP_Error The first and last day.
 	 */
 	private function dates_from( int $trip_id, string $first, string $last, array $photos, int $untimed ) {
 		if ( ! $photos ) {
-			return $untimed
-				? new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) )
-				: new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) );
+			if ( $untimed ) {
+				return new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) );
+			}
+			return Trips::uses_uploads( $trip_id )
+				? new \WP_Error( 'travel_steps_no_photos', __( 'Add photos to the trip, or set its dates.', 'travel-steps' ) )
+				: new \WP_Error( 'travel_steps_no_photos', __( 'The album has no photos, so set the trip’s dates.', 'travel-steps' ) );
 		}
 		$days  = array_column( $photos, 'day' );
 		$auto  = [ '' === $first ? min( $days ) : '', '' === $last ? max( $days ) : '' ];

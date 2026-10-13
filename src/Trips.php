@@ -277,6 +277,14 @@ class Trips {
 	}
 
 	/**
+	 * Whether the trip's photos are chosen, so its missing dates can come from them: its
+	 * uploads, or an Immich album. All Immich photos need the dates to pick them.
+	 */
+	public static function dates_from_photos( int $trip_id ): bool {
+		return self::uses_uploads( $trip_id ) || '' !== (string) get_post_meta( $trip_id, self::META_ALBUM, true );
+	}
+
+	/**
 	 * Where the trip's photos come from: its uploads, or Immich with the trip author's
 	 * key, whoever is asking.
 	 */

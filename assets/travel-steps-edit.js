@@ -16,12 +16,11 @@
 		choice.addEventListener( 'change', () => {
 			const uploads = 'uploads' === choice.value;
 			// Uploads or an album can give the trip its dates; all Immich photos can't.
-			// (Only the trip's dates, not the Photos panel's.)
-			const picked = 'immich' !== choice.value;
+			const picksPhotos = 'immich' !== choice.value;
 			[ form.elements.start, form.elements.end ].forEach( ( input ) => {
-				input.required = ! picked;
+				input.required = ! picksPhotos;
 			} );
-			hint.hidden = ! picked;
+			hint.hidden = ! picksPhotos;
 			// A new trip of uploads has nothing to sync yet: saving it opens the media modal.
 			if ( isNew ) {
 				save.textContent = uploads ? save.dataset.uploadsLabel : save.dataset.label;

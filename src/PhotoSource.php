@@ -36,4 +36,10 @@ interface PhotoSource {
 	 * @return array<int, array>|\WP_Error Photo rows, in any order.
 	 */
 	public function photos( int $trip_id, ?array $range );
+
+	/**
+	 * Whether the trip's dates are what picks its photos. If not, the photos are the
+	 * trip's own, so sync takes any missing date from them, and keeps it following them.
+	 */
+	public function needs_dates( int $trip_id ): bool;
 }

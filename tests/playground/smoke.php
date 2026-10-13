@@ -70,6 +70,9 @@ class FakeSource implements PhotoSource {
 		$this->asked = $range;
 		return $this->rows;
 	}
+	public function needs_dates( int $trip_id ): bool {
+		return true;
+	}
 }
 function row( $n, $day, $hm, $lat, $lon, $city, $fav ) {
 	$t = strtotime( "$day $hm UTC" );
@@ -143,9 +146,10 @@ delete_option( 'travel_steps_sync_lock_' . $trip_id );
 // A trip's photos come from Immich, from its album when it has one.
 class AlbumImmich extends ImmichClient {
 	public ?string $album = null;
+	public array $rows    = [];
 	public function photos( int $start, int $end, string $album_id = '' ) {
 		$this->album = $album_id;
-		return [];
+		return $this->rows;
 	}
 }
 check( 'a trip uses Immich for its photos', Trips::source( $trip_id ) instanceof ImmichSource );
@@ -165,13 +169,7 @@ check( '…but with an album, Immich fetches it without them', [] === $album_row
 
 // An Immich trip with an album takes its missing dates from the album's photos, as a
 // trip of uploads does, and they follow the album until the author changes them.
-class RowsImmich extends ImmichClient {
-	public array $rows = [];
-	public function photos( int $start, int $end, string $album_id = '' ) {
-		return $this->rows;
-	}
-}
-$album_immich       = new RowsImmich( 'http://x', 'k' );
+$album_immich       = new AlbumImmich( 'http://x', 'k' );
 $album_immich->rows = [
 	row( 31, '2025-05-01', '10:00', 38.7139, -9.1394, 'Lisbon', true ),
 	row( 32, '2025-05-02', '11:00', 37.0194, -7.9304, 'Faro', true ),
@@ -196,7 +194,7 @@ $r = $album_sync->sync( $album_trip );
 check( '…and switched to all Immich photos, the trip keeps them as they are', ! is_wp_error( $r ) && [ '2025-04-30', '2025-05-03' ] === $album_dates(), [ is_wp_error( $r ) ? $r->get_error_message() : $r, $album_dates() ] );
 $album_empty = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Empty album', 'post_status' => 'draft' ] );
 update_post_meta( $album_empty, Trips::META_ALBUM, '11111111-1111-4111-8111-111111111111' );
-$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), new ImmichSource( new RowsImmich( 'http://x', 'k' ) ) ) )->sync( $album_empty );
+$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), new ImmichSource( new AlbumImmich( 'http://x', 'k' ) ) ) )->sync( $album_empty );
 check( 'an empty album with no dates asks for them', is_wp_error( $r ) && 'The album has no photos, so set the trip’s dates.' === $r->get_error_message(), is_wp_error( $r ) ? $r->get_error_message() : $r );
 delete_post_meta( $album_empty, Trips::META_ALBUM );
 $r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), new ImmichSource( $album_immich ) ) )->sync( $album_empty );

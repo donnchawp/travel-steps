@@ -94,6 +94,15 @@ $_GET    = [];
 check( 'an upload trip’s edit page: its photo count and Add photos', false !== strpos( $up_html, '1 photo uploaded.' ) && false !== strpos( $up_html, 'ts-add-photos' ), substr( $up_html, strpos( $up_html, 'ts-uploads' ) ?: 0, 600 ) );
 check( '…?add=1 opens the modal, whose templates are on the page', 1 === preg_match( '/class="ts-panel ts-uploads"[^>]*data-open="1"/', $up_html ) && false !== strpos( $up_html, 'tmpl-media-modal' ) );
 check( '…and the author’s page has the sync form that closing it submits', false !== strpos( $up_html, 'ts-sync-form' ) );
+// Another plugin's media source (such as an Immich picker) would add photos that aren't trip photos.
+$up_other = 0;
+add_action( 'wp_enqueue_media', function () use ( &$up_other ) {
+	++$up_other;
+} );
+// wp_enqueue_media() runs once a request, and earlier pages here have run it.
+unset( $GLOBALS['wp_actions']['wp_enqueue_media'] );
+$up_html = $render( 'trip-edit.php', (string) $up_panel );
+check( '…other plugins’ additions to the media modal don’t load on it', 0 === $up_other && false !== strpos( $up_html, 'tmpl-media-modal' ), $up_other );
 wp_set_current_user( $eddie );
 $_GET    = [ 'photos' => '1' ];
 $up_html = $render( 'trip-edit.php', (string) $up_panel );

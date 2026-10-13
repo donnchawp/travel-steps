@@ -364,7 +364,6 @@ class Trips {
 		check_admin_referer( 'travel_steps_save_trip' );
 		$input   = wp_unslash( $_POST );
 		$trip_id = absint( $input['trip_id'] ?? 0 );
-		$created = ! $trip_id;
 
 		if ( $trip_id ) {
 			$this->trip_from_request();
@@ -409,9 +408,10 @@ class Trips {
 			// can't list albums, an album id can be typed beside it. Left alone when the form
 			// doesn't offer the choice; uploads keep the album, for switching back.
 			if ( isset( $input['photos'] ) ) {
-				$photos = (string) $input['photos'];
-				update_post_meta( $trip_id, self::META_SOURCE, self::SOURCE_UPLOADS === $photos ? self::SOURCE_UPLOADS : self::SOURCE_IMMICH );
-				if ( self::SOURCE_UPLOADS !== $photos ) {
+				$photos  = (string) $input['photos'];
+				$uploads = self::SOURCE_UPLOADS === $photos;
+				update_post_meta( $trip_id, self::META_SOURCE, $uploads ? self::SOURCE_UPLOADS : self::SOURCE_IMMICH );
+				if ( ! $uploads ) {
 					$album = self::SOURCE_IMMICH === $photos ? (string) ( $input['album'] ?? '' ) : $photos;
 					update_post_meta( $trip_id, self::META_ALBUM, preg_replace( '/[^a-f0-9-]/i', '', $album ) );
 				}
@@ -423,7 +423,7 @@ class Trips {
 			$this->run_sync_and_redirect( $trip );
 		}
 		// A new trip of uploads has none yet: its edit page opens the media modal.
-		$args = $created && self::uses_uploads( $trip_id ) ? [ 'saved' => '1', 'add' => '1' ] : [ 'saved' => '1' ];
+		$args = [ 'saved' => '1' ] + ( ! $current && self::uses_uploads( $trip_id ) ? [ 'add' => '1' ] : [] );
 		wp_safe_redirect( add_query_arg( $args, self::url( $trip, 'edit' ) ) );
 		exit;
 	}

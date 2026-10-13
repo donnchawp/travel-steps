@@ -28,8 +28,9 @@ class TripSync {
 	 * By default, each trip uses its author's own Dawarich and photo source.
 	 *
 	 * @param DawarichClient|null $dawarich Location history for every trip.
-	 * @param PhotoSource|null    $source   Photos for every trip. Left-out counts and place
-	 *                                      names still follow the trip's own source setting.
+	 * @param PhotoSource|null    $source   Photos for every trip, and whether its dates follow
+	 *                                      them. Left-out counts, place names and the empty-trip
+	 *                                      message still follow the trip's own source setting.
 	 * @param Geocoder|null       $geocoder Place names for uploads.
 	 */
 	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null, ?Geocoder $geocoder = null ) {

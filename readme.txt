@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.2.2
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,15 @@ Syncing a trip makes your WordPress server ask your Immich server for the photos
 Place names come from [GeoNames](https://www.geonames.org) (towns of 500 people or more, and country names), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), trimmed to names, countries and positions and filtered (most neighbourhoods and historical places left out, and Paris's and Marseille's arrondissements named after their city). They ship with the plugin, so naming a place sends nothing anywhere.
 
 == Changelog ==
+
+= 0.3.0 =
+* Trips can use photos uploaded to the trip instead of Immich, which is now optional. Uploads are stored privately, served without their GPS data, and their file names are kept out of every listing. HEIC needs WordPress 6.7.
+* Places are named offline from GeoNames, so a trip of uploads gets place names without Dawarich.
+* A trip of uploads takes its dates from its photos, and follows them as you add more.
+* Authors and up can make trips, each with their own Immich and Dawarich API keys and home location.
+* An upload with no time taken can be given one; the date and time are suggested from the file name where it has them.
+* An Immich album trip takes any dates you leave out from the album.
+* Fixes: other authors' steps no longer appear in a trip; pin, hide and cover need permission to edit trips; a date that doesn't exist is refused instead of crashing sync.
 
 = 0.2.2 =
 * The button under a step's photos says how many more it shows ("Show 2 more photos"), instead of counting the photos already on screen too.

@@ -139,6 +139,10 @@ $up_want = array_map( 'strval', $up_result['left_out'] + [ 'unlocated' => $up_re
 check( 'syncing a trip of uploads passes what it left out to the notice', $up_want === array_intersect_key( $up_args, $up_want ) && array_filter( $up_want ), [ $up_want, $up_to ] );
 parse_str( (string) wp_parse_url( $up_sync( $ut_local ), PHP_URL_QUERY ), $up_args );
 check( '…and how many it kept from home', '2' === ( $up_args['at_home'] ?? null ) && ! isset( $up_args['home'] ), $up_args );
+foreach ( Trips::steps( $ut_local, true ) as $up_step_post ) {
+	wp_delete_post( $up_step_post->ID, true );
+}
+wp_delete_post( $ut_local, true );
 $_GET    = [ 'synced' => '1', 'new_steps' => '0', 'outside' => '1', 'untimed' => '1', 'at_home' => '2', 'unlocated' => '1', 'no_places' => '0' ];
 $up_html = $render( 'trip-edit.php', (string) $ut_tour );
 check( 'the notice: what was left out, and why, linking to the uploads with no time', false !== strpos( $up_html, 'Left out: 1 outside the trip’s dates, <a href="#ts-untimed">1 with no time taken (often sent through a messaging app, or a screenshot)</a>.' ), substr( $up_html, strpos( $up_html, 'Synced.' ) ?: 0, 800 ) );

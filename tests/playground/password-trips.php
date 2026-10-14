@@ -499,6 +499,16 @@ $ct_seen = [
 	'open parent'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent' => $ct_open ] ),
 ];
 check( '…and a hidden trip named by p, page_id, attachment_id or post_parent matches nothing', [ 'p' => 0, 'page_id' => 0, 'attachment_id' => 0, 'post_parent' => 0, 'open p' => 1, 'open parent' => 1 ] === $ct_seen, $ct_seen );
+// WP_Query replaces its whole WHERE clause with one for page_id, post_parent__not_in and
+// all, so a step named by it must still be left out when its trip is hidden. As in core,
+// page_id wins when p is set too.
+$ct_seen = [
+	'page_id'      => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'page_id' => $ct_hidden_step ] ),
+	'open page_id' => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'page_id' => $ct_open_step ] ),
+	'p, page_id'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => $ct_hidden_step ] ),
+	'page_id, p'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => $ct_open_step ] ),
+];
+check( '…and a step of a hidden trip named by page_id matches nothing, whatever p says', [ 'page_id' => 0, 'open page_id' => 1, 'p, page_id' => 0, 'page_id, p' => 1 ] === $ct_seen, $ct_seen );
 // WP_Query turns these into the hidden trip's ID: (int) for p, subpost_id through
 // attachment_id, and absint for each entry of an __in list.
 $ct_seen = [

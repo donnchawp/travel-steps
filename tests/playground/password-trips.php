@@ -9,7 +9,7 @@ use TravelSteps\Settings;
 use TravelSteps\Trips;
 
 require_once ABSPATH . WPINC . '/class-phpass.php';
-// Core's password cookie, as wp-login.php?action=postpass sets it; null clears it.
+// Core's password cookie, as the password form sets it; null clears it.
 $pw_enter = function ( ?string $password ) {
 	if ( null === $password ) {
 		unset( $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] );
@@ -91,7 +91,7 @@ check( 'password: REST, the photo proxy and core REST for its steps refuse a vis
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 
 // A trip page render that redirects: where to, or null if it rendered.
-$pw_redirect = function ( int $trip ) use ( $render ) {
+$pw_redirect = function ( $trip ) use ( $render ) {
 	$to    = null;
 	$catch = function ( $location ) use ( &$to ) {
 		$to = $location;
@@ -117,7 +117,7 @@ $_GET = [ 'tried' => '1' ];
 check( '…no wrong-password message for a flagged link without core’s cookie', false === strpos( $render( 'trip.php', (string) $pw_a ), 'That password isn’t right' ) );
 $_GET = [];
 
-// A wrong password shows the form again, saying so; core's form handler adds "tried".
+// A wrong password shows the form again, saying so; the form's handler adds "tried".
 $pw_enter( 'open sesame?' );
 $_GET = [ 'tried' => '1' ];
 $page = $render( 'trip.php', (string) $pw_a );
@@ -144,7 +144,7 @@ check( '…but the landing page still doesn’t list it', false === strpos( $see
 // The form posts to the trip page, which sets core's cookie as wp-login.php?action=postpass
 // would and sends the visitor back flagged. Returns where to, and the Set-Cookie header for
 // core's cookie, or null if it set none.
-$pw_post = function ( int $trip, $password, array $extra = [] ) use ( $pw_redirect ) {
+$pw_post = function ( $trip, $password, array $extra = [] ) use ( $pw_redirect ) {
 	header_remove( 'Set-Cookie' );
 	$_POST    = $_REQUEST = [ 'post_password' => $password ] + $extra;
 	$to       = $pw_redirect( $trip );
@@ -175,6 +175,63 @@ $_GET = [];
 check( '…and the flagged page then drops the flag', Trips::url( get_post( $pw_a ) ) === $pw_to, $pw_to );
 check( '…to show the trip', false !== strpos( $render( 'trip.php', (string) $pw_a ), 'Secret story' ) );
 $pw_enter( null );
+
+// A wrong one is set all the same, as core does, and the flagged page says so.
+[ $pw_to, $pw_cookie ] = $pw_post( $pw_a, 'open sesame?' );
+$pw_keep( $pw_cookie );
+$_GET = [ 'tried' => '1' ];
+$page = $render( 'trip.php', (string) $pw_a );
+$_GET = [];
+check( 'posting a wrong password: back flagged, with core’s cookie, and the form says so', $pw_flagged === $pw_to && null !== $pw_cookie && false !== strpos( $page, 'That password isn’t right' ) && false === strpos( $page, 'Secret story' ), [ $pw_to, $pw_cookie ] );
+$pw_enter( null );
+
+// Not a string: no cookie, back flagged, as core does.
+[ $pw_to, $pw_cookie ] = $pw_post( $pw_a, [ 'x' ] );
+check( 'posting post_password[]: back flagged, without a cookie', $pw_flagged === $pw_to && null === $pw_cookie, [ $pw_to, $pw_cookie ] );
+
+// Where to is always the trip: nothing in the request picks it.
+$_SERVER['HTTP_REFERER'] = 'http://example.com/';
+[ $pw_to ] = $pw_post( $pw_a, 'open sesame', [ 'redirect_to' => 'http://example.com/', '_wp_http_referer' => home_url( '/elsewhere' ) ] );
+unset( $_SERVER['HTTP_REFERER'] );
+check( '…a redirect_to or referer in the request is ignored', $pw_flagged === $pw_to, $pw_to );
+
+// Core's cookie: its 10 days, core's filter on them, path, and secure on an https site.
+$pw_attr = function ( ?string $cookie, string $name ) {
+	return preg_match( '#;\s*' . $name . '(?:=([^;]*))?#i', (string) $cookie, $m ) ? ( $m[1] ?? true ) : null;
+};
+[ , $pw_cookie ] = $pw_post( $pw_a, 'open sesame' );
+check( 'the cookie lasts 10 days, at core’s path, not secure over http', abs( (int) $pw_attr( $pw_cookie, 'Max-Age' ) - 10 * DAY_IN_SECONDS ) < 5 && COOKIEPATH === $pw_attr( $pw_cookie, 'path' ) && null === $pw_attr( $pw_cookie, 'secure' ), $pw_cookie );
+$pw_expires = fn() => time() + HOUR_IN_SECONDS;
+add_filter( 'post_password_expires', $pw_expires );
+[ , $pw_cookie ] = $pw_post( $pw_a, 'open sesame' );
+remove_filter( 'post_password_expires', $pw_expires );
+check( '…post_password_expires changes that', abs( (int) $pw_attr( $pw_cookie, 'Max-Age' ) - HOUR_IN_SECONDS ) < 5, $pw_cookie );
+add_filter( 'post_password_expires', '__return_zero' );
+[ , $pw_cookie ] = $pw_post( $pw_a, 'open sesame' );
+remove_filter( 'post_password_expires', '__return_zero' );
+check( '…to a session cookie with 0', null !== $pw_cookie && null === $pw_attr( $pw_cookie, 'expires' ) && null === $pw_attr( $pw_cookie, 'Max-Age' ), $pw_cookie );
+$pw_https = fn( $url ) => set_url_scheme( $url, 'https' );
+add_filter( 'home_url', $pw_https );
+[ $pw_to, $pw_cookie ] = $pw_post( $pw_a, 'open sesame' );
+remove_filter( 'home_url', $pw_https );
+check( '…and secure on an https site', 0 === strpos( (string) $pw_to, 'https://' ) && true === $pw_attr( $pw_cookie, 'secure' ), [ $pw_to, $pw_cookie ] );
+
+// A post to a trip without a password, a draft or no trip is just a visit: no cookie, the same page.
+[ $pw_open ] = $pw_trip( 'Open Lisbon' );
+[ $pw_draft ] = $pw_trip( 'Draft Lisbon' );
+wp_update_post( [ 'ID' => $pw_draft, 'post_status' => 'draft', 'post_password' => 'draft sesame' ] );
+wp_set_current_user( 0 );
+foreach ( [ 'a trip without a password' => (string) $pw_open, 'a draft with one' => (string) $pw_draft, 'no trip' => 'no-such-trip' ] as $what => $slug ) {
+	[ $pw_to, $pw_cookie ] = $pw_post( $slug, 'open sesame' );
+	$same = false;
+	if ( null === $pw_to ) {
+		$_POST = $_REQUEST = [ 'post_password' => 'open sesame' ];
+		$posted = $render( 'trip.php', $slug );
+		$_POST = $_REQUEST = [];
+		$same = $render( 'trip.php', $slug ) === $posted;
+	}
+	check( "posting to $what: no cookie, the page as for a visit", null === $pw_to && null === $pw_cookie && $same, [ $pw_to, $pw_cookie ] );
+}
 
 // Changing the password locks out those who had the old one.
 $pw_set( $pw_a, 'new sesame' );
@@ -255,6 +312,12 @@ $pw_save = function ( array $fields ) use ( $pw_a, $stopped ) {
 };
 $quoted = 'it\'s "a\\b" <ok>';
 check( 'trip form: an editor sets its password and list', 'redirect' === $pw_save( [ 'password' => wp_slash( $quoted ), 'viewers' => [ (string) $hal ] ] ) && $quoted === get_post( $pw_a )->post_password && [ $hal ] === Trips::viewers( $pw_a ), [ get_post( $pw_a )->post_password, Trips::viewers( $pw_a ) ] );
+// Typed into the form, slashed as PHP's request handling in WordPress does, it unlocks the trip.
+wp_set_current_user( 0 );
+[ , $pw_cookie ] = $pw_post( $pw_a, wp_slash( $quoted ) );
+$pw_keep( $pw_cookie );
+check( '…a password with quotes and a backslash, typed into the form, unlocks the trip', ! Trips::needs_password( get_post( $pw_a ) ) );
+$pw_enter( null );
 wp_set_current_user( $bob );
 check( '…anyone else is refused', 'die' === $pw_save( [ 'password' => '', 'viewers' => [ (string) $bob ] ] ) && $quoted === get_post( $pw_a )->post_password && [ $hal ] === Trips::viewers( $pw_a ) );
 wp_set_current_user( $eddie );

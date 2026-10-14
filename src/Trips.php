@@ -721,6 +721,7 @@ class Trips {
 		// For a trip of uploads: what sync left out or couldn't place, for the notice.
 		if ( isset( $result['left_out'] ) ) {
 			$args += array_map( 'intval', $result['left_out'] ) + [
+				'at_home'   => (int) $result['at_home'],
 				'unlocated' => (int) $result['unlocated'],
 				'no_places' => (int) $result['no_places'],
 			];

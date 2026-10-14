@@ -14,6 +14,10 @@ $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
 if ( $trip && Trips::is_protected( $trip ) ) {
 	nocache_headers();
 }
+// The password form posts here; sets core's cookie and redirects, if it was that.
+if ( $trip ) {
+	Trips::handle_password_post( $trip );
+}
 if ( $trip && Trips::needs_password( $trip ) ) {
 	include __DIR__ . '/_password.php';
 	return;

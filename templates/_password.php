@@ -12,16 +12,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 use TravelSteps\Trips;
 
-$back       = add_query_arg( 'tried', '1', Trips::url( $trip ) );
 $page_title = get_the_title( $trip );
 include __DIR__ . '/_header.php';
 ?>
 <div class="ts-page ts-narrow">
 	<h1><?php echo esc_html( $page_title ); ?></h1>
-	<form class="ts-form ts-password-form" method="post" action="<?php echo esc_url( site_url( 'wp-login.php?action=postpass', 'login_post' ) ); ?>">
-		<?php // redirect_to since WordPress 6.8; earlier versions go back to the referer. ?>
-		<input type="hidden" name="redirect_to" value="<?php echo esc_url( $back ); ?>">
-		<input type="hidden" name="_wp_http_referer" value="<?php echo esc_url( $back ); ?>">
+	<form class="ts-form ts-password-form" method="post" action="<?php echo esc_url( Trips::url( $trip ) ); ?>">
 		<?php if ( isset( $_GET['tried'], $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] ) ) : ?>
 			<p class="ts-notice is-error" role="alert"><?php esc_html_e( 'That password isn’t right.', 'travel-steps' ); ?></p>
 		<?php endif; ?>

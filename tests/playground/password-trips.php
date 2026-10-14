@@ -472,6 +472,21 @@ $ct_seen = [
 	'open parent'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent' => $ct_open ] ),
 ];
 check( '…and a hidden trip named by p, page_id, attachment_id or post_parent matches nothing', [ 'p' => 0, 'page_id' => 0, 'attachment_id' => 0, 'post_parent' => 0, 'open p' => 1, 'open parent' => 1 ] === $ct_seen, $ct_seen );
+// WP_Query turns these into the hidden trip's ID: (int) for p, subpost_id through
+// attachment_id, and absint for each entry of an __in list.
+$ct_seen = [
+	'p'               => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => "{$ct_hidden}abc" ] ),
+	'subpost_id'      => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'subpost_id' => $ct_hidden ] ),
+	'post__in'        => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'post__in' => [ "0{$ct_hidden}" ] ] ),
+	'post__in space'  => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'post__in' => [ "{$ct_hidden} " ] ] ),
+	'post_parent__in' => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent__in' => [ "0{$ct_hidden}" ] ] ),
+	'open p'          => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => "{$ct_open}abc" ] ),
+	'open subpost_id' => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'subpost_id' => $ct_open ] ),
+	'open post__in'   => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'post__in' => [ "0{$ct_open}", "0{$ct_hidden}" ] ] ),
+	'open parent__in' => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent__in' => [ "0{$ct_open}" ] ] ),
+];
+$ct_want = [ 'p' => 0, 'subpost_id' => 0, 'post__in' => 0, 'post__in space' => 0, 'post_parent__in' => 0, 'open p' => 1, 'open subpost_id' => 1, 'open post__in' => 1, 'open parent__in' => 1 ];
+check( '…and so does one named the way WP_Query reads it: a p of "<id>abc", a subpost_id, or an __in entry of "0<id>"', $ct_want === $ct_seen, $ct_seen );
 // A step of no trip, of a trip deleted since, or of another post is nobody's but its editors'.
 wp_set_current_user( 1 );
 [ $ct_gone, $ct_gone_step ] = $ct_trip( 'Bunyip Gorge', 'Bunyip', '2024-05-03 04:05:06' );

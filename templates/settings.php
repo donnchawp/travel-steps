@@ -91,7 +91,7 @@ include __DIR__ . '/_header.php';
 			<p class="ts-muted"><?php esc_html_e( 'People you tick here see all your password-protected trips without the password, once they’re logged in. Each trip can let in more people of its own.', 'travel-steps' ); ?></p>
 			<?php
 			$me = get_current_user_id();
-			View::viewer_boxes( View::viewer_choices( fn( int $user_id ) => $me === $user_id || user_can( $user_id, 'edit_others_posts' ) ), Settings::viewers( $me ) );
+			View::viewer_boxes( $me, 0, Settings::viewers( $me ) );
 			?>
 		</fieldset>
 

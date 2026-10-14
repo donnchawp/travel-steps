@@ -211,40 +211,30 @@ class View {
 	}
 
 	/**
-	 * Users who could go on a viewer list, by display name: everyone but those who see
-	 * the trips anyway.
+	 * Checkboxes named viewers[] for a viewer list, $listed ticked: one per user, by display
+	 * name, but for those who see the trips anyway. For a trip, they're those who can edit
+	 * it; for the author's list, or a trip not yet saved, the author and those who can edit
+	 * others' trips.
 	 *
-	 * @param callable $sees_anyway fn( int $user_id ): bool.
-	 * @return array<int, string> Display name by user id.
+	 * @param int[] $listed
 	 */
-	public static function viewer_choices( callable $sees_anyway ): array {
-		$choices = [];
-		foreach ( get_users( [ 'orderby' => 'display_name', 'fields' => [ 'ID', 'display_name' ] ] ) as $user ) {
-			if ( ! $sees_anyway( (int) $user->ID ) ) {
-				$choices[ (int) $user->ID ] = $user->display_name;
-			}
-		}
-		return $choices;
-	}
-
-	/**
-	 * Checkboxes named viewers[] for a viewer list, $listed ticked.
-	 *
-	 * @param array<int, string> $choices From viewer_choices().
-	 * @param int[]              $listed
-	 */
-	public static function viewer_boxes( array $choices, array $listed ): void {
-		if ( ! $choices ) {
+	public static function viewer_boxes( int $author, int $trip_id, array $listed ): void {
+		// Whole users, which primes their meta for the capability checks in one go.
+		$users = array_filter(
+			get_users( [ 'orderby' => 'display_name' ] ),
+			fn( \WP_User $user ) => ! ( $trip_id ? user_can( $user, 'edit_post', $trip_id ) : $author === $user->ID || user_can( $user, 'edit_others_posts' ) )
+		);
+		if ( ! $users ) {
 			echo '<p class="ts-muted">' . esc_html__( 'Nobody else on this site can be added.', 'travel-steps' ) . '</p>';
 			return;
 		}
 		echo '<div class="ts-viewers">';
-		foreach ( $choices as $user_id => $name ) {
+		foreach ( $users as $user ) {
 			printf(
 				'<label class="ts-check"><input type="checkbox" name="viewers[]" value="%d"%s> <span>%s</span></label>',
-				(int) $user_id,
-				in_array( $user_id, $listed, true ) ? ' checked' : '',
-				esc_html( $name )
+				(int) $user->ID,
+				in_array( (int) $user->ID, $listed, true ) ? ' checked' : '',
+				esc_html( $user->display_name )
 			);
 		}
 		echo '</div>';

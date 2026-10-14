@@ -17,15 +17,16 @@ $pw_enter = function ( ?string $password ) {
 	}
 	$_COOKIE[ 'wp-postpass_' . COOKIEHASH ] = ( new PasswordHash( 8, true ) )->HashPassword( $password );
 };
-$pw_photo = row( 41, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', true )['id'];
-$pw_cover = row( 42, '2025-05-01', '10:00', 38.7, -9.1, 'Lisbon', true )['id'];
+$pw_rows  = [ row( 41, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', true ), row( 42, '2025-05-01', '10:00', 38.7, -9.1, 'Lisbon', true ) ];
+$pw_photo = $pw_rows[0]['id'];
+$pw_cover = $pw_rows[1]['id'];
 // A published trip of Alice's with a published step, its story, photos and a chosen cover.
-$pw_trip = function ( string $title ) use ( $alice, $pw_cover ) {
+$pw_trip = function ( string $title ) use ( $alice, $pw_rows, $pw_cover ) {
 	wp_set_current_user( 1 );
 	$id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => $title, 'post_status' => 'publish', 'post_author' => $alice ] );
 	update_post_meta( $id, Trips::META_START, '2025-05-01' );
 	update_post_meta( $id, Trips::META_END, '2025-05-01' );
-	update_post_meta( $id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 41, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', true ), row( 42, '2025-05-01', '10:00', 38.7, -9.1, 'Lisbon', true ) ] ) ) );
+	update_post_meta( $id, Trips::META_PHOTOS, wp_slash( wp_json_encode( $pw_rows ) ) );
 	update_post_meta( $id, Trips::META_COVER, $pw_cover );
 	$step = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $id, 'post_title' => 'Lisbon day', 'post_status' => 'publish', 'post_author' => $alice, 'post_date' => '2025-05-01 12:00:00', 'post_content' => '<!-- wp:paragraph --><p>Secret story</p><!-- /wp:paragraph -->' ] );
 	update_post_meta( $step, Trips::META_LAT, 38.7 );
@@ -96,18 +97,13 @@ check( 'a changed password locks out the old one', ! Trips::can_view( get_post( 
 $pw_enter( null );
 
 // Its editors see it without a password, and the landing page badges it for them.
-foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
-	wp_set_current_user( $user );
-	$seen = $pw_reach( $pw_a, $pw_a_step );
-	check( "the trip’s $role sees it without the password", false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] );
-	check( "…listed to them with a “Password protected” badge", 1 === preg_match( '#<span class="ts-badge">Password protected</span>(?:(?!</a>).)*Hidden Lisbon#s', $seen['list'] ) );
-}
-
 // Logged-in users REST knows only by a nonce, so their photo URLs carry one, the cover's too.
 $pw_nonced = fn( string $html, string $asset ) => 1 === preg_match( '#/photo/' . $asset . '\?[^"]*_wpnonce=#', $html );
 foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	wp_set_current_user( $user );
 	$seen = $pw_reach( $pw_a, $pw_a_step );
+	check( "the trip’s $role sees it without the password", false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] );
+	check( "…listed to them with a “Password protected” badge", 1 === preg_match( '#<span class="ts-badge">Password protected</span>(?:(?!</a>).)*Hidden Lisbon#s', $seen['list'] ) );
 	check( "the {$role}’s cover and photo URLs carry a nonce", $pw_nonced( $seen['list'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_photo ) );
 }
 
@@ -145,7 +141,8 @@ check( 'logged out, a listed user is a visitor', ! $pw_sees( 0, $pw_a, $pw_a_ste
 $pw_box = fn( string $html, int $user ) => preg_match( '#<input type="checkbox" name="viewers\[\]" value="' . $user . '"( checked)?#', $html, $m ) ? ( isset( $m[1] ) ? 'checked' : 'box' ) : 'none';
 wp_set_current_user( $alice );
 $page = $render( 'settings.php', '' );
-check( 'author’s list: a checkbox per user, theirs ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === array_map( fn( $u ) => $pw_box( $page, $u ), [ $frank, $gina, $hal, $alice, $eddie, 1 ] ), array_map( fn( $u ) => $pw_box( $page, $u ), [ $frank, $gina, $hal, $alice, $eddie, 1 ] ) );
+$pw_boxes = array_map( fn( $u ) => $pw_box( $page, $u ), [ $frank, $gina, $hal, $alice, $eddie, 1 ] );
+check( 'author’s list: a checkbox per user, theirs ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === $pw_boxes, $pw_boxes );
 wp_set_current_user( $bob );
 check( '…only the author sees it', 'box' === $pw_box( $render( 'settings.php', '' ), $frank ) );
 $_POST = $_REQUEST = [ 'viewers' => [ (string) $gina ], '_wpnonce' => wp_create_nonce( 'travel_steps_account' ) ];
@@ -162,7 +159,8 @@ Settings::update_account( $bob, [ 'viewers' => [] ] + Settings::account( $bob ) 
 wp_set_current_user( $eddie );
 $edit = $render( 'trip-edit.php', (string) $pw_a );
 check( 'trip form: its password, in plain text', 1 === preg_match( '#<input type="text" name="password"[^>]*value="new sesame"#', $edit ), substr( $edit, strpos( $edit, 'name="password"' ) ?: 0, 300 ) );
-check( 'trip form: a checkbox per user who can’t already edit it, its list ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === array_map( fn( $u ) => $pw_box( $edit, $u ), [ $gina, $frank, $hal, $alice, $eddie, 1 ] ), array_map( fn( $u ) => $pw_box( $edit, $u ), [ $gina, $frank, $hal, $alice, $eddie, 1 ] ) );
+$pw_boxes = array_map( fn( $u ) => $pw_box( $edit, $u ), [ $gina, $frank, $hal, $alice, $eddie, 1 ] );
+check( 'trip form: a checkbox per user who can’t already edit it, its list ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === $pw_boxes, $pw_boxes );
 $pw_save = function ( array $fields ) use ( $pw_a, $stopped ) {
 	$_POST = $_REQUEST = [ 'trip_id' => $pw_a, 'title' => 'Hidden Lisbon', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ] + $fields;
 	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );

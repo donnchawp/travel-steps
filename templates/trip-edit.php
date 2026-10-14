@@ -250,12 +250,7 @@ include __DIR__ . '/_header.php';
 				echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'People ticked here see the trip without the password once they’re logged in, as do those on %s’s list in Travel Steps settings and anyone who can edit the trip.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) );
 				?>
 			</p>
-			<?php
-			$sees_anyway = $trip
-				? fn( int $user_id ) => user_can( $user_id, 'edit_post', $trip_id )
-				: fn( int $user_id ) => $author === $user_id || user_can( $user_id, 'edit_others_posts' );
-			View::viewer_boxes( View::viewer_choices( $sees_anyway ), $trip ? Trips::viewers( $trip_id ) : [] );
-			?>
+			<?php View::viewer_boxes( $author, $trip_id, $trip ? Trips::viewers( $trip_id ) : [] ); ?>
 		</fieldset>
 
 		<?php if ( $uses_uploads ) : ?>

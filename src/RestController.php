@@ -120,7 +120,7 @@ class RestController {
 				'can_edit' => $can_edit,
 			]
 		);
-		$public = 'publish' === $trip->post_status && ! $can_edit && ! Trips::is_protected( $trip );
+		$public = Trips::is_public( $trip ) && ! $can_edit;
 		$response->header( 'Cache-Control', $public ? 'public, max-age=300' : 'private, no-store' );
 		return $response;
 	}
@@ -183,9 +183,9 @@ class RestController {
 		if ( ! $trip ) {
 			return '';
 		}
-		if ( isset( Trips::shown_photo_ids( $trip )[ $asset ] ) && Trips::can_view( $trip ) ) {
+		if ( Trips::can_view( $trip ) && isset( Trips::shown_photo_ids( $trip )[ $asset ] ) ) {
 			// Only a chosen cover can be hidden and shown.
-			return Trips::is_protected( $trip ) || in_array( $asset, Trips::hidden( $trip_id ), true ) ? 'private' : 'public';
+			return Trips::is_public( $trip ) && ! in_array( $asset, Trips::hidden( $trip_id ), true ) ? 'public' : 'private';
 		}
 		if ( ! current_user_can( 'edit_post', $trip_id ) ) {
 			return '';

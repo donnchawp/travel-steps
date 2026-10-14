@@ -212,6 +212,14 @@ class Trips {
 	}
 
 	/**
+	 * Whether anyone may see a trip, so shared caches may keep it and its photos: it's
+	 * published without a password.
+	 */
+	public static function is_public( \WP_Post $trip ): bool {
+		return 'publish' === $trip->post_status && ! self::is_protected( $trip );
+	}
+
+	/**
 	 * Whether the current user has to type a trip's password to see it: it's published
 	 * with one, they may not skip it, and core's cookie doesn't hold it.
 	 */
@@ -238,7 +246,7 @@ class Trips {
 	 * is read without one.
 	 */
 	public static function by_login( \WP_Post $trip ): bool {
-		return 'publish' !== $trip->post_status || ( self::is_protected( $trip ) && self::skips_password( $trip ) );
+		return ! self::is_public( $trip ) && self::skips_password( $trip );
 	}
 
 	/**
@@ -247,7 +255,7 @@ class Trips {
 	 * @return int[]
 	 */
 	public static function viewers( int $trip_id ): array {
-		return self::user_ids( get_post_meta( $trip_id, self::META_VIEWERS, true ) );
+		return self::user_ids( self::id_list( $trip_id, self::META_VIEWERS ) );
 	}
 
 	/**

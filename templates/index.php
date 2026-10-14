@@ -41,15 +41,19 @@ include __DIR__ . '/_header.php';
 					<?php if ( $cover ) : ?>
 						<img src="<?php echo esc_url( $cover ); ?>" alt="" loading="lazy">
 					<?php endif; ?>
-					<?php $locked = Trips::is_protected( $trip ) && current_user_can( 'edit_post', $trip->ID ); ?>
-					<?php if ( 'publish' !== $trip->post_status || $locked ) : ?>
+					<?php
+					$badges = array_filter(
+						[
+							'publish' !== $trip->post_status ? ( get_post_status_object( $trip->post_status )->label ?? $trip->post_status ) : '',
+							Trips::is_protected( $trip ) && current_user_can( 'edit_post', $trip->ID ) ? __( 'Password protected', 'travel-steps' ) : '',
+						]
+					);
+					?>
+					<?php if ( $badges ) : ?>
 						<span class="ts-card-badges">
-							<?php if ( 'publish' !== $trip->post_status ) : ?>
-								<span class="ts-badge"><?php echo esc_html( get_post_status_object( $trip->post_status )->label ?? $trip->post_status ); ?></span>
-							<?php endif; ?>
-							<?php if ( $locked ) : ?>
-								<span class="ts-badge"><?php esc_html_e( 'Password protected', 'travel-steps' ); ?></span>
-							<?php endif; ?>
+							<?php foreach ( $badges as $badge ) : ?>
+								<span class="ts-badge"><?php echo esc_html( $badge ); ?></span>
+							<?php endforeach; ?>
 						</span>
 					<?php endif; ?>
 				</div>

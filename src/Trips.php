@@ -229,6 +229,33 @@ class Trips {
 	}
 
 	/**
+	 * The password form posts to the trip page, so a protected trip needs no route besides
+	 * its own: a site may close wp-login.php to visitors. This does what core's
+	 * wp-login.php?action=postpass does: sets its cookie to a hash of whatever was typed,
+	 * without checking it, and sends the visitor back to the trip with "tried", where
+	 * needs_password() decides. No nonce, as in core: a forged post can only set a cookie
+	 * for a password the forger already knows. Returns if there's nothing to handle.
+	 */
+	public static function handle_password_post( \WP_Post $trip ): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- As core's form handler.
+		if ( ! isset( $_POST['post_password'] ) || 'publish' !== $trip->post_status || ! self::is_protected( $trip ) ) {
+			return;
+		}
+		$to = add_query_arg( 'tried', '1', self::url( $trip ) );
+		if ( is_string( $_POST['post_password'] ) ) {
+			require_once ABSPATH . WPINC . '/class-phpass.php';
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hashed, as core does: sanitising would change the password.
+			$hash = ( new \PasswordHash( 8, true ) )->HashPassword( wp_unslash( $_POST['post_password'] ) );
+			/** This filter is documented in wp-login.php */
+			$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS );
+			setcookie( 'wp-postpass_' . COOKIEHASH, $hash, $expire, COOKIEPATH, COOKIE_DOMAIN, 'https' === wp_parse_url( $to, PHP_URL_SCHEME ) );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		wp_safe_redirect( $to );
+		exit;
+	}
+
+	/**
 	 * Whether the current user may see a protected trip without typing its password: they
 	 * can edit it, or they're logged in and on its author's viewer list or its own.
 	 */

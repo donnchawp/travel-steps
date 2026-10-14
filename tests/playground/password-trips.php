@@ -81,7 +81,8 @@ check( 'password “0”: public, as core treats it', false !== strpos( $seen['p
 // With one, a visitor without it gets the title and a password form, and nothing else.
 $pw_set( $pw_a, 'open sesame' );
 $seen = $pw_reach( $pw_a, $pw_a_step );
-check( 'password: the trip page shows its title and a password form', 1 === preg_match( '#<h1>Hidden Lisbon</h1>#', $seen['page'] ) && 1 === preg_match( '#<form[^>]*action="[^"]*wp-login\.php\?action=postpass#', $seen['page'] ) && false !== strpos( $seen['page'], 'name="post_password"' ), substr( $seen['page'], strpos( $seen['page'], '<main' ) ?: 0, 800 ) );
+check( 'password: the trip page shows its title and a password form', 1 === preg_match( '#<h1>Hidden Lisbon</h1>#', $seen['page'] ) && false !== strpos( $seen['page'], 'name="post_password"' ), substr( $seen['page'], strpos( $seen['page'], '<main' ) ?: 0, 800 ) );
+check( '…posting to the trip page, never wp-login.php', 1 === preg_match( '#<form[^>]*class="[^"]*ts-password-form[^"]*"[^>]*action="' . preg_quote( esc_url( Trips::url( get_post( $pw_a ) ) ), '#' ) . '"#', $seen['page'] ) && false === strpos( $seen['page'], 'wp-login.php' ), substr( $seen['page'], strpos( $seen['page'], '<form' ) ?: 0, 400 ) );
 check( '…titled without “Protected:”', 1 === preg_match( '#<title>Hidden Lisbon\b#', $seen['page'] ) && false === strpos( $seen['page'], 'Protected:' ), substr( $seen['page'], 0, 400 ) );
 check( '…and nothing else of the trip', false === strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'Lisbon day' ) && false === strpos( $seen['page'], 'ts-map' ) && false === strpos( $seen['page'], $pw_photo ) && false === strpos( $seen['page'], $pw_cover ) && false === strpos( $seen['page'], 'ts-hero-img' ) && false === strpos( $seen['page'], 'ts-stats' ) );
 check( '…no wrong-password message on a first visit', false === strpos( $seen['page'], 'That password isn’t right' ) );
@@ -123,8 +124,6 @@ $page = $render( 'trip.php', (string) $pw_a );
 check( 'wrong password: the form again, saying so', false !== strpos( $page, 'name="post_password"' ) && false !== strpos( $page, 'That password isn’t right' ) && false === strpos( $page, 'Secret story' ) );
 $_GET = [];
 check( '…but not without the flag, as with another trip’s password', false === strpos( $render( 'trip.php', (string) $pw_a ), 'That password isn’t right' ) );
-$pw_back = preg_quote( esc_url( add_query_arg( 'tried', '1', Trips::url( get_post( $pw_a ) ) ) ), '#' );
-check( 'the form sends the visitor back to the trip, flagged, on WordPress 6.8+ and 6.7', 1 === preg_match( '#name="redirect_to" value="' . $pw_back . '"#', $page ) && 1 === preg_match( '#name="_wp_http_referer" value="' . $pw_back . '"#', $page ) );
 
 // The right one lands on the flagged URL, which drops the flag so it can't be shared.
 $pw_enter( 'open sesame' );
@@ -141,6 +140,41 @@ check( '…REST and its steps let them in', 200 === $seen['rest']->get_status() 
 check( '…its photos and REST are private', 'private' === $seen['photo'] && 'private' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'private' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
 check( '…and its photo URLs need no nonce', false !== strpos( $seen['page'], $pw_photo ) && false === strpos( $seen['page'], '_wpnonce' ) && false !== strpos( $seen['page'], 'data-nonce=""' ) );
 check( '…but the landing page still doesn’t list it', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
+
+// The form posts to the trip page, which sets core's cookie as wp-login.php?action=postpass
+// would and sends the visitor back flagged. Returns where to, and the Set-Cookie header for
+// core's cookie, or null if it set none.
+$pw_post = function ( int $trip, $password, array $extra = [] ) use ( $pw_redirect ) {
+	header_remove( 'Set-Cookie' );
+	$_POST    = $_REQUEST = [ 'post_password' => $password ] + $extra;
+	$to       = $pw_redirect( $trip );
+	$_POST    = $_REQUEST = [];
+	$cookie   = null;
+	foreach ( headers_list() as $header ) {
+		if ( 0 === strpos( $header, 'Set-Cookie: wp-postpass_' . COOKIEHASH . '=' ) ) {
+			$cookie = $header;
+		}
+	}
+	header_remove( 'Set-Cookie' );
+	return [ $to, $cookie ];
+};
+// Takes the cookie a post set, as the browser would.
+$pw_keep = function ( ?string $header ) {
+	preg_match( '#=([^;]*)#', (string) $header, $m );
+	$_COOKIE[ 'wp-postpass_' . COOKIEHASH ] = urldecode( $m[1] ?? '' );
+};
+$pw_flagged = add_query_arg( 'tried', '1', Trips::url( get_post( $pw_a ) ) );
+$pw_enter( null );
+[ $pw_to, $pw_cookie ] = $pw_post( $pw_a, 'open sesame' );
+check( 'posting the right password: back to the trip, flagged, with core’s cookie', $pw_flagged === $pw_to && null !== $pw_cookie, [ $pw_to, $pw_cookie ] );
+$pw_keep( $pw_cookie );
+check( '…which core takes as the trip’s password', ! post_password_required( get_post( $pw_a ) ) );
+$_GET = [ 'tried' => '1' ];
+$pw_to = $pw_redirect( $pw_a );
+$_GET = [];
+check( '…and the flagged page then drops the flag', Trips::url( get_post( $pw_a ) ) === $pw_to, $pw_to );
+check( '…to show the trip', false !== strpos( $render( 'trip.php', (string) $pw_a ), 'Secret story' ) );
+$pw_enter( null );
 
 // Changing the password locks out those who had the old one.
 $pw_set( $pw_a, 'new sesame' );

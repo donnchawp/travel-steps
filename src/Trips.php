@@ -262,12 +262,19 @@ class Trips {
 	 * so a single ID among $ids matches nothing, and the IDs come out of {$field}__in,
 	 * which matches nothing if none are left. Each value is read as WP_Query reads it:
 	 * (int) for p, absint for the other single IDs and for each entry of {$field}__in.
+	 * By post_parent, a page_id becomes p: WP_Query replaces its whole WHERE clause with
+	 * one for page_id, post_parent__not_in and all, but p keeps it. page_id wins over p,
+	 * as in core.
 	 *
 	 * @param int[] $ids
 	 */
 	public static function exclude_from_query( array $args, string $field, array $ids ): array {
 		if ( ! $ids ) {
 			return $args;
+		}
+		if ( 'post_parent' === $field && ! empty( $args['page_id'] ) ) {
+			$args['p'] = absint( $args['page_id'] );
+			unset( $args['page_id'] );
 		}
 		$singles = 'post' === $field ? self::SINGLE_IDS : [ 'post_parent' => fn( $id ) => is_numeric( $id ) ? (int) $id : null ];
 		foreach ( $singles as $single => $read ) {

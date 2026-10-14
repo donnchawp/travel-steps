@@ -226,8 +226,10 @@ class TripSync {
 	/**
 	 * Give photos without GPS the position you were at when they were taken. Those taken
 	 * near home are dropped, or, if $keep_home (uploads, each chosen for the trip), kept
-	 * without a position, so they're on their day but off the map. Images with no camera
-	 * in their EXIF (screenshots, saved downloads) are dropped too, unless you favourited them.
+	 * without a position, so they're on their day but off the map. $points has no fixes at
+	 * home, so only a photo's own GPS puts it there: one Dawarich can't place is unlocated,
+	 * not at home. Images with no camera in their EXIF (screenshots, saved downloads) are
+	 * dropped too, unless you favourited them.
 	 *
 	 * @return array{0: array, 1: int, 2: int} The photos kept, how many were taken at home,
 	 *         and how many kept have no position from their GPS or Dawarich.

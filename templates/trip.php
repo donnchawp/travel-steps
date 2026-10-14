@@ -10,12 +10,10 @@ use TravelSteps\View;
 
 $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
 // Core does this for a singular post with a password; this route isn't one, so a page
-// cache could otherwise keep the unlocked trip and serve it to everyone.
+// cache could otherwise keep the unlocked trip and serve it to everyone. The password
+// form posts here too: that sets core's cookie and redirects.
 if ( $trip && Trips::is_protected( $trip ) ) {
 	nocache_headers();
-}
-// The password form posts here; sets core's cookie and redirects, if it was that.
-if ( $trip ) {
 	Trips::handle_password_post( $trip );
 }
 if ( $trip && Trips::needs_password( $trip ) ) {

@@ -49,6 +49,8 @@ $pw_reach = function ( int $trip, int $step ) use ( $render, $get, $pw_photo, $p
 		'cover' => RestController::access( $trip, $pw_cover ),
 		'step'  => $get( '/wp/v2/ts_step/' . $step )->get_status(),
 		'list'  => $render( 'index.php', '' ),
+		'core'  => $get( '/wp/v2/ts_trip/' . $trip )->get_status(),
+		'cores' => in_array( $trip, array_column( $get( '/wp/v2/ts_trip', [ 'include' => [ $trip ] ] )->get_data(), 'id' ), true ),
 	];
 };
 
@@ -89,6 +91,7 @@ check( '…no wrong-password message on a first visit', false === strpos( $seen[
 $refused = fn( int $status ) => in_array( $status, [ 401, 403, 404 ], true );
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && $refused( $seen['proxy']->get_status() ) && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']->get_status(), $seen['photo'], $seen['cover'], $seen['step'] ] );
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
+check( '…and core REST neither serves nor lists it to them', $refused( $seen['core'] ) && ! $seen['cores'], [ $seen['core'], $seen['cores'] ] );
 
 // A trip page render that redirects: where to, or null if it rendered, leaving the page in $page.
 $pw_redirect = function ( $trip, &$page = null ) use ( $render ) {

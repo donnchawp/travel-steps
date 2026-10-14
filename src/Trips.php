@@ -209,21 +209,27 @@ class Trips {
 	/**
 	 * Trips can_view() refuses the current user, for leaving them out of a query. Only
 	 * unpublished trips and published ones with a password are asked about: the rest are
-	 * public.
+	 * public. $statuses narrows that to the trips a query for those statuses could match;
+	 * empty or 'any' means every status.
 	 *
+	 * @param string[] $statuses
 	 * @return int[]
 	 */
-	public static function hidden_ids(): array {
-		$candidates = [
+	public static function hidden_trip_ids( array $statuses = [] ): array {
+		if ( ! $statuses || in_array( 'any', $statuses, true ) ) {
+			$statuses = get_post_stati();
+		}
+		$candidates  = [
 			'post_type'   => self::TRIP,
 			'numberposts' => -1,
-			'orderby'     => 'ID',
+			'orderby'     => 'none',
 		];
-		$trips = array_merge(
-			get_posts( [ 'post_status' => array_values( array_diff( get_post_stati(), [ 'publish' ] ) ) ] + $candidates ),
-			get_posts( [ 'post_status' => 'publish', 'has_password' => true ] + $candidates )
+		$unpublished = array_diff( $statuses, [ 'publish' ] );
+		$trips       = array_merge(
+			$unpublished ? get_posts( [ 'post_status' => $unpublished ] + $candidates ) : [],
+			in_array( 'publish', $statuses, true ) ? get_posts( [ 'post_status' => 'publish', 'has_password' => true ] + $candidates ) : []
 		);
-		return array_values( array_map( fn( $trip ) => $trip->ID, array_filter( $trips, fn( $trip ) => ! self::can_view( $trip ) ) ) );
+		return array_column( array_filter( $trips, fn( $trip ) => ! self::can_view( $trip ) ), 'ID' );
 	}
 
 	/**
@@ -252,13 +258,13 @@ class Trips {
 		}
 		$in = $field . '__in';
 		if ( ! empty( $args[ $in ] ) ) {
-			$args[ $in ] = array_values( array_diff( array_map( 'intval', (array) $args[ $in ] ), $ids ) );
+			$args[ $in ] = array_values( array_diff( (array) $args[ $in ], $ids ) );
 			if ( ! $args[ $in ] ) {
 				$args['post__in'] = [ 0 ];
 			}
 		}
 		$not_in          = $field . '__not_in';
-		$args[ $not_in ] = array_values( array_unique( array_merge( array_map( 'intval', (array) ( $args[ $not_in ] ?? [] ) ), $ids ) ) );
+		$args[ $not_in ] = array_merge( (array) ( $args[ $not_in ] ?? [] ), $ids );
 		return $args;
 	}
 

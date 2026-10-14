@@ -368,7 +368,6 @@ $ct_trip = function ( string $title, string $word, string $date ) use ( $pw_trip
 	[ $id, $step ] = $pw_trip( $title );
 	wp_update_post( [ 'ID' => $id, 'post_date' => $date, 'post_date_gmt' => $date, 'post_content' => "<!-- wp:paragraph --><p>$word trip</p><!-- /wp:paragraph -->" ] );
 	wp_update_post( [ 'ID' => $step, 'post_content' => "<!-- wp:paragraph --><p>$word step</p><!-- /wp:paragraph -->" ] );
-	clean_post_cache( $id );
 	return [ $id, $step ];
 };
 [ $ct_hidden, $ct_hidden_step ] = $ct_trip( 'Quokka Island', 'Quokka', '2024-02-03 04:05:06' );
@@ -422,6 +421,14 @@ foreach ( [ 'its author' => $alice, 'an editor' => $eddie ] as $who => $user ) {
 	$ct_seen = $ct_step( $ct_draft_step, 'Numbat' );
 	check( "core REST’s step count: a draft trip’s step counts for $who", [ 1, 1 ] === $ct_seen, $ct_seen );
 }
+// Asking for drafts by status: another author may, but someone else's draft trip isn't counted.
+$ct_drafts = [ 'status' => [ 'draft' ], 'include' => [ $ct_draft ] ];
+$ct_seen   = [];
+foreach ( [ 'another author' => $bob, 'an editor' => $eddie ] as $who => $user ) {
+	wp_set_current_user( $user );
+	$ct_seen[ $who ] = $ct_total( '/wp/v2/ts_trip', $ct_drafts );
+}
+check( 'core REST’s trip count by status: a draft trip counts for an editor, not another author', [ 'another author' => 0, 'an editor' => 1 ] === $ct_seen, $ct_seen );
 // Core leaves a trip with a password out of a logged-out user's searches whatever they know.
 wp_set_current_user( 0 );
 $pw_enter( 'quokka' );

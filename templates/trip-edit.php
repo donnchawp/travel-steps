@@ -238,6 +238,26 @@ include __DIR__ . '/_header.php';
 			</select>
 		</label>
 
+		<fieldset>
+			<legend><?php esc_html_e( 'Password protection', 'travel-steps' ); ?></legend>
+			<label>
+				<span><?php esc_html_e( 'Password (optional)', 'travel-steps' ); ?></span>
+				<input type="text" name="password" autocomplete="off" spellcheck="false" maxlength="255" value="<?php echo esc_attr( $trip ? $trip->post_password : '' ); ?>">
+				<small class="ts-muted"><?php esc_html_e( 'Visitors to a public trip need it to see the trip. Use a long one: nothing stops anyone trying passwords. Leave it empty for no password. A private trip can’t have one.', 'travel-steps' ); ?></small>
+			</label>
+			<p class="ts-muted">
+				<?php
+				echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'People ticked here see the trip without the password once they’re logged in, as do those on %s’s list in Travel Steps settings and anyone who can edit the trip.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) );
+				?>
+			</p>
+			<?php
+			$sees_anyway = $trip
+				? fn( int $user_id ) => user_can( $user_id, 'edit_post', $trip_id )
+				: fn( int $user_id ) => $author === $user_id || user_can( $user_id, 'edit_others_posts' );
+			View::viewer_boxes( View::viewer_choices( $sees_anyway ), $trip ? Trips::viewers( $trip_id ) : [] );
+			?>
+		</fieldset>
+
 		<?php if ( $uses_uploads ) : ?>
 		<section class="ts-panel ts-uploads" data-open="<?php echo isset( $_GET['add'] ) ? '1' : ''; ?>" data-title="<?php esc_attr_e( 'Photos for this trip', 'travel-steps' ); ?>" data-done="<?php esc_attr_e( 'Done', 'travel-steps' ); ?>" data-finishing="<?php esc_attr_e( 'Finishing uploads…', 'travel-steps' ); ?>">
 			<div class="ts-page-head">

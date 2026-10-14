@@ -140,3 +140,49 @@ $pw_enter( 'new sesame' );
 check( '…in with the password, but still not listed to them', $pw_sees( $hal, $pw_a, $pw_a_step ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
 $pw_enter( null );
 check( 'logged out, a listed user is a visitor', ! $pw_sees( 0, $pw_a, $pw_a_step ) );
+
+// The author's list: on their settings page, checkboxes of everyone who can't already edit their trips.
+$pw_box = fn( string $html, int $user ) => preg_match( '#<input type="checkbox" name="viewers\[\]" value="' . $user . '"( checked)?#', $html, $m ) ? ( isset( $m[1] ) ? 'checked' : 'box' ) : 'none';
+wp_set_current_user( $alice );
+$page = $render( 'settings.php', '' );
+check( 'author’s list: a checkbox per user, theirs ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === array_map( fn( $u ) => $pw_box( $page, $u ), [ $frank, $gina, $hal, $alice, $eddie, 1 ] ), array_map( fn( $u ) => $pw_box( $page, $u ), [ $frank, $gina, $hal, $alice, $eddie, 1 ] ) );
+wp_set_current_user( $bob );
+check( '…only the author sees it', 'box' === $pw_box( $render( 'settings.php', '' ), $frank ) );
+$_POST = $_REQUEST = [ 'viewers' => [ (string) $gina ], '_wpnonce' => wp_create_nonce( 'travel_steps_account' ) ];
+$stopped( [ Settings::class, 'handle_save_account' ] );
+check( '…and only they change it', [ $frank, 999999 ] === Settings::viewers( $alice ) && [ $gina ] === Settings::viewers( $bob ), [ Settings::viewers( $alice ), Settings::viewers( $bob ) ] );
+wp_set_current_user( $alice );
+$_POST = $_REQUEST = [ 'viewers' => [ (string) $gina, (string) $hal ], '_wpnonce' => wp_create_nonce( 'travel_steps_account' ) ];
+check( 'author’s list: saved', 'redirect' === $stopped( [ Settings::class, 'handle_save_account' ] ) && [ $gina, $hal ] === Settings::viewers( $alice ), Settings::viewers( $alice ) );
+$_POST = $_REQUEST = [ '_wpnonce' => wp_create_nonce( 'travel_steps_account' ) ];
+check( '…and cleared', 'redirect' === $stopped( [ Settings::class, 'handle_save_account' ] ) && [] === Settings::viewers( $alice ), Settings::viewers( $alice ) );
+Settings::update_account( $bob, [ 'viewers' => [] ] + Settings::account( $bob ) );
+
+// The trip's password and list: on its edit form, for anyone who can edit it.
+wp_set_current_user( $eddie );
+$edit = $render( 'trip-edit.php', (string) $pw_a );
+check( 'trip form: its password, in plain text', 1 === preg_match( '#<input type="text" name="password"[^>]*value="new sesame"#', $edit ), substr( $edit, strpos( $edit, 'name="password"' ) ?: 0, 300 ) );
+check( 'trip form: a checkbox per user who can’t already edit it, its list ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === array_map( fn( $u ) => $pw_box( $edit, $u ), [ $gina, $frank, $hal, $alice, $eddie, 1 ] ), array_map( fn( $u ) => $pw_box( $edit, $u ), [ $gina, $frank, $hal, $alice, $eddie, 1 ] ) );
+$pw_save = function ( array $fields ) use ( $pw_a, $stopped ) {
+	$_POST = $_REQUEST = [ 'trip_id' => $pw_a, 'title' => 'Hidden Lisbon', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ] + $fields;
+	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );
+	$_POST = $_REQUEST = [];
+	clean_post_cache( $pw_a );
+	return $result;
+};
+$quoted = 'it\'s "a\\b" <ok>';
+check( 'trip form: an editor sets its password and list', 'redirect' === $pw_save( [ 'password' => wp_slash( $quoted ), 'viewers' => [ (string) $hal ] ] ) && $quoted === get_post( $pw_a )->post_password && [ $hal ] === Trips::viewers( $pw_a ), [ get_post( $pw_a )->post_password, Trips::viewers( $pw_a ) ] );
+wp_set_current_user( $bob );
+check( '…anyone else is refused', 'die' === $pw_save( [ 'password' => '', 'viewers' => [ (string) $bob ] ] ) && $quoted === get_post( $pw_a )->post_password && [ $hal ] === Trips::viewers( $pw_a ) );
+wp_set_current_user( $eddie );
+check( 'trip form: an editor clears both', 'redirect' === $pw_save( [ 'password' => '' ] ) && '' === get_post( $pw_a )->post_password && [] === Trips::viewers( $pw_a ) );
+
+// Without its password the trip is public again, whatever the lists say.
+update_post_meta( $pw_a, Trips::META_VIEWERS, [ $gina ] );
+Settings::update_account( $alice, [ 'viewers' => [ $frank ] ] + Settings::account( $alice ) );
+wp_set_current_user( 0 );
+$seen = $pw_reach( $pw_a, $pw_a_step );
+check( 'password removed: public again', false !== strpos( $seen['page'], 'Secret story' ) && 'public' === $seen['photo'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ) && false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
+wp_set_current_user( $frank );
+check( '…and a listed user’s photos carry no nonce', false === strpos( $render( 'trip.php', (string) $pw_a ), '_wpnonce' ) );
+wp_set_current_user( 1 );

@@ -150,6 +150,8 @@ class Settings {
 			'home_lat'       => $home[0],
 			'home_lon'       => $home[1],
 			'home_radius_km' => max( 0, (float) ( $input['home_radius_km'] ?? 1 ) ),
+			// Checkboxes: none ticked sends nothing.
+			'viewers'        => Trips::user_ids( $input['viewers'] ?? [] ),
 		];
 		// Keys are write-only in the form: an empty field keeps the stored key, unless
 		// it's ticked for removal.

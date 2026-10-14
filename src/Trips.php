@@ -494,6 +494,11 @@ class Trips {
 			'post_content' => wp_kses_post( $input['intro'] ?? '' ),
 			'post_status'  => $status,
 		];
+		// Kept as typed, as core's editor does, and slashed as wp_insert_post() expects, so
+		// it matches what visitors type into core's form.
+		if ( isset( $input['password'] ) ) {
+			$postarr['post_password'] = wp_slash( substr( trim( (string) $input['password'] ), 0, 255 ) );
+		}
 		// WordPress leaves drafts without a slug; give the trip one so its URL is stable.
 		$current = $trip_id ? get_post( $trip_id ) : null;
 		if ( ! $current || ! $current->post_name ) {
@@ -504,6 +509,8 @@ class Trips {
 			wp_die( esc_html( $result->get_error_message() ) );
 		}
 		$trip_id = (int) $result;
+		// Checkboxes: none ticked sends nothing.
+		update_post_meta( $trip_id, self::META_VIEWERS, self::user_ids( $input['viewers'] ?? [] ) );
 
 		// Only the author sends these (others' forms leave them out).
 		if ( self::can_sync_trip( $trip_id ) ) {

@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 use TravelSteps\Settings;
 use TravelSteps\Uploads;
+use TravelSteps\View;
 
 $account    = Settings::account( get_current_user_id() );
 $settings   = Settings::all();
@@ -83,6 +84,15 @@ include __DIR__ . '/_header.php';
 					<input type="number" step="0.1" min="0" name="home_radius_km" value="<?php echo esc_attr( $account['home_radius_km'] ); ?>">
 				</label>
 			</div>
+		</fieldset>
+
+		<fieldset>
+			<legend><?php esc_html_e( 'Who sees your password-protected trips', 'travel-steps' ); ?></legend>
+			<p class="ts-muted"><?php esc_html_e( 'People you tick here see all your password-protected trips without the password, once they’re logged in. Each trip can let in more people of its own.', 'travel-steps' ); ?></p>
+			<?php
+			$me = get_current_user_id();
+			View::viewer_boxes( View::viewer_choices( fn( int $user_id ) => $me === $user_id || user_can( $user_id, 'edit_others_posts' ) ), Settings::viewers( $me ) );
+			?>
 		</fieldset>
 
 		<div class="ts-form-actions">

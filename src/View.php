@@ -211,6 +211,46 @@ class View {
 	}
 
 	/**
+	 * Users who could go on a viewer list, by display name: everyone but those who see
+	 * the trips anyway.
+	 *
+	 * @param callable $sees_anyway fn( int $user_id ): bool.
+	 * @return array<int, string> Display name by user id.
+	 */
+	public static function viewer_choices( callable $sees_anyway ): array {
+		$choices = [];
+		foreach ( get_users( [ 'orderby' => 'display_name', 'fields' => [ 'ID', 'display_name' ] ] ) as $user ) {
+			if ( ! $sees_anyway( (int) $user->ID ) ) {
+				$choices[ (int) $user->ID ] = $user->display_name;
+			}
+		}
+		return $choices;
+	}
+
+	/**
+	 * Checkboxes named viewers[] for a viewer list, $listed ticked.
+	 *
+	 * @param array<int, string> $choices From viewer_choices().
+	 * @param int[]              $listed
+	 */
+	public static function viewer_boxes( array $choices, array $listed ): void {
+		if ( ! $choices ) {
+			echo '<p class="ts-muted">' . esc_html__( 'Nobody else on this site can be added.', 'travel-steps' ) . '</p>';
+			return;
+		}
+		echo '<div class="ts-viewers">';
+		foreach ( $choices as $user_id => $name ) {
+			printf(
+				'<label class="ts-check"><input type="checkbox" name="viewers[]" value="%d"%s> <span>%s</span></label>',
+				(int) $user_id,
+				in_array( $user_id, $listed, true ) ? ' checked' : '',
+				esc_html( $name )
+			);
+		}
+		echo '</div>';
+	}
+
+	/**
 	 * The trip form's "Photos" choices for the trip's author: the trip's uploads, all
 	 * their Immich photos from its dates, or one Immich album. Empty when they can use
 	 * neither.

@@ -263,8 +263,8 @@ class Trips {
 	 * which matches nothing if none are left. Each value is read as WP_Query reads it:
 	 * (int) for p, absint for the other single IDs and for each entry of {$field}__in.
 	 * By post_parent, a page_id becomes p: WP_Query replaces its whole WHERE clause with
-	 * one for page_id, post_parent__not_in and all, but p keeps it. page_id wins over p,
-	 * as in core.
+	 * one for page_id, post_parent__not_in and all, but p keeps it. As in core, a page_id
+	 * wins over p unless it reads as 0.
 	 *
 	 * @param int[] $ids
 	 */
@@ -272,9 +272,12 @@ class Trips {
 		if ( ! $ids ) {
 			return $args;
 		}
-		if ( 'post_parent' === $field && ! empty( $args['page_id'] ) ) {
-			$args['p'] = absint( $args['page_id'] );
+		if ( 'post_parent' === $field && isset( $args['page_id'] ) ) {
+			$page_id = is_scalar( $args['page_id'] ) ? absint( $args['page_id'] ) : 0;
 			unset( $args['page_id'] );
+			if ( $page_id ) {
+				$args['p'] = $page_id;
+			}
 		}
 		$singles = 'post' === $field ? self::SINGLE_IDS : [ 'post_parent' => fn( $id ) => is_numeric( $id ) ? (int) $id : null ];
 		foreach ( $singles as $single => $read ) {

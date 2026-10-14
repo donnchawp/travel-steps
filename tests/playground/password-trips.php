@@ -73,6 +73,7 @@ $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'no password: visitors see the whole trip', false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 200 === $seen['step'] );
 check( 'no password: its photos and REST stay in shared caches', 'public' === $seen['photo'] && 'public' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
 check( 'no password: listed on the landing page', false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
+check( '…and served and listed by core REST', 200 === $seen['core'] && $seen['cores'], [ $seen['core'], $seen['cores'] ] );
 check( '…and left to page caches', ! $pw_nocache( $pw_a ) );
 
 // "0" is no password to core, so it's none to the trip either: public, not half-protected.
@@ -92,6 +93,11 @@ $refused = fn( int $status ) => in_array( $status, [ 401, 403, 404 ], true );
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && $refused( $seen['proxy']->get_status() ) && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']->get_status(), $seen['photo'], $seen['cover'], $seen['step'] ] );
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and core REST neither serves nor lists it to them', $refused( $seen['core'] ) && ! $seen['cores'], [ $seen['core'], $seen['cores'] ] );
+// Core's ?password= isn't a way in: the trip page's cookie is the only one.
+$req = new WP_REST_Request( 'GET', '/wp/v2/ts_trip/' . $pw_a );
+$req->set_query_params( [ 'password' => 'open sesame' ] );
+$res = rest_do_request( $req );
+check( '…not even with core’s ?password= and the right password', $refused( $res->get_status() ), [ $res->get_status(), $res->get_data() ] );
 
 // A trip page render that redirects: where to, or null if it rendered, leaving the page in $page.
 $pw_redirect = function ( $trip, &$page = null ) use ( $render ) {
@@ -128,6 +134,8 @@ $page = $render( 'trip.php', (string) $pw_a );
 check( 'wrong password: the form again, saying so', false !== strpos( $page, 'name="post_password"' ) && false !== strpos( $page, 'That password isn’t right' ) && false === strpos( $page, 'Secret story' ) );
 $_GET = [];
 check( '…but not without the flag, as with another trip’s password', false === strpos( $render( 'trip.php', (string) $pw_a ), 'That password isn’t right' ) );
+$seen = $pw_reach( $pw_a, $pw_a_step );
+check( 'wrong password: core REST neither serves nor lists it', $refused( $seen['core'] ) && ! $seen['cores'], [ $seen['core'], $seen['cores'] ] );
 
 // The right one lands on the flagged URL, which drops the flag so it can't be shared.
 $pw_enter( 'open sesame' );
@@ -141,6 +149,7 @@ check( '…the unlocked page is kept out of page caches too', $pw_nocache( $pw_a
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'right password: the whole trip, and no message', false !== strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'That password isn’t right' ) && false === strpos( $seen['page'], 'name="post_password"' ) );
 check( '…REST and its steps let them in', 200 === $seen['rest']->get_status() && 200 === $seen['step'], [ $seen['rest']->get_status(), $seen['step'] ] );
+check( '…and core REST serves and lists it', 200 === $seen['core'] && $seen['cores'], [ $seen['core'], $seen['cores'] ] );
 check( '…its photos and REST are private', 'private' === $seen['photo'] && 'private' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'private' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
 check( '…and its photo URLs need no nonce', false !== strpos( $seen['page'], $pw_photo ) && false === strpos( $seen['page'], '_wpnonce' ) && false !== strpos( $seen['page'], 'data-nonce=""' ) );
 check( '…but the landing page still doesn’t list it', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
@@ -247,6 +256,8 @@ foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	wp_set_current_user( $user );
 	$seen = $pw_reach( $pw_a, $pw_a_step );
 	check( "the trip’s $role sees it without the password", false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] );
+	$edit = $get( '/wp/v2/ts_trip/' . $pw_a, [ 'context' => 'edit' ] );
+	check( "…core REST serves and lists it to them, for editing too", 200 === $seen['core'] && $seen['cores'] && 200 === $edit->get_status() && 'new sesame' === ( $edit->get_data()['password'] ?? null ), [ $seen['core'], $seen['cores'], $edit->get_status() ] );
 	check( "…listed to them with a “Password protected” badge", 1 === preg_match( '#<span class="ts-badge">Password protected</span>(?:(?!</a>).)*Hidden Lisbon#s', $seen['list'] ) );
 	check( "the {$role}’s cover and photo URLs carry a nonce", $pw_nonced( $seen['list'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_photo ) );
 }
@@ -262,7 +273,7 @@ update_post_meta( $pw_a, Trips::META_VIEWERS, [ $gina ] );
 $pw_sees = function ( int $user, int $trip, int $step ) use ( $pw_reach ) {
 	wp_set_current_user( $user );
 	$seen = $pw_reach( $trip, $step );
-	return false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] && 200 === $seen['step'];
+	return false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] && 200 === $seen['step'] && 200 === $seen['core'] && $seen['cores'];
 };
 $pw_listed = function ( int $user, string $title ) use ( $render ) {
 	wp_set_current_user( $user );
@@ -276,6 +287,9 @@ check( '…with nonces on its photos and REST', $pw_nonced( $page, $pw_photo ) &
 check( 'on a trip’s list: that trip without a password', $pw_sees( $gina, $pw_a, $pw_a_step ) && $pw_listed( $gina, 'Hidden Lisbon' ) );
 check( '…but not the author’s other protected trips', ! $pw_sees( $gina, $pw_b, $pw_b_step ) && ! $pw_listed( $gina, 'Hidden Porto' ) );
 check( 'on neither list: the password form', ! $pw_sees( $hal, $pw_a, $pw_a_step ) && false !== strpos( $render( 'trip.php', (string) $pw_a ), 'name="post_password"' ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
+wp_set_current_user( $hal );
+$seen = $pw_reach( $pw_a, $pw_a_step );
+check( '…and core REST neither serves nor lists it to them', $refused( $seen['core'] ) && ! $seen['cores'], [ $seen['core'], $seen['cores'] ] );
 $pw_enter( 'new sesame' );
 check( '…in with the password, but still not listed to them', $pw_sees( $hal, $pw_a, $pw_a_step ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
 $pw_enter( null );

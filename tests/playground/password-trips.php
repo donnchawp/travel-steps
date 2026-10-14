@@ -438,8 +438,9 @@ foreach ( [ 'draft' => $ct_draft, 'private' => $ct_private, 'future' => $ct_futu
 // By its status, then by 'any'.
 $ct_want = array_fill_keys( [ 'draft', 'private', 'future' ], [ 'another author' => [ 0, 0 ], 'an editor' => [ 1, 1 ] ] );
 check( 'core REST’s trip count by status: a draft, private or scheduled trip counts for an editor, not another author, by its status or any', $ct_want === $ct_seen, $ct_seen );
-// can_view() reads no meta of an unpublished trip, so finding the hidden ones doesn't
-// load it; a password trip's viewer lists are read, so its meta is loaded with it.
+// can_view() reads no meta of an unpublished trip, or of a password trip for a visitor,
+// so finding the hidden ones doesn't load it; a logged-in user's viewer lists are read,
+// so a password trip's meta is loaded with it.
 wp_set_current_user( 0 );
 wp_cache_delete( $ct_draft, 'post_meta' );
 wp_cache_delete( $ct_hidden, 'post_meta' );
@@ -449,7 +450,14 @@ $ct_seen = [
 	'protected hidden' => in_array( $ct_hidden, Trips::hidden_trip_ids( [ 'publish' ] ), true ),
 	'protected meta'   => false !== wp_cache_get( $ct_hidden, 'post_meta' ),
 ];
-check( 'hidden trips: an unpublished trip’s meta isn’t loaded to find them, a protected one’s is', [ 'draft hidden' => true, 'draft meta' => false, 'protected hidden' => true, 'protected meta' => true ] === $ct_seen, $ct_seen );
+check( 'hidden trips: neither an unpublished trip’s meta nor a protected one’s is loaded to find them for a visitor', [ 'draft hidden' => true, 'draft meta' => false, 'protected hidden' => true, 'protected meta' => false ] === $ct_seen, $ct_seen );
+wp_set_current_user( $hal );
+wp_cache_delete( $ct_hidden, 'post_meta' );
+$ct_seen = [
+	'protected hidden' => in_array( $ct_hidden, Trips::hidden_trip_ids( [ 'publish' ] ), true ),
+	'protected meta'   => false !== wp_cache_get( $ct_hidden, 'post_meta' ),
+];
+check( '…a protected trip’s meta is loaded with it for a logged-in user', [ 'protected hidden' => true, 'protected meta' => true ] === $ct_seen, $ct_seen );
 // Trashing a trip leaves its steps published, but they go with it.
 [ $ct_trashed, $ct_trashed_step ] = $ct_trip( 'Koala Ridge', 'Koala', '2024-08-03 04:05:06' );
 wp_trash_post( $ct_trashed );

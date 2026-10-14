@@ -1,6 +1,6 @@
 <?php
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template variables are render-local state.
-// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from core's password form redirect.
+// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from the password form's redirect.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }

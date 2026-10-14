@@ -531,7 +531,7 @@ class Trips {
 			'post_status'  => $status,
 		];
 		// Trimmed, so a stray space doesn't lock visitors out, but otherwise kept as typed, and
-		// slashed as wp_insert_post() expects, so it matches what visitors type into core's form.
+		// slashed as wp_insert_post() expects, so it matches what visitors type into the password form.
 		// The column holds 255 characters.
 		if ( isset( $input['password'] ) ) {
 			$postarr['post_password'] = wp_slash( mb_substr( trim( (string) $input['password'] ), 0, 255 ) );

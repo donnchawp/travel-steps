@@ -1,14 +1,15 @@
 <?php
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template variables are render-local state.
-// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from core's password form redirect.
+// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from the password form's redirect.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 /**
  * A published trip's title and password form, for a visitor who needs its password.
- * Set $trip before including. Core's form handler sets its cookie and sends the visitor
- * back with "tried" added, so a visit with that flag and the cookie which still needs the
- * password follows a wrong one. Without the cookie it's a copied link, not a wrong guess.
+ * Set $trip before including. The form posts to the trip page, where
+ * Trips::handle_password_post() sets core's cookie and sends the visitor back with "tried"
+ * added, so a visit with that flag and the cookie which still needs the password follows a
+ * wrong one. Without the cookie it's a copied link, not a wrong guess.
  */
 use TravelSteps\Trips;
 

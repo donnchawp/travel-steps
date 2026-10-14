@@ -243,7 +243,7 @@ include __DIR__ . '/_header.php';
 			<label>
 				<span><?php esc_html_e( 'Password (optional)', 'travel-steps' ); ?></span>
 				<input type="text" name="password" autocomplete="off" spellcheck="false" maxlength="255" value="<?php echo esc_attr( $trip ? $trip->post_password : '' ); ?>">
-				<small class="ts-muted"><?php esc_html_e( 'Visitors to a public trip need it to see the trip. Use a long one: nothing stops anyone trying passwords. Leave it empty for no password. A private trip can’t have one.', 'travel-steps' ); ?></small>
+				<small class="ts-muted"><?php esc_html_e( 'Visitors to a public trip need it to see the trip. Use a long one: nothing stops anyone trying passwords. Leave it empty, or “0”, for no password. A private trip can’t have one.', 'travel-steps' ); ?></small>
 			</label>
 			<p class="ts-muted">
 				<?php

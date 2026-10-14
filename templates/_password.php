@@ -7,8 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * A published trip's title and password form, for a visitor who needs its password.
  * Set $trip before including. Core's form handler sets its cookie and sends the visitor
- * back with "tried" added, so a visit with that flag which still needs the password
- * follows a wrong one.
+ * back with "tried" added, so a visit with that flag and the cookie which still needs the
+ * password follows a wrong one. Without the cookie it's a copied link, not a wrong guess.
  */
 use TravelSteps\Trips;
 
@@ -22,7 +22,7 @@ include __DIR__ . '/_header.php';
 		<?php // redirect_to since WordPress 6.8; earlier versions go back to the referer. ?>
 		<input type="hidden" name="redirect_to" value="<?php echo esc_url( $back ); ?>">
 		<input type="hidden" name="_wp_http_referer" value="<?php echo esc_url( $back ); ?>">
-		<?php if ( isset( $_GET['tried'] ) ) : ?>
+		<?php if ( isset( $_GET['tried'], $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] ) ) : ?>
 			<p class="ts-notice is-error" role="alert"><?php esc_html_e( 'That password isn’t right.', 'travel-steps' ); ?></p>
 		<?php endif; ?>
 		<p><?php esc_html_e( 'This trip is password protected. Enter its password to see it.', 'travel-steps' ); ?></p>

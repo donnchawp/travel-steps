@@ -1,5 +1,6 @@
 <?php
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template variables are render-local state.
+// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from core's password form redirect.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -8,6 +9,11 @@ use TravelSteps\Trips;
 use TravelSteps\View;
 
 $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
+// Core does this for a singular post with a password; this route isn't one, so a page
+// cache could otherwise keep the unlocked trip and serve it to everyone.
+if ( $trip && Trips::is_protected( $trip ) ) {
+	nocache_headers();
+}
 if ( $trip && Trips::needs_password( $trip ) ) {
 	include __DIR__ . '/_password.php';
 	return;
@@ -15,6 +21,11 @@ if ( $trip && Trips::needs_password( $trip ) ) {
 if ( ! $trip || ! Trips::can_view( $trip ) ) {
 	include __DIR__ . '/_notfound.php';
 	return;
+}
+// In with the password: drop the form's flag, so a copied link doesn't carry it.
+if ( isset( $_GET['tried'] ) ) {
+	wp_safe_redirect( Trips::url( $trip ) );
+	exit;
 }
 
 $can_edit   = current_user_can( 'edit_post', $trip->ID );

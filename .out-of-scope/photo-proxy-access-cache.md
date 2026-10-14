@@ -7,7 +7,7 @@ keeps no cached set of a trip's viewable photo IDs.
 
 `RestController::access()` runs first in `serve_photo()`, before the ETag
 comparison, so 304 revalidations pay for it too. For a published trip it calls
-`Trips::public_photo_ids()`, which:
+`Trips::shown_photo_ids()`, which:
 
 - decodes the trip's `_ts_photos` JSON;
 - queries the trip's published steps;

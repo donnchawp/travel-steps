@@ -206,9 +206,10 @@ class Trips {
 
 	/**
 	 * Whether a trip has a password: core's post password, checked with core's cookie.
+	 * Empty as core's post_password_required() sees it, so "0" is no password.
 	 */
 	public static function is_protected( \WP_Post $trip ): bool {
-		return '' !== $trip->post_password;
+		return ! empty( $trip->post_password );
 	}
 
 	/**
@@ -502,10 +503,11 @@ class Trips {
 			'post_content' => wp_kses_post( $input['intro'] ?? '' ),
 			'post_status'  => $status,
 		];
-		// Kept as typed, as core's editor does, and slashed as wp_insert_post() expects, so
-		// it matches what visitors type into core's form.
+		// Trimmed, so a stray space doesn't lock visitors out, but otherwise kept as typed, and
+		// slashed as wp_insert_post() expects, so it matches what visitors type into core's form.
+		// The column holds 255 characters.
 		if ( isset( $input['password'] ) ) {
-			$postarr['post_password'] = wp_slash( substr( trim( (string) $input['password'] ), 0, 255 ) );
+			$postarr['post_password'] = wp_slash( mb_substr( trim( (string) $input['password'] ), 0, 255 ) );
 		}
 		// WordPress leaves drafts without a slug; give the trip one so its URL is stable.
 		$current = $trip_id ? get_post( $trip_id ) : null;

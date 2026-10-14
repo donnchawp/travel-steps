@@ -52,6 +52,18 @@ $pw_reach = function ( int $trip, int $step ) use ( $render, $get, $pw_photo, $p
 	];
 };
 
+// Whether rendering a trip page sends core's no-cache headers.
+$pw_nocache = function ( int $trip ) use ( $render ) {
+	$sent = false;
+	$spy  = function ( $headers ) use ( &$sent ) {
+		$sent = true;
+		return $headers;
+	};
+	add_filter( 'nocache_headers', $spy );
+	$render( 'trip.php', (string) $trip );
+	remove_filter( 'nocache_headers', $spy );
+	return $sent;
+};
 // Without a password, a published trip is public as before.
 wp_set_current_user( 0 );
 $pw_enter( null );
@@ -59,6 +71,12 @@ $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'no password: visitors see the whole trip', false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 200 === $seen['step'] );
 check( 'no password: its photos and REST stay in shared caches', 'public' === $seen['photo'] && 'public' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
 check( 'no password: listed on the landing page', false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
+check( '…and left to page caches', ! $pw_nocache( $pw_a ) );
+
+// "0" is no password to core, so it's none to the trip either: public, not half-protected.
+$pw_set( $pw_a, '0' );
+$seen = $pw_reach( $pw_a, $pw_a_step );
+check( 'password “0”: public, as core treats it', false !== strpos( $seen['page'], 'Secret story' ) && 'public' === $seen['photo'] && false !== strpos( $seen['list'], 'Hidden Lisbon' ), [ $seen['photo'] ] );
 
 // With one, a visitor without it gets the title and a password form, and nothing else.
 $pw_set( $pw_a, 'open sesame' );
@@ -71,6 +89,33 @@ $refused = fn( int $status ) => in_array( $status, [ 401, 403, 404 ], true );
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && $refused( $seen['proxy']->get_status() ) && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']->get_status(), $seen['photo'], $seen['cover'], $seen['step'] ] );
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 
+// A trip page render that redirects: where to, or null if it rendered.
+$pw_redirect = function ( int $trip ) use ( $render ) {
+	$to    = null;
+	$catch = function ( $location ) use ( &$to ) {
+		$to = $location;
+		throw new RuntimeException( 'redirect' );
+	};
+	add_filter( 'wp_redirect', $catch );
+	$level = ob_get_level();
+	try {
+		$render( 'trip.php', (string) $trip );
+	} catch ( RuntimeException $e ) {
+		unset( $e );
+	}
+	while ( ob_get_level() > $level ) {
+		ob_end_clean();
+	}
+	remove_filter( 'wp_redirect', $catch );
+	return $to;
+};
+check( 'password: the form page is kept out of page caches', $pw_nocache( $pw_a ) );
+
+// A shared link with the flag, from someone who got in, shows a first visitor no message.
+$_GET = [ 'tried' => '1' ];
+check( '…no wrong-password message for a flagged link without core’s cookie', false === strpos( $render( 'trip.php', (string) $pw_a ), 'That password isn’t right' ) );
+$_GET = [];
+
 // A wrong password shows the form again, saying so; core's form handler adds "tried".
 $pw_enter( 'open sesame?' );
 $_GET = [ 'tried' => '1' ];
@@ -78,13 +123,19 @@ $page = $render( 'trip.php', (string) $pw_a );
 check( 'wrong password: the form again, saying so', false !== strpos( $page, 'name="post_password"' ) && false !== strpos( $page, 'That password isn’t right' ) && false === strpos( $page, 'Secret story' ) );
 $_GET = [];
 check( '…but not without the flag, as with another trip’s password', false === strpos( $render( 'trip.php', (string) $pw_a ), 'That password isn’t right' ) );
-check( 'the form sends the visitor back to the trip, flagged', 1 === preg_match( '#name="redirect_to" value="' . preg_quote( esc_url( add_query_arg( 'tried', '1', Trips::url( get_post( $pw_a ) ) ) ), '#' ) . '"#', $page ) );
+$pw_back = preg_quote( esc_url( add_query_arg( 'tried', '1', Trips::url( get_post( $pw_a ) ) ) ), '#' );
+check( 'the form sends the visitor back to the trip, flagged, on WordPress 6.8+ and 6.7', 1 === preg_match( '#name="redirect_to" value="' . $pw_back . '"#', $page ) && 1 === preg_match( '#name="_wp_http_referer" value="' . $pw_back . '"#', $page ) );
 
-// The right one shows the whole trip, its photos kept out of shared caches.
+// The right one lands on the flagged URL, which drops the flag so it can't be shared.
 $pw_enter( 'open sesame' );
 $_GET = [ 'tried' => '1' ];
-$seen = $pw_reach( $pw_a, $pw_a_step );
+$pw_to = $pw_redirect( $pw_a );
 $_GET = [];
+check( 'right password: the flagged URL redirects to the plain trip URL', Trips::url( get_post( $pw_a ) ) === $pw_to, $pw_to );
+check( '…the unlocked page is kept out of page caches too', $pw_nocache( $pw_a ) );
+
+// There it shows the whole trip, its photos kept out of shared caches.
+$seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'right password: the whole trip, and no message', false !== strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'That password isn’t right' ) && false === strpos( $seen['page'], 'name="post_password"' ) );
 check( '…REST and its steps let them in', 200 === $seen['rest']->get_status() && 200 === $seen['step'], [ $seen['rest']->get_status(), $seen['step'] ] );
 check( '…its photos and REST are private', 'private' === $seen['photo'] && 'private' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'private' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
@@ -162,7 +213,7 @@ check( 'trip form: its password, in plain text', 1 === preg_match( '#<input type
 $pw_boxes = array_map( fn( $u ) => $pw_box( $edit, $u ), [ $gina, $frank, $hal, $alice, $eddie, 1 ] );
 check( 'trip form: a checkbox per user who can’t already edit it, its list ticked', [ 'checked', 'box', 'box', 'none', 'none', 'none' ] === $pw_boxes, $pw_boxes );
 $pw_save = function ( array $fields ) use ( $pw_a, $stopped ) {
-	$_POST = $_REQUEST = [ 'trip_id' => $pw_a, 'title' => 'Hidden Lisbon', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ] + $fields;
+	$_POST = $_REQUEST = $fields + [ 'trip_id' => $pw_a, 'title' => 'Hidden Lisbon', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
 	$result = $stopped( [ new Trips(), 'handle_save_trip' ] );
 	$_POST = $_REQUEST = [];
 	clean_post_cache( $pw_a );
@@ -174,6 +225,8 @@ wp_set_current_user( $bob );
 check( '…anyone else is refused', 'die' === $pw_save( [ 'password' => '', 'viewers' => [ (string) $bob ] ] ) && $quoted === get_post( $pw_a )->post_password && [ $hal ] === Trips::viewers( $pw_a ) );
 wp_set_current_user( $eddie );
 check( 'trip form: an editor clears both', 'redirect' === $pw_save( [ 'password' => '' ] ) && '' === get_post( $pw_a )->post_password && [] === Trips::viewers( $pw_a ) );
+check( 'trip form: a private trip keeps no password', 'redirect' === $pw_save( [ 'status' => 'private', 'password' => 'secret' ] ) && '' === get_post( $pw_a )->post_password, get_post( $pw_a )->post_password );
+$pw_save( [ 'status' => 'publish' ] );
 
 // Without its password the trip is public again, whatever the lists say.
 update_post_meta( $pw_a, Trips::META_VIEWERS, [ $gina ] );

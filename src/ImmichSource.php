@@ -19,7 +19,7 @@ class ImmichSource implements PhotoSource {
 
 	public function photos( int $trip_id, ?array $range ) {
 		if ( ! $range && $this->needs_dates( $trip_id ) ) {
-			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+			return Trips::no_dates();
 		}
 		// The client ignores the range for an album.
 		return $this->client->photos( $range[0] ?? 0, $range[1] ?? 0, self::album( $trip_id ) );

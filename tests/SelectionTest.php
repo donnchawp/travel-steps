@@ -60,4 +60,9 @@ check( 'all hidden: nothing shown', [] === $r['shown'] && [] === $r['rest'] && 4
 
 check( 'empty step', [] === Selection::for_step( [], [], [], 8 )['shown'] );
 
+// The photo that stands for a group, whatever its keys.
+check( 'lead: the first favourite', [ 3 ] === $ids( [ Selection::lead( [ 5 => photo( 1, 0 ), 9 => photo( 3, 10, true ), 2 => photo( 4, 20, true ) ] ) ] ) );
+check( 'lead: else the first photo', [ 1 ] === $ids( [ Selection::lead( [ 5 => photo( 1, 0 ), 9 => photo( 3, 10 ) ] ) ] ) );
+check( 'lead: none of an empty group', null === Selection::lead( [] ) );
+
 exit( $failures ? 1 : 0 );

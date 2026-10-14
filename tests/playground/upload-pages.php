@@ -77,6 +77,8 @@ $up_album_trip = $trip_by( $alice );
 update_post_meta( $up_album_trip, Trips::META_ALBUM, '11111111-2222-4333-8444-555555555555' );
 $up_html = $up_edit( $alice, (string) $up_album_trip );
 check( 'an Immich trip with an album: the dates are optional, with the hint shown', 0 === $up_required( $up_html ) && 1 === preg_match( '/<small[^>]*ts-dates-hint[^>]*>/', $up_html, $up_hint ) && false === strpos( $up_hint[0], 'hidden' ), $up_choices( $up_html ) );
+$up_opts = $up_choices( $up_html );
+check( '…the script is told every choice but all Immich photos makes them optional', [ 'immich' ] === array_keys( array_filter( $up_opts, fn( $rest ) => false === strpos( $rest, 'data-dates-optional' ) ) ) && count( $up_opts ) > 2, $up_opts );
 delete_post_meta( $up_album_trip, Trips::META_ALBUM );
 $up_html = $up_edit( $alice, (string) $up_album_trip );
 check( '…all Immich photos: they’re required, with the hint hidden', 2 === $up_required( $up_html ) && 1 === preg_match( '/<small[^>]*ts-dates-hint[^>]*hidden/', $up_html ) );

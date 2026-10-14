@@ -95,4 +95,19 @@ class Selection {
 		}
 		return $bursts;
 	}
+
+	/**
+	 * The photo that stands for a group, such as a step on the map or the trip's cover:
+	 * its first favourite, else its first photo.
+	 */
+	public static function lead( array $photos ): ?array {
+		$first = null;
+		foreach ( $photos as $photo ) {
+			if ( ! empty( $photo['fav'] ) ) {
+				return $photo;
+			}
+			$first ??= $photo;
+		}
+		return $first;
+	}
 }

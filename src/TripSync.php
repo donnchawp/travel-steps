@@ -80,7 +80,7 @@ class TripSync {
 		// Dates that are both set but backwards are the author's to fix. A missing one
 		// is up to the source: uploads and an album can supply it, all of Immich can't.
 		if ( ! $range && $both ) {
-			return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+			return Trips::no_dates();
 		}
 
 		// Trip dates are local to wherever you were, so ask for more and keep photos by local day.
@@ -98,7 +98,7 @@ class TripSync {
 			[ $first, $last ] = $days;
 			$range            = Trips::range( $trip_id );
 			if ( ! $range ) { // A typed date that isn't one, such as 2025-06-32.
-				return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+				return Trips::no_dates();
 			}
 		}
 		[ $start, $end ] = $range;
@@ -328,7 +328,6 @@ class TripSync {
 				continue;
 			}
 			update_post_meta( $step_id, Trips::META_DAY, $day );
-			update_post_meta( $step_id, Trips::META_AUTO, 1 );
 			wp_set_object_terms( $step_id, array_values( array_unique( array_filter( array_column( $places, 'city' ) ) ) ), Trips::PLACE );
 			$this->place_step( get_post( $step_id ), $day_photos, $track );
 			++$created;
@@ -341,9 +340,7 @@ class TripSync {
 	 * else wherever Dawarich says you were around its post date.
 	 */
 	private function place_step( \WP_Post $step, array $day_photos, array $track ): void {
-		$located    = array_values( array_filter( $day_photos, fn( $p ) => null !== $p['lat'] ) );
-		$favourites = array_values( array_filter( $located, fn( $p ) => ! empty( $p['fav'] ) ) );
-		$photo      = $favourites[0] ?? $located[0] ?? null;
+		$photo = Selection::lead( array_filter( $day_photos, fn( $p ) => null !== $p['lat'] ) );
 		if ( $photo ) {
 			[ $lat, $lon ] = [ $photo['lat'], $photo['lon'] ];
 		} else {

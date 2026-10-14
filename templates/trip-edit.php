@@ -30,10 +30,10 @@ $account  = Settings::account( $author );
 // Null when the author has no Immich key: Immich isn't offered then.
 $albums  = $is_owner && Trips::can_use_immich( $author ) ? ImmichClient::for_user( $author )->albums() : null;
 $choices = $is_owner ? View::photo_choices( $trip, $albums ) : [];
-$picked        = (string) current( array_column( wp_list_filter( $choices, [ 'selected' => true ] ), 'value' ) );
-$picks_uploads = Trips::SOURCE_UPLOADS === $picked;
-// Uploads or an album make the dates optional: sync takes them from the photos.
-$picks_photos  = '' !== $picked && Trips::SOURCE_IMMICH !== $picked;
+$picked        = current( wp_list_filter( $choices, [ 'selected' => true ] ) ) ?: [];
+$picks_uploads = Trips::SOURCE_UPLOADS === ( $picked['value'] ?? '' );
+// Then sync can take the dates from the photos.
+$picks_photos  = ! empty( $picked['dates_optional'] );
 $uses_uploads  = $trip && Trips::uses_uploads( $trip_id );
 $can_upload    = Uploads::available();
 // Anyone who can edit the trip may add photos to it; only its author syncs.
@@ -200,7 +200,7 @@ include __DIR__ . '/_header.php';
 			<span><?php esc_html_e( 'Photos', 'travel-steps' ); ?></span>
 			<select name="photos">
 				<?php foreach ( $choices as $choice ) : ?>
-					<option value="<?php echo esc_attr( $choice['value'] ); ?>" <?php selected( $choice['selected'] ); ?> <?php disabled( $choice['disabled'] ); ?>><?php echo esc_html( $choice['label'] ); ?></option>
+					<option value="<?php echo esc_attr( $choice['value'] ); ?>" <?php selected( $choice['selected'] ); ?> <?php disabled( $choice['disabled'] ); ?> <?php echo $choice['dates_optional'] ? 'data-dates-optional' : ''; ?>><?php echo esc_html( $choice['label'] ); ?></option>
 				<?php endforeach; ?>
 			</select>
 			<?php if ( ! $can_upload ) : ?>

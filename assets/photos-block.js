@@ -4,7 +4,6 @@
  */
 ( function ( wp ) {
 	var el = wp.element.createElement;
-	var __ = wp.i18n.__;
 	var PREFIX = 'ts-place-';
 
 	function placeTime( block ) {
@@ -12,11 +11,8 @@
 		return 0 === anchor.indexOf( PREFIX ) ? parseInt( anchor.slice( PREFIX.length ), 10 ) || 0 : 0;
 	}
 
+	// Title, icon and the rest come from the server's registration.
 	wp.blocks.registerBlockType( 'travel-steps/photos', {
-		apiVersion: 3,
-		title: __( 'Trip photos', 'travel-steps' ),
-		category: 'media',
-		icon: 'format-gallery',
 		edit: function ( props ) {
 			// A string, so the selector returns an equal value while nothing relevant changes.
 			var range = wp.data.useSelect(

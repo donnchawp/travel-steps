@@ -8,15 +8,14 @@
 
 	const form = document.querySelector( '.ts-trip-form' );
 	const choice = form && form.querySelector( 'select[name="photos"]' );
+	const sync = form && form.querySelector( 'button[name="sync"]' );
 	if ( choice ) {
 		const isNew = '0' === form.elements.trip_id.value;
 		const save = form.querySelector( '.ts-save' );
-		const sync = form.querySelector( 'button[name="sync"]' );
 		const hint = form.querySelector( '.ts-dates-hint' );
 		choice.addEventListener( 'change', () => {
 			const uploads = 'uploads' === choice.value;
-			// Uploads or an album can give the trip its dates; all Immich photos can't.
-			const picksPhotos = 'immich' !== choice.value;
+			const picksPhotos = 'datesOptional' in choice.selectedOptions[ 0 ].dataset;
 			[ form.elements.start, form.elements.end ].forEach( ( input ) => {
 				input.required = ! picksPhotos;
 			} );
@@ -39,7 +38,6 @@
 	const trip = parseInt( form.elements.trip_id.value, 10 );
 	// Only the author's page has these.
 	const syncForm = document.querySelector( '.ts-sync-form' );
-	const syncButton = form.querySelector( 'button[name="sync"]' );
 	const count = panel.querySelector( 'p' );
 	const counted = count.textContent;
 	let frame = null;
@@ -63,7 +61,7 @@
 	// trip form are saved on the way (and synced, for the author).
 	function leave() {
 		if ( dirty ) {
-			form.requestSubmit( syncButton );
+			form.requestSubmit( sync );
 			return;
 		}
 		if ( syncForm ) {

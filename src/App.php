@@ -95,8 +95,6 @@ class App extends BaseApp {
 		$this->app->add_menu_item( 'trips', __( 'Trips', 'travel-steps' ), self::url() );
 		if ( current_user_can( Trips::capability() ) ) {
 			$this->app->add_menu_item( 'new', __( 'New trip', 'travel-steps' ), self::url( 'new' ) );
-		}
-		if ( current_user_can( Trips::capability() ) ) {
 			$this->app->add_menu_item( 'settings', __( 'Settings', 'travel-steps' ), self::url( 'settings' ) );
 		}
 	}

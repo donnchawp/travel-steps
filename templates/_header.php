@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 /**
- * Shared header partial. Set $page_title (and optionally $body_class) before including.
+ * Shared header partial. Set $page_title before including.
  */
 wp_app_enqueue_style(
 	'travel-steps',
@@ -22,6 +22,6 @@ wp_app_enqueue_style(
 	<title><?php wp_app_the_title( isset( $page_title ) ? $page_title : '' ); ?></title>
 	<?php wp_app_head(); ?>
 </head>
-<body class="wp-app-body ts-body <?php echo esc_attr( $body_class ?? '' ); ?>">
+<body class="wp-app-body ts-body">
 	<?php wp_app_body_open(); ?>
 	<main class="ts-main">

@@ -220,9 +220,10 @@ class Trips {
 			$statuses = get_post_stati();
 		}
 		$candidates  = [
-			'post_type'   => self::TRIP,
-			'numberposts' => -1,
-			'orderby'     => 'none',
+			'post_type'              => self::TRIP,
+			'numberposts'            => -1,
+			'orderby'                => 'none',
+			'update_post_term_cache' => false, // can_view() needs meta, not terms.
 		];
 		$unpublished = array_diff( $statuses, [ 'publish' ] );
 		$trips       = array_merge(

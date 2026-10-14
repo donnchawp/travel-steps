@@ -448,15 +448,29 @@ $ct_seen = [
 	'meta'   => false !== wp_cache_get( $ct_draft, 'post_meta' ),
 ];
 check( 'hidden trips: an unpublished trip’s meta is not loaded to find them for a visitor', [ 'hidden' => true, 'meta' => false ] === $ct_seen, $ct_seen );
-foreach ( [ 'a visitor' => [ 0, false ], 'a logged-in user' => [ $hal, true ] ] as $who => [ $user, $loaded ] ) {
+// Counted in queries, with two protected trips: reading a viewer list loads that trip's
+// meta on its own, so the cache alone can't tell one batch load from one per trip.
+[ $ct_also, $ct_also_step ] = $ct_trip( 'Bilby Flats', 'Bilby', '2024-07-03 04:05:06' );
+$pw_set( $ct_also, 'bilby' );
+$ct_meta_queries = 0;
+$ct_count_meta   = function ( $sql ) use ( &$ct_meta_queries ) {
+	global $wpdb;
+	$ct_meta_queries += false !== strpos( $sql, $wpdb->postmeta ) ? 1 : 0;
+	return $sql;
+};
+foreach ( [ 'a visitor' => [ 0, 0, 'none of two protected trips’ meta' ], 'a logged-in user' => [ $hal, 1, 'two protected trips’ meta in one query' ] ] as $who => [ $user, $queries, $how ] ) {
 	wp_set_current_user( $user );
 	wp_cache_delete( $ct_hidden, 'post_meta' );
-	$ct_seen = [
-		'hidden' => in_array( $ct_hidden, Trips::hidden_trip_ids( [ 'publish' ] ), true ),
-		'meta'   => false !== wp_cache_get( $ct_hidden, 'post_meta' ),
-	];
-	check( 'hidden trips: a protected trip’s meta is ' . ( $loaded ? '' : 'not ' ) . "loaded to find them for $who", [ 'hidden' => true, 'meta' => $loaded ] === $ct_seen, $ct_seen );
+	wp_cache_delete( $ct_also, 'post_meta' );
+	$ct_meta_queries = 0;
+	add_filter( 'query', $ct_count_meta );
+	$ct_ids = Trips::hidden_trip_ids( [ 'publish' ] );
+	remove_filter( 'query', $ct_count_meta );
+	$ct_seen = [ 'hidden' => [] === array_diff( [ $ct_hidden, $ct_also ], $ct_ids ), 'meta queries' => $ct_meta_queries ];
+	check( "hidden trips: finding them for $who loads $how", [ 'hidden' => true, 'meta queries' => $queries ] === $ct_seen, $ct_seen );
 }
+wp_delete_post( $ct_also_step, true );
+wp_delete_post( $ct_also, true );
 // Trashing a trip leaves its steps published, but they go with it.
 [ $ct_trashed, $ct_trashed_step ] = $ct_trip( 'Koala Ridge', 'Koala', '2024-08-03 04:05:06' );
 wp_trash_post( $ct_trashed );

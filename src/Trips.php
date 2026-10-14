@@ -231,8 +231,10 @@ class Trips {
 		];
 		$unpublished = array_diff( $statuses, [ 'publish' ] );
 		// can_view() decides an unpublished trip without its meta, so none is loaded for
-		// it. A published trip's is: needs_password() reads its viewer lists, and loading
-		// one key lazily would fetch every row anyway.
+		// it. The exception is a trashed trip of the current user's: map_meta_cap() reads
+		// its trash status, which loads that trip's meta on its own. A published trip's
+		// meta is loaded: needs_password() reads its viewer lists, and loading one key
+		// lazily would fetch every row anyway.
 		$trips = array_merge(
 			$unpublished ? get_posts( [ 'post_status' => $unpublished, 'update_post_meta_cache' => false ] + $candidates ) : [],
 			in_array( 'publish', $statuses, true ) ? get_posts( [ 'post_status' => 'publish', 'has_password' => true ] + $candidates ) : []

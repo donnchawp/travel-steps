@@ -40,6 +40,10 @@ class Trips {
 	const META_LON  = '_ts_lon';
 	const META_DAY  = '_ts_day';   // Y-m-d sync created the step for; kept even if you move it.
 
+	// WP_Query's single-post-ID args, each with the conversion it applies. Any of them wins
+	// over post__in, so exclude_from_query() checks them and match_nothing() drops them.
+	private const SINGLE_IDS = [ 'p' => 'intval', 'page_id' => 'absint', 'attachment_id' => 'absint', 'subpost_id' => 'absint' ];
+
 	public static function register_post_types(): void {
 		register_post_type(
 			self::TRIP,
@@ -263,9 +267,7 @@ class Trips {
 		if ( ! $ids ) {
 			return $args;
 		}
-		$singles = 'post' === $field
-			? [ 'p' => 'intval', 'page_id' => 'absint', 'attachment_id' => 'absint', 'subpost_id' => 'absint' ]
-			: [ 'post_parent' => fn( $id ) => is_numeric( $id ) ? (int) $id : null ];
+		$singles = 'post' === $field ? self::SINGLE_IDS : [ 'post_parent' => fn( $id ) => is_numeric( $id ) ? (int) $id : null ];
 		foreach ( $singles as $single => $read ) {
 			if ( isset( $args[ $single ] ) && is_scalar( $args[ $single ] ) && in_array( $read( $args[ $single ] ), $ids, true ) ) {
 				return self::match_nothing( $args );
@@ -289,8 +291,7 @@ class Trips {
 	 * its whole WHERE clause with one for page_id.
 	 */
 	private static function match_nothing( array $args ): array {
-		unset( $args['p'], $args['page_id'], $args['attachment_id'], $args['subpost_id'] );
-		return [ 'post__in' => [ 0 ] ] + $args;
+		return [ 'post__in' => [ 0 ] ] + array_diff_key( $args, self::SINGLE_IDS );
 	}
 
 	/**

@@ -424,23 +424,19 @@ foreach ( [ 'its author' => $alice, 'an editor' => $eddie ] as $who => $user ) {
 // Asking by its status or by 'any': another author may, but someone else's draft,
 // private or scheduled trip isn't counted.
 [ $ct_private ] = $ct_trip( 'Wombat Hill', 'Wombat', '2024-06-03 04:05:06' );
-[ $ct_future ]  = $ct_trip( 'Emu Plains', 'Emu', '2024-07-03 04:05:06' );
+[ $ct_future ]  = $ct_trip( 'Emu Plains', 'Emu', '2099-01-01 00:00:00' ); // Published with a future date, so scheduled.
 wp_update_post( [ 'ID' => $ct_private, 'post_status' => 'private' ] );
-wp_update_post( [ 'ID' => $ct_future, 'post_status' => 'future', 'post_date' => '2099-01-01 00:00:00', 'post_date_gmt' => '2099-01-01 00:00:00' ] );
 $ct_seen = [];
 foreach ( [ 'draft' => $ct_draft, 'private' => $ct_private, 'future' => $ct_future ] as $status => $trip ) {
 	foreach ( [ 'another author' => $bob, 'an editor' => $eddie ] as $who => $user ) {
 		wp_set_current_user( $user );
 		foreach ( [ $status, 'any' ] as $asked ) {
-			$ct_seen[ get_post_status( $trip ) ][ $who ][ $asked ] = $ct_total( '/wp/v2/ts_trip', [ 'status' => [ $asked ], 'include' => [ $trip ] ] );
+			$ct_seen[ get_post_status( $trip ) ][ $who ][] = $ct_total( '/wp/v2/ts_trip', [ 'status' => [ $asked ], 'include' => [ $trip ] ] );
 		}
 	}
 }
-$ct_want = [
-	'draft'   => [ 'another author' => [ 'draft' => 0, 'any' => 0 ], 'an editor' => [ 'draft' => 1, 'any' => 1 ] ],
-	'private' => [ 'another author' => [ 'private' => 0, 'any' => 0 ], 'an editor' => [ 'private' => 1, 'any' => 1 ] ],
-	'future'  => [ 'another author' => [ 'future' => 0, 'any' => 0 ], 'an editor' => [ 'future' => 1, 'any' => 1 ] ],
-];
+// By its status, then by 'any'.
+$ct_want = array_fill_keys( [ 'draft', 'private', 'future' ], [ 'another author' => [ 0, 0 ], 'an editor' => [ 1, 1 ] ] );
 check( 'core REST’s trip count by status: a draft, private or scheduled trip counts for an editor, not another author, by its status or any', $ct_want === $ct_seen, $ct_seen );
 // can_view() reads no meta of an unpublished trip, so finding the hidden ones doesn't
 // load it; a password trip's viewer lists are read, so its meta is loaded with it.

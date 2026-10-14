@@ -171,6 +171,10 @@ $ut_result   = ( new TripSync( new class( 'http://x', 'k' ) extends FakeDawarich
 } ) )->sync( $ut_homebody );
 $ut_hb = ( array_column( Trips::photos( $ut_homebody ), null, 'id' )[ $ut_hb_id ] ?? [] ) + [ 'lat' => 0 ];
 check( 'an upload without GPS, at home by Dawarich, is kept without a position', null === $ut_hb['lat'] && ! is_wp_error( $ut_result ) && [ 0, 1 ] === [ $ut_result['at_home'] ?? null, $ut_result['unlocated'] ?? null ] && [] === ( get_post_meta( $ut_homebody, Trips::META_STATS, true )['countries'] ?? null ), [ $ut_result, $ut_hb ] );
+foreach ( Trips::steps( $ut_homebody, true ) as $ut_step ) {
+	wp_delete_post( $ut_step->ID, true );
+}
+wp_delete_post( $ut_homebody, true );
 
 // A trip without dates takes them from its uploads.
 $ut_undated = $ut_trip( 'Undated', $ut_author );

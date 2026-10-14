@@ -40,8 +40,9 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int, no_places?: bool}|\WP_Error
-	 *         left_out, unlocated and no_places only for a trip of uploads.
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int}, at_home?: int, unlocated?: int, no_places?: bool}|\WP_Error
+	 *         left_out, at_home, unlocated and no_places only for a trip of uploads. at_home counts
+	 *         the photos taken at home, kept without a position; unlocated, the others without one.
 	 */
 	public function sync( int $trip_id ) {
 		// add_option() is an atomic insert, so a double-clicked sync can't create a day twice.
@@ -60,8 +61,9 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int, home: int}, unlocated?: int, no_places?: bool}|\WP_Error
-	 *         left_out, unlocated and no_places only for a trip of uploads.
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int}, at_home?: int, unlocated?: int, no_places?: bool}|\WP_Error
+	 *         left_out, at_home, unlocated and no_places only for a trip of uploads. at_home counts
+	 *         the photos taken at home, kept without a position; unlocated, the others without one.
 	 */
 	private function run( int $trip_id ) {
 		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
@@ -116,8 +118,8 @@ class TripSync {
 
 		$on_days = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
 		$outside = count( $photos ) - count( $on_days );
-		[ $photos, $at_home ] = $this->locate_photos( $on_days, $points, $home );
 		$uploads = Trips::uses_uploads( $trip_id );
+		[ $photos, $at_home ] = $this->locate_photos( $on_days, $points, $home, $uploads );
 		if ( $uploads ) {
 			// Uploads carry no place names, and some have a position only from Dawarich:
 			// name them all here, with one geocoder for the sync.
@@ -167,14 +169,15 @@ class TripSync {
 			'points'       => count( $points ),
 			'photos'       => count( $photos ),
 		];
-		// Uploads are all meant to be shown, so say which weren't, and why.
+		// Uploads are all meant to be shown, so say which weren't, and why, and which are
+		// shown without a place.
 		if ( $uploads ) {
 			$result['left_out']  = [
 				'outside' => $outside,
 				'untimed' => $untimed,
-				'home'    => $at_home,
 			];
-			$result['unlocated'] = count( array_filter( $photos, fn( $p ) => null === $p['lat'] ) );
+			$result['at_home']   = $at_home;
+			$result['unlocated'] = count( array_filter( $photos, fn( $p ) => null === $p['lat'] ) ) - $at_home;
 			$result['no_places'] = $no_places;
 		}
 		return $result;
@@ -223,13 +226,14 @@ class TripSync {
 	}
 
 	/**
-	 * Give photos without GPS the position you were at when they were taken, and drop
-	 * any taken near home. Images with no camera in their EXIF (screenshots, saved
-	 * downloads) are dropped too, unless you favourited them.
+	 * Give photos without GPS the position you were at when they were taken. Those taken
+	 * near home are dropped, or, if $keep_home (uploads, each chosen for the trip), kept
+	 * without a position, so they're on their day but off the map. Images with no camera
+	 * in their EXIF (screenshots, saved downloads) are dropped too, unless you favourited them.
 	 *
 	 * @return array{0: array, 1: int} The photos kept, and how many were taken at home.
 	 */
-	private function locate_photos( array $photos, array $points, ?array $home ): array {
+	private function locate_photos( array $photos, array $points, ?array $home, bool $keep_home ): array {
 		$out     = [];
 		$at_home = 0;
 		foreach ( $photos as $photo ) {
@@ -245,7 +249,10 @@ class TripSync {
 			}
 			if ( $home && null !== $photo['lat'] && Geo::distance( $photo['lat'], $photo['lon'], $home['lat'], $home['lon'] ) <= $home['radius_m'] ) {
 				++$at_home;
-				continue;
+				if ( ! $keep_home ) {
+					continue;
+				}
+				$photo = array_merge( $photo, [ 'lat' => null, 'lon' => null, 'city' => '', 'country' => '' ] );
 			}
 			$out[] = $photo;
 		}

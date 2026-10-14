@@ -12,7 +12,7 @@ use TravelSteps\Uploads;
 
 wp_set_current_user( 1 );
 $ut_author = $person( 'wanderer', 'author' );
-// Home in Dublin: photos taken there are left out.
+// Home in Dublin: photos taken there are kept without a position.
 Settings::update_account( $ut_author, [ 'home_lat' => '53.3498', 'home_lon' => '-6.2603', 'home_radius_km' => 1 ] + Settings::ACCOUNT_DEFAULTS );
 $ut_trip = function ( string $title, int $author, string $start = '', string $end = '' ) {
 	$id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => $title, 'post_status' => 'publish', 'post_author' => $author ] );
@@ -114,7 +114,6 @@ foreach (
 		'dingle'    => [ 'taken' => '2025:06:02 11:00:00', 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone,
 		'paris'     => [ 'taken' => '2025:06:03 12:00:00', 'offset' => '+02:00' ] + $ut_paris + $ut_iphone,
 		'no_gps'    => [ 'taken' => '2025:06:03 09:00:00', 'offset' => '+02:00' ], // No camera either: still kept.
-		'home'      => [ 'taken' => '2025:06:02 18:00:00', 'offset' => '+01:00', 'lat' => 53.3498, 'lon' => -6.2603 ] + $ut_iphone,
 		'later'     => [ 'taken' => '2025:06:10 12:00:00', 'offset' => '+01:00' ] + $ut_paris + $ut_iphone,
 		'untimed'   => $ut_doolin + $ut_iphone,
 	] as $ut_name => $ut_tags
@@ -127,11 +126,33 @@ $ut_result = ( new TripSync() )->sync( $ut_tour );
 check( 'an upload trip over three days syncs into three steps', ! is_wp_error( $ut_result ) && 3 === $ut_result['new_steps'], is_wp_error( $ut_result ) ? $ut_result->get_error_message() : $ut_result );
 $ut_kept = array_column( Trips::photos( $ut_tour ), 'id' );
 check( '…keeping every upload on its days, without a camera too, and nothing from Immich', [] === array_diff( [ $ut_ids['doolin_am'], $ut_ids['doolin_pm'], $ut_ids['dingle'], $ut_ids['paris'], $ut_ids['no_gps'] ], $ut_kept ) && 5 === count( $ut_kept ), $ut_kept );
-check( '…and counting those left out: one outside the dates, one untimed, one at home', [ 'outside' => 1, 'untimed' => 1, 'home' => 1 ] === ( $ut_result['left_out'] ?? null ) && 1 === ( $ut_result['unlocated'] ?? null ), $ut_result );
+check( '…and counting those left out: one outside the dates, one untimed', [ 'outside' => 1, 'untimed' => 1 ] === ( $ut_result['left_out'] ?? null ) && 1 === ( $ut_result['unlocated'] ?? null ), $ut_result );
 check( 'syncing it again adds no steps', 0 === ( ( new TripSync() )->sync( $ut_tour )['new_steps'] ?? -1 ) && 3 === count( Trips::steps( $ut_tour, true ) ) );
 wp_delete_attachment( Uploads::attachment( $ut_tour, $ut_ids['doolin_pm'] ), true );
 ( new TripSync() )->sync( $ut_tour );
 check( 'a deleted upload leaves the trip at the next sync', ! in_array( $ut_ids['doolin_pm'], array_column( Trips::photos( $ut_tour ), 'id' ), true ) );
+
+// A trip of uploads keeps the photos taken at home, but not where: home stays off the map.
+$ut_home_at = fn( array $p ) => TravelSteps\Geo::distance( (float) $p['lat'], (float) $p['lon'], 53.3498, -6.2603 ) <= 1000;
+$ut_local   = $ut_trip( 'Day trips', $ut_author, '2025-08-01', '2025-08-02' );
+$ut_lids    = [];
+foreach (
+	[
+		'home'  => [ 'taken' => '2025:08:01 09:00:00', 'offset' => '+01:00', 'lat' => 53.3498, 'lon' => -6.2603 ] + $ut_iphone,
+		'paris' => [ 'taken' => '2025:08:01 18:00:00', 'offset' => '+02:00' ] + $ut_paris + $ut_iphone,
+		'near'  => [ 'taken' => '2025:08:02 11:00:00', 'offset' => '+01:00', 'lat' => 53.3520, 'lon' => -6.2650 ] + $ut_iphone, // Day 2 is all at home.
+	] as $ut_name => $ut_tags
+) {
+	$ut_lids[ $ut_name ] = Uploads::photo_id( $ut_photo( $ut_local, $ut_tags ) );
+}
+$ut_result = ( new TripSync() )->sync( $ut_local );
+$ut_lrows  = array_column( Trips::photos( $ut_local ), null, 'id' );
+// Missing photos fail the checks: '??' would take a null lat for a missing one.
+$ut_lrow   = fn( string $name ) => ( $ut_lrows[ $ut_lids[ $name ] ] ?? [] ) + [ 'lat' => 0, 'lon' => 0, 'city' => 'x', 'country' => 'x' ];
+$ut_lhome  = $ut_lrow( 'home' );
+check( 'an upload trip keeps photos taken at home, with no position or place', 3 === count( $ut_lrows ) && [ null, null, '', '' ] === [ $ut_lhome['lat'], $ut_lhome['lon'], $ut_lhome['city'], $ut_lhome['country'] ] && null === $ut_lrow( 'near' )['lat'], $ut_lrows );
+check( '…while one taken away keeps its position', 48.8566 === round( (float) $ut_lrow( 'paris' )['lat'], 4 ), $ut_lrow( 'paris' ) );
+check( '…counting them as taken at home, not as left out or without a location', [ 'outside' => 0, 'untimed' => 0 ] === ( $ut_result['left_out'] ?? null ) && 2 === ( $ut_result['at_home'] ?? null ) && 0 === ( $ut_result['unlocated'] ?? null ), $ut_result );
 
 // A trip without dates takes them from its uploads.
 $ut_undated = $ut_trip( 'Undated', $ut_author );

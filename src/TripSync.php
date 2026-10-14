@@ -61,9 +61,7 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int}, at_home?: int, unlocated?: int, no_places?: bool}|\WP_Error
-	 *         left_out, at_home, unlocated and no_places only for a trip of uploads. at_home counts
-	 *         the photos taken at home, kept without a position; unlocated, the others without one.
+	 * @return array|\WP_Error See sync().
 	 */
 	private function run( int $trip_id ) {
 		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
@@ -119,7 +117,7 @@ class TripSync {
 		$on_days = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
 		$outside = count( $photos ) - count( $on_days );
 		$uploads = Trips::uses_uploads( $trip_id );
-		[ $photos, $at_home ] = $this->locate_photos( $on_days, $points, $home, $uploads );
+		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, $uploads );
 		if ( $uploads ) {
 			// Uploads carry no place names, and some have a position only from Dawarich:
 			// name them all here, with one geocoder for the sync.
@@ -177,7 +175,7 @@ class TripSync {
 				'untimed' => $untimed,
 			];
 			$result['at_home']   = $at_home;
-			$result['unlocated'] = count( array_filter( $photos, fn( $p ) => null === $p['lat'] ) ) - $at_home;
+			$result['unlocated'] = $unlocated;
 			$result['no_places'] = $no_places;
 		}
 		return $result;
@@ -231,11 +229,13 @@ class TripSync {
 	 * without a position, so they're on their day but off the map. Images with no camera
 	 * in their EXIF (screenshots, saved downloads) are dropped too, unless you favourited them.
 	 *
-	 * @return array{0: array, 1: int} The photos kept, and how many were taken at home.
+	 * @return array{0: array, 1: int, 2: int} The photos kept, how many were taken at home,
+	 *         and how many kept have no position from their GPS or Dawarich.
 	 */
 	private function locate_photos( array $photos, array $points, ?array $home, bool $keep_home ): array {
-		$out     = [];
-		$at_home = 0;
+		$out       = [];
+		$at_home   = 0;
+		$unlocated = 0;
 		foreach ( $photos as $photo ) {
 			if ( '' === $photo['camera'] && ! $photo['fav'] ) {
 				continue;
@@ -247,16 +247,20 @@ class TripSync {
 					$photo['lon'] = $points[ $index ][1];
 				}
 			}
-			if ( $home && null !== $photo['lat'] && Geo::distance( $photo['lat'], $photo['lon'], $home['lat'], $home['lon'] ) <= $home['radius_m'] ) {
+			if ( null === $photo['lat'] ) {
+				++$unlocated;
+			} elseif ( $home && Geo::distance( $photo['lat'], $photo['lon'], $home['lat'], $home['lon'] ) <= $home['radius_m'] ) {
 				++$at_home;
 				if ( ! $keep_home ) {
 					continue;
 				}
-				$photo = array_merge( $photo, [ 'lat' => null, 'lon' => null, 'city' => '', 'country' => '' ] );
+				// Uploads have no place names yet, and the geocoder skips a photo without a position.
+				$photo['lat'] = null;
+				$photo['lon'] = null;
 			}
 			$out[] = $photo;
 		}
-		return [ $out, $at_home ];
+		return [ $out, $at_home, $unlocated ];
 	}
 
 	/**

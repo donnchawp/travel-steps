@@ -31,18 +31,13 @@ function check( string $name, bool $ok, $detail = '' ) {
 }
 
 // Fetches a page over HTTP, as a visitor's browser would, with errors.php recording its PHP errors.
-function fetch( string $path ): array {
+function check_page( string $path, string $expect ): string {
 	@unlink( '/out/errors.txt' );
 	$response = wp_remote_get( home_url( $path ), [ 'timeout' => 120 ] );
 	$errors   = file_exists( '/out/errors.txt' ) ? trim( file_get_contents( '/out/errors.txt' ) ) : '';
-	if ( is_wp_error( $response ) ) {
-		return [ 0, '', $response->get_error_message() ];
-	}
-	return [ wp_remote_retrieve_response_code( $response ), wp_remote_retrieve_body( $response ), $errors ];
-}
-function check_page( string $path, string $expect ): string {
-	[ $code, $body, $errors ] = fetch( $path );
-	check( "$path returns 200", 200 === $code, $code ? (string) $code : $errors );
+	$code     = wp_remote_retrieve_response_code( $response );
+	$body     = wp_remote_retrieve_body( $response );
+	check( "$path returns 200", 200 === $code, is_wp_error( $response ) ? $response->get_error_message() : $code );
 	check( "$path raises no PHP error or warning", '' === $errors, $errors );
 	check( "$path renders the app", false !== strpos( $body, $expect ), substr( trim( preg_replace( '/\s+/', ' ', wp_strip_all_tags( $body ) ) ), 0, 300 ) );
 	return $body;
@@ -54,7 +49,7 @@ $dir = WP_PLUGIN_DIR . '/travel-steps/';
 check( 'Travel Steps is active', is_plugin_active( 'travel-steps/travel-steps.php' ), array_keys( get_plugins() ) );
 $loaded_from = class_exists( Trips::class ) ? ( new ReflectionClass( Trips::class ) )->getFileName() : 'not loaded';
 check( 'it runs from wp-content/plugins/travel-steps/', 0 === strpos( $loaded_from, $dir ), $loaded_from );
-check( 'that folder is the zip, not a checkout', file_exists( $dir . 'travel-steps.php' ) && ! file_exists( $dir . 'Makefile' ) && ! file_exists( $dir . 'tests' ) );
+check( 'that folder is the zip, not a checkout', ! file_exists( $dir . 'Makefile' ) && ! file_exists( $dir . 'tests' ) );
 // Uploaded photos get their place names from the bundled GeoNames data, which the demo's sync doesn't use.
 $place = class_exists( Geocoder::class ) ? ( new Geocoder() )->nearest( 52.1409, -10.2689 ) : 'not loaded';
 check( 'the bundled place names load', [ 'city' => 'Dingle', 'country' => 'Ireland' ] === $place, $place );

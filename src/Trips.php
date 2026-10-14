@@ -38,7 +38,6 @@ class Trips {
 	const META_LAT  = '_ts_lat';
 	const META_LON  = '_ts_lon';
 	const META_DAY  = '_ts_day';   // Y-m-d sync created the step for; kept even if you move it.
-	const META_AUTO = '_ts_auto';  // 1 when created by sync.
 
 	public static function register_post_types(): void {
 		register_post_type(
@@ -209,7 +208,7 @@ class Trips {
 	}
 
 	public static function arrived( \WP_Post $step ): int {
-		return (int) strtotime( get_gmt_from_date( $step->post_date ) . ' UTC' );
+		return (int) get_post_timestamp( $step );
 	}
 
 	/**
@@ -217,6 +216,14 @@ class Trips {
 	 */
 	public static function day( \WP_Post $step ): string {
 		return substr( $step->post_date, 0, 10 );
+	}
+
+	/**
+	 * A step's day of the trip, the start date being day 1; 0 if the trip has no start date.
+	 */
+	public static function day_of_trip( int $trip_id, \WP_Post $step ): int {
+		$first = (string) get_post_meta( $trip_id, self::META_START, true );
+		return $first ? Days::day_number( $first, self::day( $step ) ) : 0;
 	}
 
 	/**
@@ -247,6 +254,13 @@ class Trips {
 				'order'          => 'ASC',
 			]
 		);
+	}
+
+	/**
+	 * The error for a trip that needs dates and hasn't got usable ones.
+	 */
+	public static function no_dates(): \WP_Error {
+		return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
 	}
 
 	/**
@@ -297,8 +311,7 @@ class Trips {
 	}
 
 	public static function hidden( int $trip_id ): array {
-		$hidden = get_post_meta( $trip_id, self::META_HIDDEN, true );
-		return is_array( $hidden ) ? $hidden : [];
+		return self::id_list( $trip_id, self::META_HIDDEN );
 	}
 
 	/**
@@ -310,8 +323,12 @@ class Trips {
 	}
 
 	public static function pinned( int $trip_id ): array {
-		$pinned = get_post_meta( $trip_id, self::META_PINNED, true );
-		return is_array( $pinned ) ? $pinned : [];
+		return self::id_list( $trip_id, self::META_PINNED );
+	}
+
+	private static function id_list( int $trip_id, string $key ): array {
+		$ids = get_post_meta( $trip_id, $key, true );
+		return is_array( $ids ) ? $ids : [];
 	}
 
 	/**

@@ -3,7 +3,6 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-use TravelSteps\Days;
 use TravelSteps\RestController;
 use TravelSteps\Trips;
 use TravelSteps\View;
@@ -77,7 +76,6 @@ wp_app_enqueue_script(
 );
 
 $page_title = get_the_title( $trip );
-$body_class = 'ts-trip-page';
 include __DIR__ . '/_header.php';
 ?>
 <article class="ts-trip"
@@ -126,9 +124,8 @@ include __DIR__ . '/_header.php';
 			<?php endif; ?>
 
 			<?php
-			$first_day = (string) get_post_meta( $trip->ID, Trips::META_START, true );
 			foreach ( $steps as $index => $step ) :
-				$day     = $first_day ? Days::day_number( $first_day, Trips::day( $step ) ) : 0;
+				$day     = Trips::day_of_trip( $trip->ID, $step );
 				$places  = get_the_terms( $step, Trips::PLACE );
 				$groups  = $by_step[ $step->ID ] ?? [ 'shown' => [], 'rest' => [], 'hidden' => [] ];
 				$more    = $can_edit ? array_merge( $groups['rest'], $groups['hidden'] ) : $groups['rest'];

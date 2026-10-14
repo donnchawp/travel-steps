@@ -94,9 +94,7 @@ class View {
 		foreach ( Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) ) as $groups ) {
 			$shown = array_merge( $shown, $groups['shown'] );
 		}
-		$landscape  = array_values( array_filter( $shown, fn( $p ) => ( $p['w'] ?? 0 ) >= ( $p['h'] ?? 0 ) ) );
-		$favourites = array_values( array_filter( $landscape, fn( $p ) => ! empty( $p['fav'] ) ) );
-		$photo      = $favourites[0] ?? $landscape[0] ?? null;
+		$photo = Selection::lead( array_filter( $shown, fn( $p ) => ( $p['w'] ?? 0 ) >= ( $p['h'] ?? 0 ) ) );
 		if ( ! $photo ) {
 			return '';
 		}
@@ -178,14 +176,12 @@ class View {
 		sort( $starts );
 		$markers = [];
 		foreach ( $starts as $i => $start ) {
-			$located = array_values(
+			$photo = Selection::lead(
 				array_filter(
 					$photos,
 					fn( $p ) => null !== $p['lat'] && Days::section_index( $starts, (int) $p['t'] ) === $i + 1
 				)
 			);
-			$favourites = array_values( array_filter( $located, fn( $p ) => ! empty( $p['fav'] ) ) );
-			$photo      = $favourites[0] ?? $located[0] ?? null;
 			if ( $photo ) {
 				$markers[] = [
 					'step'   => $step->ID,
@@ -221,7 +217,7 @@ class View {
 	 *
 	 * @param array|\WP_Error|null $albums The author's Immich albums, the error listing
 	 *                                     them, or null when they have no Immich key.
-	 * @return list<array{value: string, label: string, selected: bool, disabled: bool}>
+	 * @return list<array{value: string, label: string, selected: bool, disabled: bool, dates_optional: bool}>
 	 */
 	public static function photo_choices( ?\WP_Post $trip, $albums ): array {
 		$can_upload = Uploads::available();
@@ -242,10 +238,12 @@ class View {
 		}
 		$all_immich = __( 'All Immich photos taken during the trip', 'travel-steps' );
 		$choice     = fn( string $value, string $label, bool $disabled = false ) => [
-			'value'    => $value,
-			'label'    => $label,
-			'selected' => $value === $current,
-			'disabled' => $disabled,
+			'value'          => $value,
+			'label'          => $label,
+			'selected'       => $value === $current,
+			'disabled'       => $disabled,
+			// Uploads or an album can give the trip its dates; all Immich photos can't.
+			'dates_optional' => Trips::SOURCE_IMMICH !== $value,
 		];
 
 		$choices = [ $choice( Trips::SOURCE_UPLOADS, __( 'Photos uploaded to this trip', 'travel-steps' ), ! $can_upload ) ];

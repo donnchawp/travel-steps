@@ -269,7 +269,7 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 
 @media (max-width: 860px) {
 	.ts-layout { grid-template-columns: 1fr; }
-	.ts-map-wrap { position: sticky; top: 32px; z-index: 2; height: 38vh; }
+	.ts-map-wrap { z-index: 2; height: 38vh; }
 	.ts-timeline { padding: 1.25rem 16px 4rem; }
 	.ts-step { grid-template-columns: 34px minmax(0, 1fr); gap: .75rem; }
 	.ts-step::before { left: 16px; }

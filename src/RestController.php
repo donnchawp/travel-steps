@@ -102,11 +102,10 @@ class RestController {
 		$steps    = Trips::timeline_steps( $trip, $can_edit );
 		$by_step  = Trips::photos_by_step( $trip->ID, $steps );
 
-		$first   = (string) get_post_meta( $trip->ID, Trips::META_START, true );
 		$markers = [];
 		foreach ( $steps as $index => $step ) {
 			// Same label as the timeline: the day number.
-			$number  = ( $first ? Days::day_number( $first, Trips::day( $step ) ) : 0 ) ?: $index + 1;
+			$number  = Trips::day_of_trip( $trip->ID, $step ) ?: $index + 1;
 			$groups  = $by_step[ $step->ID ] ?? [ 'shown' => [], 'rest' => [] ];
 			$photos  = array_merge( $groups['shown'], $groups['rest'] );
 			usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
@@ -239,7 +238,7 @@ class RestController {
 			exit;
 		}
 
-		self::send_file( $is_public, $etag, $cache, is_readable( $cache . '.type' ) ? trim( (string) file_get_contents( $cache . '.type' ) ) : 'image/jpeg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		self::send_file( $is_public, $etag, $cache, self::cached_type( $cache ) );
 	}
 
 	/**
@@ -290,8 +289,7 @@ class RestController {
 	private static function medium( ImmichSource $source, string $asset ) {
 		$preview = self::cache_file( $asset, 'preview' );
 		if ( is_readable( $preview ) ) {
-			$type  = is_readable( $preview . '.type' ) ? trim( (string) file_get_contents( $preview . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-			$image = [ 'body' => (string) file_get_contents( $preview ), 'type' => $type ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$image = [ 'body' => (string) file_get_contents( $preview ), 'type' => self::cached_type( $preview ) ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		} else {
 			$image = $source->image( $asset, 'preview' );
 			if ( is_wp_error( $image ) ) {
@@ -376,6 +374,13 @@ class RestController {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The type stored beside a cached image by store_cached().
+	 */
+	private static function cached_type( string $file ): string {
+		return is_readable( $file . '.type' ) ? trim( (string) file_get_contents( $file . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	}
 
 	/**

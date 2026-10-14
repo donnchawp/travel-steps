@@ -19,7 +19,7 @@ class PhotosBlock {
 		wp_register_script(
 			self::HANDLE,
 			TRAVEL_STEPS_PLUGIN_URL . 'assets/photos-block.js',
-			[ 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-server-side-render', 'wp-data', 'wp-i18n' ],
+			[ 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-server-side-render', 'wp-data' ],
 			$version( 'assets/photos-block.js' ),
 			true
 		);

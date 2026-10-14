@@ -227,6 +227,19 @@ class Trips {
 	}
 
 	/**
+	 * The parents of steps that aren't in a trip: 0, a trip deleted since, or another
+	 * post. Such a step is visible to nobody but its editors.
+	 *
+	 * @return int[]
+	 */
+	public static function stray_step_parents(): array {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- No WP_Query asks this.
+		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT s.post_parent FROM {$wpdb->posts} s LEFT JOIN {$wpdb->posts} t ON t.ID = s.post_parent AND t.post_type = %s WHERE s.post_type = %s AND t.ID IS NULL", self::TRIP, self::STEP ) );
+		return array_map( 'intval', $ids );
+	}
+
+	/**
 	 * Query args that match none of $ids by $field ('post' or 'post_parent'), on top of
 	 * any exclusions they had. WP_Query ignores {$field}__not_in once {$field}__in is
 	 * set, so the IDs come out of that too, and if nothing is left it matches nothing.

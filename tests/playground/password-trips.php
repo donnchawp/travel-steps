@@ -360,4 +360,107 @@ $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'password removed: public again', false !== strpos( $seen['page'], 'Secret story' ) && 'public' === $seen['photo'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ) && false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
 wp_set_current_user( $frank );
 check( '…and a listed user’s photos carry no nonce', false === strpos( $render( 'trip.php', (string) $pw_a ), '_wpnonce' ) );
+
+// Core REST counts a collection (X-WP-Total) before it drops what a user can't see, so a
+// trip or step they can't see must not match the query at all, or the count answers
+// questions about it: a guessed slug, a date range, a word in it.
+$ct_trip = function ( string $title, string $word, string $date ) use ( $pw_trip ) {
+	[ $id, $step ] = $pw_trip( $title );
+	wp_update_post( [ 'ID' => $id, 'post_date' => $date, 'post_date_gmt' => $date, 'post_content' => "<!-- wp:paragraph --><p>$word trip</p><!-- /wp:paragraph -->" ] );
+	wp_update_post( [ 'ID' => $step, 'post_content' => "<!-- wp:paragraph --><p>$word step</p><!-- /wp:paragraph -->" ] );
+	clean_post_cache( $id );
+	return [ $id, $step ];
+};
+[ $ct_hidden, $ct_hidden_step ] = $ct_trip( 'Quokka Island', 'Quokka', '2024-02-03 04:05:06' );
+[ $ct_draft, $ct_draft_step ]   = $ct_trip( 'Numbat Bay', 'Numbat', '2024-03-03 04:05:06' );
+[ $ct_open, $ct_open_step ]     = $ct_trip( 'Dingo Creek', 'Dingo', '2024-04-03 04:05:06' );
+$pw_set( $ct_hidden, 'quokka' );
+wp_update_post( [ 'ID' => $ct_draft, 'post_status' => 'draft' ] );
+update_post_meta( $ct_hidden, Trips::META_VIEWERS, [ $gina ] );
+Settings::update_account( $alice, [ 'viewers' => [ $frank ] ] + Settings::account( $alice ) );
+$ct_total = function ( string $route, array $params ) use ( $get ) {
+	$res = $get( $route, $params );
+	return 200 === $res->get_status() ? (int) ( $res->get_headers()['X-WP-Total'] ?? -1 ) : 'status ' . $res->get_status();
+};
+// X-WP-Total for a trip, asked about by its right slug, a minute around its date, and a word from it.
+$ct_asks = function ( int $trip, string $word ) use ( $ct_total ) {
+	$post = get_post( $trip );
+	$at   = strtotime( $post->post_date . ' UTC' );
+	return [
+		'slug'   => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $trip ], 'slug' => [ $post->post_name ] ] ),
+		'dates'  => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $trip ], 'after' => gmdate( 'Y-m-d\TH:i:s', $at - 60 ), 'before' => gmdate( 'Y-m-d\TH:i:s', $at + 60 ) ] ),
+		'search' => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $trip ], 'search' => $word, 'search_columns' => [ 'post_content' ] ] ),
+	];
+};
+$ct_none = [ 'slug' => 0, 'dates' => 0, 'search' => 0 ];
+$ct_one  = [ 'slug' => 1, 'dates' => 1, 'search' => 1 ];
+// X-WP-Total for a step, found by a word from its story, with and without include.
+$ct_step = fn( int $step, string $word ) => [ $ct_total( '/wp/v2/ts_step', [ 'search' => $word ] ), $ct_total( '/wp/v2/ts_step', [ 'search' => $word, 'include' => [ $step ] ] ) ];
+
+foreach ( [ 'a visitor' => [ 0, null ], 'a visitor with a wrong password' => [ 0, 'quokka?' ], 'a user on neither list' => [ $hal, null ] ] as $who => [ $user, $password ] ) {
+	wp_set_current_user( $user );
+	$pw_enter( $password );
+	$ct_seen = $ct_asks( $ct_hidden, 'Quokka' );
+	check( "core REST’s trip count: nothing of a protected trip for $who", $ct_none === $ct_seen, $ct_seen );
+}
+$pw_enter( null );
+foreach ( [ 'a visitor' => 0, 'a user who can’t see the trip' => $hal ] as $who => $user ) {
+	wp_set_current_user( $user );
+	$ct_seen = [ 'protected' => $ct_step( $ct_hidden_step, 'Quokka' ), 'draft' => $ct_step( $ct_draft_step, 'Numbat' ) ];
+	check( "core REST’s step count: nothing of a protected or draft trip’s steps for $who", [ 'protected' => [ 0, 0 ], 'draft' => [ 0, 0 ] ] === $ct_seen, $ct_seen );
+}
+
+foreach ( [ 'its author' => $alice, 'an editor' => $eddie, 'a user on the author’s list' => $frank, 'a user on its list' => $gina ] as $who => $user ) {
+	wp_set_current_user( $user );
+	$ct_seen = $ct_asks( $ct_hidden, 'Quokka' );
+	check( "core REST’s trip count: a protected trip counts for $who", $ct_one === $ct_seen, $ct_seen );
+	$ct_seen = $ct_step( $ct_hidden_step, 'Quokka' );
+	check( "…and its step", [ 1, 1 ] === $ct_seen, $ct_seen );
+}
+foreach ( [ 'its author' => $alice, 'an editor' => $eddie ] as $who => $user ) {
+	wp_set_current_user( $user );
+	$ct_seen = $ct_step( $ct_draft_step, 'Numbat' );
+	check( "core REST’s step count: a draft trip’s step counts for $who", [ 1, 1 ] === $ct_seen, $ct_seen );
+}
+// Core leaves a trip with a password out of a logged-out user's searches whatever they know.
+wp_set_current_user( 0 );
+$pw_enter( 'quokka' );
+$ct_seen = $ct_asks( $ct_hidden, 'Quokka' );
+check( 'core REST’s trip count: a protected trip counts for a visitor with its password, but for core’s search', [ 'slug' => 1, 'dates' => 1, 'search' => 0 ] === $ct_seen, $ct_seen );
+$ct_seen = $ct_step( $ct_hidden_step, 'Quokka' );
+check( '…and its step', [ 1, 1 ] === $ct_seen, $ct_seen );
+$pw_enter( null );
+
+$ct_seen = [ $ct_asks( $ct_open, 'Dingo' ), $ct_step( $ct_open_step, 'Dingo' ) ];
+check( 'core REST’s counts: a trip without a password and its step count for a visitor', [ $ct_one, [ 1, 1 ] ] === $ct_seen, $ct_seen );
+$ct_seen = [
+	'only hidden' => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $ct_hidden ] ] ),
+	'mixed'       => array_column( $get( '/wp/v2/ts_trip', [ 'include' => [ $ct_hidden, $ct_open ] ] )->get_data(), 'id' ),
+	'step'        => $ct_total( '/wp/v2/ts_step', [ 'include' => [ $ct_hidden_step, $ct_draft_step ] ] ),
+];
+check( '…include naming only hidden posts matches nothing, and drops them from the rest', [ 'only hidden' => 0, 'mixed' => [ $ct_open ], 'step' => 0 ] === $ct_seen, $ct_seen );
+$ct_seen = $ct_total( '/wp/v2/ts_trip', [ 'exclude' => [ $ct_open ], 'slug' => [ get_post( $ct_open )->post_name, get_post( $ct_hidden )->post_name ] ] );
+check( '…and an exclude in the request still applies alongside the hidden trips', 0 === $ct_seen, $ct_seen );
+// Steps have no parent parameter, but a plugin's rest_ts_step_query filter may add one.
+$ct_parent = fn( $args ) => [ 'post_parent__in' => [ $ct_hidden, $ct_draft ] ] + $args;
+add_filter( 'rest_' . Trips::STEP . '_query', $ct_parent );
+$ct_seen = [ $ct_step( $ct_hidden_step, 'Quokka' ), $ct_total( '/wp/v2/ts_step', [] ) ];
+remove_filter( 'rest_' . Trips::STEP . '_query', $ct_parent );
+check( '…and steps asked for by hidden trips match nothing', [ [ 0, 0 ], 0 ] === $ct_seen, $ct_seen );
+// A step of no trip, of a trip deleted since, or of another post is nobody's but its editors'.
+wp_set_current_user( 1 );
+[ $ct_gone, $ct_gone_step ] = $ct_trip( 'Bunyip Gorge', 'Bunyip', '2024-05-03 04:05:06' );
+wp_delete_post( $ct_gone, true );
+wp_set_current_user( 0 ); // So Trips::step_parent() lets a step go on a page.
+$ct_page   = wp_insert_post( [ 'post_type' => 'page', 'post_title' => 'Not a trip', 'post_status' => 'publish' ] );
+$ct_strays = [
+	$ct_gone_step,
+	wp_insert_post( [ 'post_type' => Trips::STEP, 'post_title' => 'Bunyip alone', 'post_status' => 'publish' ] ),
+	wp_insert_post( [ 'post_type' => Trips::STEP, 'post_title' => 'Bunyip on a page', 'post_status' => 'publish', 'post_parent' => $ct_page ] ),
+];
+$ct_seen = $ct_total( '/wp/v2/ts_step', [ 'search' => 'Bunyip' ] );
+check( 'core REST’s step count: nothing of steps without a trip', 0 === $ct_seen && $ct_page === get_post( $ct_strays[2] )->post_parent, $ct_seen );
+foreach ( array_merge( $ct_strays, [ $ct_page ] ) as $ct_post ) {
+	wp_delete_post( $ct_post, true );
+}
 wp_set_current_user( 1 );

@@ -509,6 +509,14 @@ $ct_seen = [
 	'page_id, p'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => $ct_open_step ] ),
 ];
 check( '…and a step of a hidden trip named by page_id matches nothing, whatever p says', [ 'page_id' => 0, 'open page_id' => 1, 'p, page_id' => 0, 'page_id, p' => 1 ] === $ct_seen, $ct_seen );
+// WP_Query reads a page_id that isn't a number, or isn't scalar, as 0 and ignores it,
+// so p still names the step.
+$ct_seen = [
+	'string'    => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => 'x' ] ),
+	'array'     => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => [ $ct_hidden_step ] ] ),
+	'hidden p'  => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => 'x' ] ),
+];
+check( '…and a page_id that WP_Query reads as 0 leaves p to name the step', [ 'string' => 1, 'array' => 1, 'hidden p' => 0 ] === $ct_seen, $ct_seen );
 // WP_Query turns these into the hidden trip's ID: (int) for p, subpost_id through
 // attachment_id, and absint for each entry of an __in list.
 $ct_seen = [

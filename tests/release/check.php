@@ -40,7 +40,35 @@ function check_page( string $path, string $expect ): string {
 	check( "$path returns 200", 200 === $code, is_wp_error( $response ) ? $response->get_error_message() : $code );
 	check( "$path raises no PHP error or warning", '' === $errors, $errors );
 	check( "$path renders the app", false !== strpos( $body, $expect ), substr( trim( preg_replace( '/\s+/', ' ', wp_strip_all_tags( $body ) ) ), 0, 300 ) );
+	check_files( $path, $body );
 	return $body;
+}
+
+// Every plugin file a page links to, and every file those stylesheets use, is in the zip.
+// Assets with a fixed version, like Leaflet, raise no warning when they're missing.
+function check_files( string $path, string $body ) {
+	$dir = WP_PLUGIN_DIR . '/travel-steps/';
+	preg_match_all( '/\b(?:src|href)=["\']([^"\']+)["\']/', $body, $links );
+	$files = [];
+	foreach ( $links[1] as $url ) {
+		$url = html_entity_decode( $url );
+		if ( 0 === strpos( $url, TRAVEL_STEPS_PLUGIN_URL ) ) {
+			$files[] = strtok( substr( $url, strlen( TRAVEL_STEPS_PLUGIN_URL ) ), '?#' );
+		}
+	}
+	foreach ( $files as $file ) {
+		if ( '.css' === substr( $file, -4 ) && is_file( $dir . $file ) ) {
+			preg_match_all( '/url\(\s*[\'"]?([^\'")]+)/', file_get_contents( $dir . $file ), $refs );
+			foreach ( $refs[1] as $ref ) {
+				if ( ! preg_match( '~^(data:|[a-z]+://|//|/|#)~i', $ref ) ) {
+					$files[] = dirname( $file ) . '/' . strtok( $ref, '?#' );
+				}
+			}
+		}
+	}
+	$files   = array_unique( $files );
+	$missing = array_values( array_filter( $files, fn( $file ) => ! is_file( $dir . $file ) ) );
+	check( "$path has every plugin file it links to", $files && ! $missing, $files ? $missing : 'it links to none' );
 }
 
 [ 'kind' => $kind, 'landing' => $landing ] = $release_check;

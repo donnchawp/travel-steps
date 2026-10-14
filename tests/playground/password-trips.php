@@ -299,6 +299,8 @@ check( 'on neither list: the password form', ! $pw_sees( $hal, $pw_a, $pw_a_step
 wp_set_current_user( $hal );
 $pw_seen = $pw_core( $pw_a );
 check( '…and core REST neither serves nor lists it to them', 'shut' === $pw_seen, $pw_seen );
+$res = $get( '/wp/v2/ts_trip/' . $pw_a, [ 'password' => 'new sesame' ] );
+check( '…not even with core’s ?password= and the right password', $refused( $res->get_status() ), [ $res->get_status(), $res->get_data() ] );
 $pw_enter( 'new sesame' );
 check( '…in with the password, but still not listed to them', $pw_sees( $hal, $pw_a, $pw_a_step ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
 $pw_enter( null );

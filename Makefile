@@ -5,6 +5,10 @@ PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
 # Dotfiles (.git, .github in dependencies…), tests and build files stay behind: Plugin Check rejects hidden files.
 RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude docs --exclude tools --exclude AGENTS.md --exclude Makefile --exclude Makefile.local --exclude dist --exclude 'whats-next*'
 
+# Judges a Playground run by its out dir ($(1)) and the exit status in $$status: prints result.txt and
+# fails if the run failed, wrote no results ($(2) didn't finish) or has a FAIL line.
+playground_result = { if test -s "$(1)/result.txt"; then cat "$(1)/result.txt"; else echo "No results: $(2) didn't finish"; false; fi && ! grep -q '^FAIL' "$(1)/result.txt" && test $$status -eq 0; }
+
 .PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist release-check geonames
 
 help: ## List targets
@@ -26,9 +30,7 @@ smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs N
 		--mount=$(CURDIR)/tests/playground:/smoke \
 		--mount="$$out":/out; \
 	status=$$?; \
-	{ test -s "$$out/result.txt" || { echo "No results: the smoke script didn't finish"; exit 1; }; } && \
-	cat "$$out/result.txt" && \
-	! grep -q '^FAIL' "$$out/result.txt" && test $$status -eq 0
+	$(call playground_result,$$out,the smoke script)
 
 check: test smoke ## Unit tests, then smoke
 
@@ -59,17 +61,16 @@ dist: ## Build dist/ from HEAD: the plugin zip (runtime deps only) and the demo'
 # The gallery's two blueprints (see the README), with the release's files taken from dist/. Not part of check: the demo needs the network for its photos.
 release-check: dist ## Run the blueprints gallery's blueprints in Playground against a fresh dist/, before a release
 	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && failed=0 && \
-	for run in plugin:demo/plugin-blueprint.json demo:demo/blueprint.json; do \
-		kind=$${run%%:*} && mkdir "$$tmp/$$kind" && \
-		php tests/release/blueprint.php "$${run#*:}" "$$kind" > "$$tmp/$$kind.json" || exit 1; \
-		echo "== $${run#*:}"; \
-		$(PLAYGROUND) run-blueprint --quiet --blueprint="$$tmp/$$kind.json" \
+	for bp in demo/plugin-blueprint.json demo/blueprint.json; do \
+		run="$$tmp/$$(basename "$$bp" .json)" && mkdir "$$run" && \
+		php tests/release/blueprint.php "$$bp" > "$$run.json" || exit 1; \
+		echo "== $$bp"; \
+		$(PLAYGROUND) run-blueprint --quiet --blueprint="$$run.json" \
 			--mount=$(CURDIR)/dist:/dist \
 			--mount=$(CURDIR)/tests/release:/release-check \
-			--mount="$$tmp/$$kind":/out; \
+			--mount="$$run":/out; \
 		status=$$?; \
-		if test -s "$$tmp/$$kind/result.txt"; then cat "$$tmp/$$kind/result.txt"; else echo "No results: the blueprint or its checks didn't finish"; fi; \
-		{ test $$status -eq 0 && test -s "$$tmp/$$kind/result.txt" && ! grep -q '^FAIL' "$$tmp/$$kind/result.txt"; } || failed=1; \
+		$(call playground_result,$$run,the blueprint or its checks) || failed=1; \
 	done; \
 	exit $$failed
 

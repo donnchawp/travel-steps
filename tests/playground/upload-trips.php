@@ -133,9 +133,10 @@ wp_delete_attachment( Uploads::attachment( $ut_tour, $ut_ids['doolin_pm'] ), tru
 check( 'a deleted upload leaves the trip at the next sync', ! in_array( $ut_ids['doolin_pm'], array_column( Trips::photos( $ut_tour ), 'id' ), true ) );
 
 // A trip of uploads keeps the photos taken at home, but not where: home stays off the map.
-$ut_home_at = fn( array $p ) => TravelSteps\Geo::distance( (float) $p['lat'], (float) $p['lon'], 53.3498, -6.2603 ) <= 1000;
-$ut_local   = $ut_trip( 'Day trips', $ut_author, '2025-08-01', '2025-08-02' );
-$ut_lids    = [];
+$ut_home     = Settings::home( $ut_author );
+$ut_off_home = fn( array $points ) => $ut_home && TravelSteps\Geo::exclude_near( $points, $ut_home ) === $points;
+$ut_local    = $ut_trip( 'Day trips', $ut_author, '2025-08-01', '2025-08-02' );
+$ut_lids     = [];
 foreach (
 	[
 		'home'  => [ 'taken' => '2025:08:01 09:00:00', 'offset' => '+01:00', 'lat' => 53.3498, 'lon' => -6.2603 ] + $ut_iphone,
@@ -157,9 +158,10 @@ $ut_map   = $get( "/travel-steps/v1/trips/$ut_local" )->get_data();
 $ut_steps = array_column( array_map( fn( $st ) => [ Trips::day( $st ), $st->ID ], Trips::steps( $ut_local, true ) ), 1, 0 );
 $ut_route = array_merge( ...( $ut_map['route'] ?: [ [] ] ) );
 check( 'a day of only home photos still gets a step, with no marker', 2 === $ut_result['new_steps'] && isset( $ut_steps['2025-08-02'] ) && ! in_array( $ut_steps['2025-08-02'], array_column( $ut_map['markers'], 'step' ), true ), [ $ut_steps, $ut_map['markers'] ] );
-check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && ! array_filter( $ut_map['markers'], $ut_home_at ) && ! array_filter( array_map( fn( $p ) => [ 'lat' => $p[0], 'lon' => $p[1] ], $ut_route ), $ut_home_at ), $ut_map );
+check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && $ut_off_home( array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $ut_map['markers'] ) ) && $ut_off_home( $ut_route ), $ut_map );
 check( '…or in the trip’s countries', [ 'France' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
-// Without GPS, Dawarich's point at that time can't place it at home either.
+// Without GPS, it can't be placed at home by Dawarich either: sync drops Dawarich's points
+// at home before it looks one up, so the photo is kept as one with no location.
 $ut_homebody = $ut_trip( 'Home, by Dawarich', $ut_author, '2025-08-05', '2025-08-05' );
 $ut_hb_id    = Uploads::photo_id( $ut_photo( $ut_homebody, [ 'taken' => '2025:08:05 10:00:00', 'offset' => '+01:00' ] + $ut_iphone ) );
 $ut_result   = ( new TripSync( new class( 'http://x', 'k' ) extends FakeDawarich {
@@ -168,7 +170,7 @@ $ut_result   = ( new TripSync( new class( 'http://x', 'k' ) extends FakeDawarich
 	}
 } ) )->sync( $ut_homebody );
 $ut_hb = ( array_column( Trips::photos( $ut_homebody ), null, 'id' )[ $ut_hb_id ] ?? [] ) + [ 'lat' => 0 ];
-check( 'an upload without GPS, at home by Dawarich, is kept without a position', null === $ut_hb['lat'] && ! is_wp_error( $ut_result ) && [] === ( get_post_meta( $ut_homebody, Trips::META_STATS, true )['countries'] ?? null ), [ $ut_result, $ut_hb ] );
+check( 'an upload without GPS, at home by Dawarich, is kept without a position', null === $ut_hb['lat'] && ! is_wp_error( $ut_result ) && [ 0, 1 ] === [ $ut_result['at_home'] ?? null, $ut_result['unlocated'] ?? null ] && [] === ( get_post_meta( $ut_homebody, Trips::META_STATS, true )['countries'] ?? null ), [ $ut_result, $ut_hb ] );
 
 // A trip without dates takes them from its uploads.
 $ut_undated = $ut_trip( 'Undated', $ut_author );

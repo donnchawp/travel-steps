@@ -13,9 +13,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class TripsRestController extends \WP_REST_Posts_Controller {
 	public function check_read_permission( $post ) {
-		if ( ! Trips::can_view( $post ) ) {
-			return false;
-		}
-		return parent::check_read_permission( $post );
+		return Trips::can_view( $post ) && parent::check_read_permission( $post );
 	}
 }

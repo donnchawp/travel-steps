@@ -3,8 +3,8 @@
 	"meta": {
 		"title": "Travel Steps demo",
 		"description": "A week in the west of Ireland, synced from stand-in Immich and Dawarich servers, with photos from Unsplash.",
-		"author": "donncha",
-		"categories": [ "Travel" ]
+		"author": "Donncha O Caoimh",
+		"categories": ["Travel"]
 	},
 	"landingPage": "/travel-steps/trip/west-of-ireland/",
 	"preferredVersions": {
@@ -23,7 +23,8 @@
 				"url": "https://github.com/donnchawp/travel-steps/releases/latest/download/travel-steps.zip"
 			},
 			"options": {
-				"activate": true
+				"activate": true,
+				"targetFolderName": "travel-steps"
 			}
 		},
 		{

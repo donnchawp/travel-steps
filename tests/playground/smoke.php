@@ -269,7 +269,7 @@ $one = $get( '/wp/v2/ts_step/' . $d1->ID );
 check( 'anon: single step of a draft trip refused', $one->get_status() >= 400, $one->get_status() );
 $places = $get( '/wp/v2/ts_place' );
 check( 'anon: place terms refused', $places->get_status() >= 400, $places->get_status() );
-check( 'anon: no photos of a draft trip', [] === Trips::public_photo_ids( get_post( $trip_id ) ) );
+check( 'anon: no photos of a draft trip', [] === Trips::shown_photo_ids( get_post( $trip_id ) ) );
 
 wp_set_current_user( 1 );
 $list = $get( '/wp/v2/ts_step', [ 'parent' => $trip_id, 'status' => 'any', 'context' => 'edit' ] );
@@ -282,7 +282,7 @@ wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
 wp_set_current_user( 0 );
 $list = $get( '/wp/v2/ts_step' );
 check( 'anon: published step of a published trip is listed', 1 === count( $list->get_data() ), count( (array) $list->get_data() ) );
-$ids = Trips::public_photo_ids( get_post( $trip_id ) );
+$ids = Trips::shown_photo_ids( get_post( $trip_id ) );
 check( 'anon: photos only from the published day', isset( $ids[ row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ] ) && ! isset( $ids[ row( 5, '2025-05-02', '11:00', 0, 0, '', 1 )['id'] ] ), array_keys( $ids ) );
 
 $trip = $get( '/travel-steps/v1/trips/' . $trip_id );
@@ -314,14 +314,14 @@ check( 'cover: an editor chooses a photo', 200 === $res->get_status() && false !
 check( 'cover: the header uses it', false !== strpos( View::cover_url( $trip_id ), $faro ) );
 check( 'cover: only the trip’s own photos', 400 === $cover( '99999999-9999-4999-8999-999999999999' )->get_status() );
 wp_set_current_user( 0 );
-check( 'cover: visitors can load the chosen cover', isset( Trips::public_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
+check( 'cover: visitors can load the chosen cover', isset( Trips::shown_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
 wp_set_current_user( 1 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'cover: its button is pressed on the trip page', 1 === preg_match( '/data-asset="' . $faro . '"[^>]*>(?:(?!<\/figure>).)*ts-photo-cover[^>]*aria-pressed="true"/s', $html ) );
 $res = $cover( '' );
 check( 'cover: pressing again goes back to automatic', 200 === $res->get_status() && false !== strpos( View::cover_url( $trip_id ), $lis ) );
 wp_set_current_user( 0 );
-check( 'cover: an unchosen draft photo is private again', ! isset( Trips::public_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
+check( 'cover: an unchosen draft photo is private again', ! isset( Trips::shown_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
 
 // Photo caching: shared caches must drop a photo soon after it's unpublished or hidden.
 $public = TravelSteps\RestController::photo_cache_control( true );
@@ -995,6 +995,7 @@ check( '…and moving a step out of a trip is allowed', 0 === $step_parent( $ali
 
 require '/smoke/upload-trips.php';
 require '/smoke/upload-pages.php';
+require '/smoke/password-trips.php';
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

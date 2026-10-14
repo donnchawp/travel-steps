@@ -8,6 +8,10 @@ use TravelSteps\Trips;
 use TravelSteps\View;
 
 $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
+if ( $trip && Trips::needs_password( $trip ) ) {
+	include __DIR__ . '/_password.php';
+	return;
+}
 if ( ! $trip || ! Trips::can_view( $trip ) ) {
 	include __DIR__ . '/_notfound.php';
 	return;

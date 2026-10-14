@@ -193,13 +193,53 @@ class Trips {
 	}
 
 	/**
-	 * Published trips are public; anything else needs edit rights.
+	 * Published trips are public, unless they need a password the visitor hasn't given;
+	 * anything else needs edit rights.
 	 */
 	public static function can_view( \WP_Post $trip ): bool {
 		if ( self::TRIP !== $trip->post_type ) {
 			return false;
 		}
-		return 'publish' === $trip->post_status || current_user_can( 'edit_post', $trip->ID );
+		return current_user_can( 'edit_post', $trip->ID ) || ( 'publish' === $trip->post_status && ! self::needs_password( $trip ) );
+	}
+
+	/**
+	 * Whether a trip has a password: core's post password, checked with core's cookie.
+	 */
+	public static function is_protected( \WP_Post $trip ): bool {
+		return '' !== $trip->post_password;
+	}
+
+	/**
+	 * Whether the current user has to type a trip's password to see it: it's published
+	 * with one, they may not skip it, and core's cookie doesn't hold it.
+	 */
+	public static function needs_password( \WP_Post $trip ): bool {
+		return 'publish' === $trip->post_status && self::is_protected( $trip ) && ! self::skips_password( $trip ) && post_password_required( $trip );
+	}
+
+	/**
+	 * Whether the current user may see a protected trip without typing its password: they
+	 * can edit it.
+	 */
+	public static function skips_password( \WP_Post $trip ): bool {
+		return current_user_can( 'edit_post', $trip->ID );
+	}
+
+	/**
+	 * Whether the landing page lists a trip to the current user: one they can see, and for
+	 * a protected trip, only if they see it without typing its password.
+	 */
+	public static function listed( \WP_Post $trip ): bool {
+		return self::can_view( $trip ) && ( ! self::is_protected( $trip ) || self::skips_password( $trip ) );
+	}
+
+	/**
+	 * A trip's title as it is, without core's "Protected:" in front: the password form
+	 * and the landing page's badge say so themselves.
+	 */
+	public static function protected_title_format( string $format, \WP_Post $post ): string {
+		return self::TRIP === $post->post_type ? '%s' : $format;
 	}
 
 	public static function url( \WP_Post $trip, string $suffix = '' ): string {
@@ -364,12 +404,12 @@ class Trips {
 	}
 
 	/**
-	 * Asset ids anyone may fetch, whoever is asking: non-hidden photos of a published
-	 * trip's published steps, and its chosen cover.
+	 * Asset ids anyone who can see a published trip may fetch: non-hidden photos of its
+	 * published steps, and its chosen cover.
 	 *
 	 * @return array<string, true>
 	 */
-	public static function public_photo_ids( \WP_Post $trip ): array {
+	public static function shown_photo_ids( \WP_Post $trip ): array {
 		if ( self::TRIP !== $trip->post_type || 'publish' !== $trip->post_status ) {
 			return [];
 		}

@@ -22,6 +22,7 @@ class TripsRestController extends \WP_REST_Posts_Controller {
 	 * can't see. They're left out of the query instead.
 	 */
 	protected function prepare_items_query( $prepared_args = [], $request = null ) {
-		return Trips::exclude_from_query( parent::prepare_items_query( $prepared_args, $request ), 'post', Trips::hidden_ids() );
+		$args = parent::prepare_items_query( $prepared_args, $request );
+		return Trips::exclude_from_query( $args, 'post', Trips::hidden_trip_ids( (array) ( $args['post_status'] ?? [] ) ) );
 	}
 }

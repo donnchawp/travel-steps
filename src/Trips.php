@@ -223,11 +223,14 @@ class Trips {
 			'post_type'              => self::TRIP,
 			'numberposts'            => -1,
 			'orderby'                => 'none',
-			'update_post_term_cache' => false, // can_view() needs meta, not terms.
+			'update_post_term_cache' => false, // can_view() reads no terms.
 		];
 		$unpublished = array_diff( $statuses, [ 'publish' ] );
-		$trips       = array_merge(
-			$unpublished ? get_posts( [ 'post_status' => $unpublished ] + $candidates ) : [],
+		// can_view() decides an unpublished trip without its meta, so none is loaded for
+		// it. A published trip's is: needs_password() reads its viewer lists, and loading
+		// one key lazily would fetch every row anyway.
+		$trips = array_merge(
+			$unpublished ? get_posts( [ 'post_status' => $unpublished, 'update_post_meta_cache' => false ] + $candidates ) : [],
 			in_array( 'publish', $statuses, true ) ? get_posts( [ 'post_status' => 'publish', 'has_password' => true ] + $candidates ) : []
 		);
 		return array_column( array_filter( $trips, fn( $trip ) => ! self::can_view( $trip ) ), 'ID' );

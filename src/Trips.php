@@ -229,6 +229,14 @@ class Trips {
 	}
 
 	/**
+	 * The name of core's post password cookie, which handle_password_post() sets and the
+	 * password form reads.
+	 */
+	public static function password_cookie(): string {
+		return 'wp-postpass_' . COOKIEHASH;
+	}
+
+	/**
 	 * The password form posts to the trip page, so a protected trip needs no route besides
 	 * its own: a site may close wp-login.php to visitors. This does what core's
 	 * wp-login.php?action=postpass does: sets its cookie to a hash of whatever was typed,
@@ -248,7 +256,7 @@ class Trips {
 			$hash = ( new \PasswordHash( 8, true ) )->HashPassword( wp_unslash( $_POST['post_password'] ) );
 			/** This filter is documented in wp-login.php */
 			$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS );
-			setcookie( 'wp-postpass_' . COOKIEHASH, $hash, $expire, COOKIEPATH, COOKIE_DOMAIN, 'https' === wp_parse_url( $to, PHP_URL_SCHEME ) );
+			setcookie( self::password_cookie(), $hash, $expire, COOKIEPATH, COOKIE_DOMAIN, 'https' === wp_parse_url( $to, PHP_URL_SCHEME ) );
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		wp_safe_redirect( $to );

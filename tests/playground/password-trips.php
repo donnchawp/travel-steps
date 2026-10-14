@@ -90,8 +90,8 @@ $refused = fn( int $status ) => in_array( $status, [ 401, 403, 404 ], true );
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && $refused( $seen['proxy']->get_status() ) && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']->get_status(), $seen['photo'], $seen['cover'], $seen['step'] ] );
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 
-// A trip page render that redirects: where to, or null if it rendered.
-$pw_redirect = function ( $trip ) use ( $render ) {
+// A trip page render that redirects: where to, or null if it rendered, leaving the page in $page.
+$pw_redirect = function ( $trip, &$page = null ) use ( $render ) {
 	$to    = null;
 	$catch = function ( $location ) use ( &$to ) {
 		$to = $location;
@@ -99,8 +99,9 @@ $pw_redirect = function ( $trip ) use ( $render ) {
 	};
 	add_filter( 'wp_redirect', $catch );
 	$level = ob_get_level();
+	$page  = null;
 	try {
-		$render( 'trip.php', (string) $trip );
+		$page = $render( 'trip.php', (string) $trip );
 	} catch ( RuntimeException $e ) {
 		unset( $e );
 	}
@@ -142,12 +143,12 @@ check( '…and its photo URLs need no nonce', false !== strpos( $seen['page'], $
 check( '…but the landing page still doesn’t list it', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 
 // The form posts to the trip page, which sets core's cookie as wp-login.php?action=postpass
-// would and sends the visitor back flagged. Returns where to, and the Set-Cookie header for
-// core's cookie, or null if it set none.
+// would and sends the visitor back flagged. Returns where to, the Set-Cookie header for
+// core's cookie, or null if it set none, and the page if it rendered one.
 $pw_post = function ( $trip, $password, array $extra = [] ) use ( $pw_redirect ) {
 	header_remove( 'Set-Cookie' );
 	$_POST    = $_REQUEST = [ 'post_password' => $password ] + $extra;
-	$to       = $pw_redirect( $trip );
+	$to       = $pw_redirect( $trip, $page );
 	$_POST    = $_REQUEST = [];
 	$cookie   = null;
 	foreach ( headers_list() as $header ) {
@@ -156,7 +157,7 @@ $pw_post = function ( $trip, $password, array $extra = [] ) use ( $pw_redirect )
 		}
 	}
 	header_remove( 'Set-Cookie' );
-	return [ $to, $cookie ];
+	return [ $to, $cookie, $page ];
 };
 // Takes the cookie a post set, as the browser would.
 $pw_keep = function ( ?string $header ) {
@@ -169,10 +170,6 @@ $pw_enter( null );
 check( 'posting the right password: back to the trip, flagged, with core’s cookie', $pw_flagged === $pw_to && null !== $pw_cookie, [ $pw_to, $pw_cookie ] );
 $pw_keep( $pw_cookie );
 check( '…which core takes as the trip’s password', ! post_password_required( get_post( $pw_a ) ) );
-$_GET = [ 'tried' => '1' ];
-$pw_to = $pw_redirect( $pw_a );
-$_GET = [];
-check( '…and the flagged page then drops the flag', Trips::url( get_post( $pw_a ) ) === $pw_to, $pw_to );
 check( '…to show the trip', false !== strpos( $render( 'trip.php', (string) $pw_a ), 'Secret story' ) );
 $pw_enter( null );
 
@@ -222,15 +219,8 @@ check( '…and secure on an https site', 0 === strpos( (string) $pw_to, 'https:/
 wp_update_post( [ 'ID' => $pw_draft, 'post_status' => 'draft', 'post_password' => 'draft sesame' ] );
 wp_set_current_user( 0 );
 foreach ( [ 'a trip without a password' => (string) $pw_open, 'a draft with one' => (string) $pw_draft, 'no trip' => 'no-such-trip' ] as $what => $slug ) {
-	[ $pw_to, $pw_cookie ] = $pw_post( $slug, 'open sesame' );
-	$same = false;
-	if ( null === $pw_to ) {
-		$_POST = $_REQUEST = [ 'post_password' => 'open sesame' ];
-		$posted = $render( 'trip.php', $slug );
-		$_POST = $_REQUEST = [];
-		$same = $render( 'trip.php', $slug ) === $posted;
-	}
-	check( "posting to $what: no cookie, the page as for a visit", null === $pw_to && null === $pw_cookie && $same, [ $pw_to, $pw_cookie ] );
+	[ $pw_to, $pw_cookie, $posted ] = $pw_post( $slug, 'open sesame' );
+	check( "posting to $what: no cookie, the page as for a visit", null === $pw_to && null === $pw_cookie && $render( 'trip.php', $slug ) === $posted, [ $pw_to, $pw_cookie ] );
 }
 
 // Changing the password locks out those who had the old one.

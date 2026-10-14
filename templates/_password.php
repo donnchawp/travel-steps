@@ -19,7 +19,7 @@ include __DIR__ . '/_header.php';
 <div class="ts-page ts-narrow">
 	<h1><?php echo esc_html( $page_title ); ?></h1>
 	<form class="ts-form ts-password-form" method="post" action="<?php echo esc_url( Trips::url( $trip ) ); ?>">
-		<?php if ( isset( $_GET['tried'], $_COOKIE[ 'wp-postpass_' . COOKIEHASH ] ) ) : ?>
+		<?php if ( isset( $_GET['tried'], $_COOKIE[ Trips::password_cookie() ] ) ) : ?>
 			<p class="ts-notice is-error" role="alert"><?php esc_html_e( 'That password isn’t right.', 'travel-steps' ); ?></p>
 		<?php endif; ?>
 		<p><?php esc_html_e( 'This trip is password protected. Enter its password to see it.', 'travel-steps' ); ?></p>

@@ -98,8 +98,6 @@ include __DIR__ . '/_header.php';
 				'outside' => __( '%s outside the trip’s dates', 'travel-steps' ),
 				/* translators: %s: number of photos */
 				'untimed' => __( '%s with no time taken (often sent through a messaging app, or a screenshot)', 'travel-steps' ),
-				/* translators: %s: number of photos */
-				'home'    => __( '%s taken at home', 'travel-steps' ),
 			] as $key => $format
 		) {
 			$count = absint( $_GET[ $key ] ?? 0 );
@@ -109,10 +107,19 @@ include __DIR__ . '/_header.php';
 				$left_out[] = 'untimed' === $key ? '<a href="#ts-untimed">' . $text . '</a>' : $text;
 			}
 		}
+		$at_home   = absint( $_GET['at_home'] ?? 0 );
 		$unlocated = absint( $_GET['unlocated'] ?? 0 );
 		?>
 		<?php if ( $left_out ) : ?>
-			<p class="ts-notice is-warning"><?php echo wp_kses( sprintf( /* translators: %s: a list of counts, such as "1 outside the trip's dates, 2 taken at home" */ esc_html__( 'Left out: %s.', 'travel-steps' ), implode( ', ', $left_out ) ), [ 'a' => [ 'href' => true ] ] ); ?></p>
+			<p class="ts-notice is-warning"><?php echo wp_kses( sprintf( /* translators: %s: a list of counts, such as "1 outside the trip's dates, 2 with no time taken" */ esc_html__( 'Left out: %s.', 'travel-steps' ), implode( ', ', $left_out ) ), [ 'a' => [ 'href' => true ] ] ); ?></p>
+		<?php endif; ?>
+		<?php if ( $at_home ) : ?>
+			<p class="ts-notice">
+				<?php
+				/* translators: %s: number of photos */
+				echo esc_html( sprintf( _n( '%s photo taken at home is shown without a place.', '%s photos taken at home are shown without a place.', $at_home, 'travel-steps' ), number_format_i18n( $at_home ) ) );
+				?>
+			</p>
 		<?php endif; ?>
 		<?php if ( $unlocated ) : ?>
 			<p class="ts-notice is-warning">

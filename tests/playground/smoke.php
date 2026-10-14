@@ -513,6 +513,8 @@ $r          = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $source ) )->
 $away_stats = get_post_meta( $away_id, Trips::META_STATS, true );
 check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'Portugal' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
 check( 'sync cuts out the trip author’s home, not the home of whoever syncs', ! is_wp_error( $r ) && $r['points'] <= 12, is_wp_error( $r ) ? $r->get_error_message() : $r );
+$away_ids = array_column( Trips::photos( $away_id ), 'id' );
+check( 'an Immich trip still leaves out the photos taken at home, and doesn’t count them', [ row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'], row( 4, '2025-05-01', '14:20', 0, 0, '', 1 )['id'] ] === $away_ids && ! isset( $r['at_home'] ), [ $away_ids, $r ] );
 foreach ( array_merge( Trips::steps( $away_id, true ), [ get_post( $away_id ) ] ) as $post ) {
 	wp_delete_post( $post->ID, true );
 }

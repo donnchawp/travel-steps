@@ -7,7 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * A published trip's title and password form, for a visitor who needs its password.
  * Set $trip before including. Core's form handler sets its cookie and sends the visitor
- * back with "tried" added, so a visit that still needs the password after it was wrong.
+ * back with "tried" added, so a visit with that flag which still needs the password
+ * follows a wrong one.
  */
 use TravelSteps\Trips;
 

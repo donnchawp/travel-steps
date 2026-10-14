@@ -9,10 +9,10 @@ function check( string $name, bool $ok ) {
 	echo ( $ok ? 'ok   ' : 'FAIL ' ) . $name . "\n";
 	$failures += $ok ? 0 : 1;
 }
-// Runs the rewrite as `make release-check` does; returns [ exit code, decoded blueprint ].
+// Runs the rewrite as `make release-check` does; returns [ exit code, decoded blueprint, JSON ].
 function rewrite( string $blueprint ): array {
 	exec( 'php ' . escapeshellarg( __DIR__ . '/release/blueprint.php' ) . ' ' . escapeshellarg( $blueprint ) . ' 2>/dev/null', $lines, $status );
-	return [ $status, json_decode( implode( "\n", $lines ), true ) ];
+	return [ $status, json_decode( implode( "\n", $lines ), true ), implode( "\n", $lines ) ];
 }
 function vfs( string $name ): array {
 	return [ 'resource' => 'vfs', 'path' => '/dist/' . $name ];
@@ -59,6 +59,11 @@ check( 'plugin: the checks know the blueprint and its landing page', false !== s
 $tmp = tempnam( sys_get_temp_dir(), 'bp' );
 file_put_contents( $tmp, json_encode( [ 'landingPage' => '/', 'steps' => [ [ 'step' => 'login' ] ] ] ) );
 check( 'no release files: refused', 0 !== rewrite( $tmp )[0] );
+
+// Empty objects stay objects, in the blueprint and in its steps.
+file_put_contents( $tmp, '{"constants":{},"steps":[{"step":"installPlugin","pluginData":{"resource":"url","url":"https://github.com/donnchawp/travel-steps/releases/latest/download/travel-steps.zip"},"options":{}}]}' );
+$json = json_decode( rewrite( $tmp )[2] );
+check( 'empty objects: kept as objects', $json && $json->constants instanceof stdClass && $json->steps[0]->options instanceof stdClass && 'vfs' === $json->steps[0]->pluginData->resource );
 unlink( $tmp );
 
 exit( $failures ? 1 : 0 );

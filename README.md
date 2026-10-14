@@ -115,14 +115,24 @@ Then activate the plugin and open `/travel-steps/settings`. An administrator set
 ## Development
 
 ```bash
-make test    # standalone: geometry, local days and places, photo selection
-make smoke   # end-to-end in WordPress Playground with fake Dawarich/Immich clients
-make demo    # the Playground demo, from this checkout, at http://127.0.0.1:9400
+make test           # standalone: geometry, local days and places, photo selection
+make smoke          # end-to-end in WordPress Playground with fake Dawarich/Immich clients
+make demo           # the Playground demo, from this checkout, at http://127.0.0.1:9400
+make release-check  # the gallery's blueprints against a fresh dist/, before a release
 ```
 
-The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release, and takes those two files from it too, so the demo and the plugin always match. `make dist` builds all three; attach every file in `dist/` to a release.
+The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release, and takes those two files from it too, so the demo and the plugin always match.
+
+Travel Steps is in the [WordPress blueprints gallery](https://github.com/WordPress/blueprints/tree/trunk/blueprints/travel-steps), and both its blueprints install from this repo's latest release, so a release marked Latest is live there straight away. `demo/blueprint.json` and `demo/plugin-blueprint.json` are byte-for-byte copies of the gallery's `blueprints/travel-steps/demo.json` and `blueprints/travel-steps/blueprint.json`. Copy them over again whenever the gallery changes them, so `make release-check` tests what the gallery runs.
 
 `make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections, the trip pages, trips of uploaded photos and their pages, and password-protected trips and their viewer lists.
+
+## Releasing
+
+1. Run `make release-check` before `gh release create`. It runs `make dist`, then each gallery blueprint in Playground with the release files taken from `dist/` instead of the latest release, and checks the plugin, the landing pages and the demo trip. It needs the network: the demo's photos come from Unsplash.
+2. Attach all three files in `dist/` with exactly their names, `travel-steps.zip`, `demo-setup.php` and `demo-fake-services.php`: `gh release create vX.Y.Z dist/*` uploads them before it publishes the release.
+3. Add `--prerelease` for anything that shouldn't reach the gallery yet.
+4. To roll back, `gh release edit vX.Y.Z --latest` on a known-good release points `latest/download` back at it.
 
 ## Deploying
 

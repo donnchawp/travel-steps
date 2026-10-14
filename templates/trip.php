@@ -1,5 +1,6 @@
 <?php
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template variables are render-local state.
+// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from core's password form redirect.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -8,15 +9,29 @@ use TravelSteps\Trips;
 use TravelSteps\View;
 
 $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
+// Core does this for a singular post with a password; this route isn't one, so a page
+// cache could otherwise keep the unlocked trip and serve it to everyone.
+if ( $trip && Trips::is_protected( $trip ) ) {
+	nocache_headers();
+}
+if ( $trip && Trips::needs_password( $trip ) ) {
+	include __DIR__ . '/_password.php';
+	return;
+}
 if ( ! $trip || ! Trips::can_view( $trip ) ) {
 	include __DIR__ . '/_notfound.php';
 	return;
+}
+// In with the password: drop the form's flag, so a copied link doesn't carry it.
+if ( isset( $_GET['tried'] ) ) {
+	wp_safe_redirect( Trips::url( $trip ) );
+	exit;
 }
 
 $can_edit   = current_user_can( 'edit_post', $trip->ID );
 // Pinning, hiding and choosing the cover also take the travel-steps capability.
 $can_curate = Trips::can_edit_trip( $trip->ID );
-$authed     = $can_edit || 'publish' !== $trip->post_status;
+$authed     = $can_edit || Trips::by_login( $trip );
 $steps      = Trips::timeline_steps( $trip, $can_edit );
 $by_step    = Trips::photos_by_step( $trip->ID, $steps );
 $pinned     = array_flip( Trips::pinned( $trip->ID ) );
@@ -80,7 +95,7 @@ include __DIR__ . '/_header.php';
 ?>
 <article class="ts-trip"
 	data-api="<?php echo esc_url( rest_url( RestController::NS . '/trips/' . $trip->ID ) ); ?>"
-	data-nonce="<?php echo esc_attr( $can_edit ? wp_create_nonce( 'wp_rest' ) : '' ); ?>">
+	data-nonce="<?php echo esc_attr( $authed ? wp_create_nonce( 'wp_rest' ) : '' ); ?>">
 
 	<header class="ts-hero<?php echo $cover ? ' has-cover' : ''; ?>">
 		<?php if ( $cover ) : ?>

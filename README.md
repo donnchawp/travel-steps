@@ -68,7 +68,9 @@ add_filter( 'travel_steps_capability', fn() => 'edit_others_posts' );
 
 Add the filter before `init`, e.g. in a plugin or mu-plugin, since routes are registered then.
 
-Steps and places are in core REST for the block editor, but a step is only readable when its trip is (published, or you can edit it), and place terms only by editors. The photo proxy serves the public only photos shown on published steps of published trips. Shared caches (CDNs, proxies) keep a public photo for 5 minutes, so unpublishing a step or hiding a photo takes effect within that; browsers revalidate after an hour with an ETag, which re-runs the access check without resending the image.
+Steps and places are in core REST for the block editor, but a step is only readable when its trip is (published and, if it has a password, unlocked, or you can edit it), and place terms only by editors. The photo proxy serves the public only photos shown on published steps of published trips. Shared caches (CDNs, proxies) keep a public photo for 5 minutes, so unpublishing a step or hiding a photo takes effect within that; browsers revalidate after an hour with an ETag, which re-runs the access check without resending the image.
+
+A published trip can have a password, set on its edit page by anyone who can edit it. It's core's post password, entered through core's form (`wp-login.php?action=postpass`) and remembered in core's `wp-postpass_` cookie, which holds one password at a time and lasts 10 days. Until a visitor enters it, the trip page shows only the title and the password form, and the map data, the photo proxy and core REST for the trip's steps refuse the trip as they would a draft. Changing the password locks out everyone who entered the old one. Logged-in users skip it if they can edit the trip, or if they're on the author's viewer list (in their settings, applying to all their trips) or on the trip's own (on its edit page). The trips page lists a protected trip only to those users, never to logged-out visitors, even ones who've entered its password. A protected trip's photos and map data are always sent as `private`, never for shared caches. Its title is still public in core REST (`/wp/v2/ts_trip`), as for any post with a password, and copies of its photos that a CDN or browser kept from before it had one expire as usual (see below).
 
 Cached photos (`uploads/travel-steps-cache/`) and photos uploaded to a trip (`uploads/travel-steps/<trip id>/`) are only meant to be reached through the photo proxy. Both folders get an `.htaccess` deny rule, which Apache obeys, and every folder in them an empty `index.html`, so none can be listed. nginx ignores it, so there the protection is the file names: random UUIDs that appear nowhere a visitor can see. (An uploaded photo's file name is not the photo id in its proxy URL.) To block those folders on nginx too, add (on multisite, use each site's `uploads/sites/<id>/` path):
 
@@ -90,10 +92,10 @@ Place names for naming spots offline ship in `data/geonames/`: towns of 500 peop
 
 | URL | Who |
 |---|---|
-| `/travel-steps/` | Everyone: published trips (editors also see drafts) |
-| `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox. Editors can pin and hide photos. |
+| `/travel-steps/` | Everyone: published trips (editors also see drafts, and password-protected trips are listed only to their editors and viewer lists) |
+| `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox, or a password form for a protected trip. Editors can pin and hide photos. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, photos (Immich or uploads), visibility, sync, step list |
-| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys and home. Admins also: the server URLs, place radius and photos to pick |
+| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius and photos to pick |
 
 ## Setup
 
@@ -120,7 +122,7 @@ make demo    # the Playground demo, from this checkout, at http://127.0.0.1:9400
 
 The demo's stand-in servers, trip and photos are in `demo/fake-services.php`, and `demo/setup.php` creates and syncs the trip. `demo/blueprint.json` is the public demo: it installs the latest release, and takes those two files from it too, so the demo and the plugin always match. `make dist` builds all three; attach every file in `dist/` to a release.
 
-`make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections, the trip pages, and trips of uploaded photos and their pages.
+`make smoke` covers sync and re-sync (edits kept, binned days stay binned), the sync lock, the REST gate for steps and places, photo visibility, story sections, the trip pages, trips of uploaded photos and their pages, and password-protected trips and their viewer lists.
 
 ## Deploying
 
@@ -150,4 +152,4 @@ If an authentication proxy guards the whole site, trips aren't public until it l
 - `/wp-json/travel-steps/v1/*`: map data and photos, each checked against the trip's visibility
 - `/wp-content/plugins/travel-steps/*`: scripts, styles and Leaflet
 
-Photos come from `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}`. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them 5 minutes; drafts and editor URLs are `private`. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users: editors see drafts and editing tools.
+Photos come from `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}`. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them 5 minutes; drafts and editor URLs are `private`. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users, or for visitors with a `wp-postpass_` cookie: editors see drafts and editing tools, and a protected trip's page shows the whole trip once its password is entered.

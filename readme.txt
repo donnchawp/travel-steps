@@ -14,7 +14,7 @@ A Polarsteps-style travel journal: photos from Immich or uploaded to the trip, a
 
 Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip; either way they're served through WordPress, so Immich and the original files stay private.
 
-Sync creates a draft step for every day with favourite photos, with a heading and a Trip photos block for each place you visited. You write each step up in the block editor and publish it. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map.
+Sync creates a draft step for every day with favourite photos, with a heading and a Trip photos block for each place you visited. You write each step up in the block editor and publish it. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map. A trip can also have a password, with lists of logged-in users who see it without one.
 
 Photos come from an Immich server reachable from your WordPress server, or are uploaded to each trip, which needs PHP's exif extension. Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location; a trip always uses its author's.
 

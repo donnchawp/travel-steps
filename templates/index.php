@@ -15,7 +15,7 @@ $trips      = get_posts(
 		'posts_per_page' => -1,
 	]
 );
-$trips      = array_values( array_filter( $trips, [ Trips::class, 'can_view' ] ) );
+$trips      = array_values( array_filter( $trips, [ Trips::class, 'listed' ] ) );
 // Oldest trip first; undated drafts on top.
 usort( $trips, fn( $a, $b ) => strcmp( get_post_meta( $a->ID, Trips::META_START, true ) ?: '0000', get_post_meta( $b->ID, Trips::META_START, true ) ?: '0000' ) );
 $page_title = __( 'Trips', 'travel-steps' );
@@ -41,8 +41,20 @@ include __DIR__ . '/_header.php';
 					<?php if ( $cover ) : ?>
 						<img src="<?php echo esc_url( $cover ); ?>" alt="" loading="lazy">
 					<?php endif; ?>
-					<?php if ( 'publish' !== $trip->post_status ) : ?>
-						<span class="ts-badge"><?php echo esc_html( get_post_status_object( $trip->post_status )->label ?? $trip->post_status ); ?></span>
+					<?php
+					$badges = array_filter(
+						[
+							'publish' !== $trip->post_status ? ( get_post_status_object( $trip->post_status )->label ?? $trip->post_status ) : '',
+							Trips::is_protected( $trip ) && current_user_can( 'edit_post', $trip->ID ) ? __( 'Password protected', 'travel-steps' ) : '',
+						]
+					);
+					?>
+					<?php if ( $badges ) : ?>
+						<span class="ts-card-badges">
+							<?php foreach ( $badges as $badge ) : ?>
+								<span class="ts-badge"><?php echo esc_html( $badge ); ?></span>
+							<?php endforeach; ?>
+						</span>
 					<?php endif; ?>
 				</div>
 				<div class="ts-card-body">

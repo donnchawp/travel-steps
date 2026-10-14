@@ -120,7 +120,8 @@ class RestController {
 				'can_edit' => $can_edit,
 			]
 		);
-		$response->header( 'Cache-Control', 'publish' === $trip->post_status && ! $can_edit ? 'public, max-age=300' : 'private, no-store' );
+		$public = Trips::is_public( $trip ) && ! $can_edit;
+		$response->header( 'Cache-Control', $public ? 'public, max-age=300' : 'private, no-store' );
 		return $response;
 	}
 
@@ -173,18 +174,18 @@ class RestController {
 
 	/**
 	 * Who may fetch a photo through a trip: "public" for one anyone may see, which
-	 * shared caches may keep; "private" for one only the current user may (for editors,
-	 * any synced photo; for the trip's managers, any photo uploaded to it, synced or
-	 * not); "" if they may not.
+	 * shared caches may keep; "private" for one only the current user may (for those a
+	 * protected trip lets in, its shown photos; for editors, any synced photo; for the
+	 * trip's managers, any photo uploaded to it, synced or not); "" if they may not.
 	 */
 	public static function access( int $trip_id, string $asset ): string {
 		$trip = get_post( $trip_id );
 		if ( ! $trip ) {
 			return '';
 		}
-		if ( isset( Trips::public_photo_ids( $trip )[ $asset ] ) ) {
-			// Only a chosen cover can be hidden and public.
-			return in_array( $asset, Trips::hidden( $trip_id ), true ) ? 'private' : 'public';
+		if ( Trips::can_view( $trip ) && isset( Trips::shown_photo_ids( $trip )[ $asset ] ) ) {
+			// Only a chosen cover can be hidden and shown.
+			return Trips::is_public( $trip ) && ! in_array( $asset, Trips::hidden( $trip_id ), true ) ? 'public' : 'private';
 		}
 		if ( ! current_user_can( 'edit_post', $trip_id ) ) {
 			return '';

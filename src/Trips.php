@@ -33,6 +33,7 @@ class Trips {
 	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries.
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
+	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.
 
 	// Step meta. A step is a day: the date part of its post date.
 	const META_LAT  = '_ts_lat';
@@ -193,13 +194,95 @@ class Trips {
 	}
 
 	/**
-	 * Published trips are public; anything else needs edit rights.
+	 * Published trips are public, unless they need a password the visitor hasn't given;
+	 * anything else needs edit rights.
 	 */
 	public static function can_view( \WP_Post $trip ): bool {
 		if ( self::TRIP !== $trip->post_type ) {
 			return false;
 		}
-		return 'publish' === $trip->post_status || current_user_can( 'edit_post', $trip->ID );
+		return current_user_can( 'edit_post', $trip->ID ) || ( 'publish' === $trip->post_status && ! self::needs_password( $trip ) );
+	}
+
+	/**
+	 * Whether a trip has a password: core's post password, checked with core's cookie.
+	 * Empty as core's post_password_required() sees it, so "0" is no password.
+	 */
+	public static function is_protected( \WP_Post $trip ): bool {
+		return ! empty( $trip->post_password );
+	}
+
+	/**
+	 * Whether anyone may see a trip, so shared caches may keep it and its photos: it's
+	 * published without a password.
+	 */
+	public static function is_public( \WP_Post $trip ): bool {
+		return 'publish' === $trip->post_status && ! self::is_protected( $trip );
+	}
+
+	/**
+	 * Whether the current user has to type a trip's password to see it: it's published
+	 * with one, they may not skip it, and core's cookie doesn't hold it.
+	 */
+	public static function needs_password( \WP_Post $trip ): bool {
+		return 'publish' === $trip->post_status && self::is_protected( $trip ) && ! self::skips_password( $trip ) && post_password_required( $trip );
+	}
+
+	/**
+	 * Whether the current user may see a protected trip without typing its password: they
+	 * can edit it, or they're logged in and on its author's viewer list or its own.
+	 */
+	public static function skips_password( \WP_Post $trip ): bool {
+		if ( current_user_can( 'edit_post', $trip->ID ) ) {
+			return true;
+		}
+		$user = get_current_user_id();
+		return $user && in_array( $user, array_merge( Settings::viewers( (int) $trip->post_author ), self::viewers( $trip->ID ) ), true );
+	}
+
+	/**
+	 * Whether the current user's requests for a trip's photos and REST must carry a REST
+	 * nonce, which REST needs to know who they are: they see it by their login, as it
+	 * isn't public. Visitors with a protected trip's password need none: core's cookie
+	 * is read without one.
+	 */
+	public static function by_login( \WP_Post $trip ): bool {
+		return ! self::is_public( $trip ) && self::skips_password( $trip );
+	}
+
+	/**
+	 * Users who see the trip without its password, besides its author's viewer list.
+	 *
+	 * @return int[]
+	 */
+	public static function viewers( int $trip_id ): array {
+		return self::user_ids( self::id_list( $trip_id, self::META_VIEWERS ) );
+	}
+
+	/**
+	 * A list of user ids from stored or submitted values.
+	 *
+	 * @param mixed $ids
+	 * @return int[]
+	 */
+	public static function user_ids( $ids ): array {
+		return is_array( $ids ) ? array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ) : [];
+	}
+
+	/**
+	 * Whether the landing page lists a trip to the current user: one they can see, and for
+	 * a protected trip, only if they see it without typing its password.
+	 */
+	public static function listed( \WP_Post $trip ): bool {
+		return self::can_view( $trip ) && ( ! self::is_protected( $trip ) || self::skips_password( $trip ) );
+	}
+
+	/**
+	 * A trip's title as it is, without core's "Protected:" in front: the password form
+	 * and the landing page's badge say so themselves.
+	 */
+	public static function protected_title_format( string $format, \WP_Post $post ): string {
+		return self::TRIP === $post->post_type ? '%s' : $format;
 	}
 
 	public static function url( \WP_Post $trip, string $suffix = '' ): string {
@@ -364,12 +447,12 @@ class Trips {
 	}
 
 	/**
-	 * Asset ids anyone may fetch, whoever is asking: non-hidden photos of a published
-	 * trip's published steps, and its chosen cover.
+	 * Asset ids anyone who can see a published trip may fetch: non-hidden photos of its
+	 * published steps, and its chosen cover.
 	 *
 	 * @return array<string, true>
 	 */
-	public static function public_photo_ids( \WP_Post $trip ): array {
+	public static function shown_photo_ids( \WP_Post $trip ): array {
 		if ( self::TRIP !== $trip->post_type || 'publish' !== $trip->post_status ) {
 			return [];
 		}
@@ -420,6 +503,12 @@ class Trips {
 			'post_content' => wp_kses_post( $input['intro'] ?? '' ),
 			'post_status'  => $status,
 		];
+		// Trimmed, so a stray space doesn't lock visitors out, but otherwise kept as typed, and
+		// slashed as wp_insert_post() expects, so it matches what visitors type into core's form.
+		// The column holds 255 characters.
+		if ( isset( $input['password'] ) ) {
+			$postarr['post_password'] = wp_slash( mb_substr( trim( (string) $input['password'] ), 0, 255 ) );
+		}
 		// WordPress leaves drafts without a slug; give the trip one so its URL is stable.
 		$current = $trip_id ? get_post( $trip_id ) : null;
 		if ( ! $current || ! $current->post_name ) {
@@ -430,6 +519,8 @@ class Trips {
 			wp_die( esc_html( $result->get_error_message() ) );
 		}
 		$trip_id = (int) $result;
+		// Checkboxes: none ticked sends nothing.
+		update_post_meta( $trip_id, self::META_VIEWERS, self::user_ids( $input['viewers'] ?? [] ) );
 
 		// Only the author sends these (others' forms leave them out).
 		if ( self::can_sync_trip( $trip_id ) ) {

@@ -85,7 +85,7 @@ class View {
 	 * a published step, else the first landscape photo shown there.
 	 */
 	public static function cover_url( int $trip_id, string $size = 'preview' ): string {
-		$authed = 'publish' !== get_post_status( $trip_id );
+		$authed = Trips::by_login( get_post( $trip_id ) );
 		$chosen = Trips::cover( $trip_id );
 		if ( '' !== $chosen ) {
 			return RestController::photo_url( $trip_id, $chosen, $size, $authed );
@@ -208,6 +208,36 @@ class View {
 			];
 		}
 		return $markers;
+	}
+
+	/**
+	 * Checkboxes named viewers[] for a viewer list, $listed ticked: one per user, by display
+	 * name, but for those who see the trips anyway. For a trip, they're those who can edit
+	 * it; for the author's list, or a trip not yet saved, the author and those who can edit
+	 * others' trips.
+	 *
+	 * @param int[] $listed
+	 */
+	public static function viewer_boxes( int $author, int $trip_id, array $listed ): void {
+		// Whole users, which primes their meta for the capability checks in one go.
+		$users = array_filter(
+			get_users( [ 'orderby' => 'display_name' ] ),
+			fn( \WP_User $user ) => ! ( $trip_id ? user_can( $user, 'edit_post', $trip_id ) : $author === $user->ID || user_can( $user, 'edit_others_posts' ) )
+		);
+		if ( ! $users ) {
+			echo '<p class="ts-muted">' . esc_html__( 'Nobody else on this site can be added.', 'travel-steps' ) . '</p>';
+			return;
+		}
+		echo '<div class="ts-viewers">';
+		foreach ( $users as $user ) {
+			printf(
+				'<label class="ts-check"><input type="checkbox" name="viewers[]" value="%d"%s> <span>%s</span></label>',
+				(int) $user->ID,
+				in_array( (int) $user->ID, $listed, true ) ? ' checked' : '',
+				esc_html( $user->display_name )
+			);
+		}
+		echo '</div>';
 	}
 
 	/**

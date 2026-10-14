@@ -443,21 +443,20 @@ check( 'core REST’s trip count by status: a draft, private or scheduled trip c
 // so a password trip's meta is loaded with it.
 wp_set_current_user( 0 );
 wp_cache_delete( $ct_draft, 'post_meta' );
-wp_cache_delete( $ct_hidden, 'post_meta' );
 $ct_seen = [
-	'draft hidden'     => in_array( $ct_draft, Trips::hidden_trip_ids( [ 'draft' ] ), true ),
-	'draft meta'       => false !== wp_cache_get( $ct_draft, 'post_meta' ),
-	'protected hidden' => in_array( $ct_hidden, Trips::hidden_trip_ids( [ 'publish' ] ), true ),
-	'protected meta'   => false !== wp_cache_get( $ct_hidden, 'post_meta' ),
+	'hidden' => in_array( $ct_draft, Trips::hidden_trip_ids( [ 'draft' ] ), true ),
+	'meta'   => false !== wp_cache_get( $ct_draft, 'post_meta' ),
 ];
-check( 'hidden trips: neither an unpublished trip’s meta nor a protected one’s is loaded to find them for a visitor', [ 'draft hidden' => true, 'draft meta' => false, 'protected hidden' => true, 'protected meta' => false ] === $ct_seen, $ct_seen );
-wp_set_current_user( $hal );
-wp_cache_delete( $ct_hidden, 'post_meta' );
-$ct_seen = [
-	'protected hidden' => in_array( $ct_hidden, Trips::hidden_trip_ids( [ 'publish' ] ), true ),
-	'protected meta'   => false !== wp_cache_get( $ct_hidden, 'post_meta' ),
-];
-check( '…a protected trip’s meta is loaded with it for a logged-in user', [ 'protected hidden' => true, 'protected meta' => true ] === $ct_seen, $ct_seen );
+check( 'hidden trips: an unpublished trip’s meta is not loaded to find them for a visitor', [ 'hidden' => true, 'meta' => false ] === $ct_seen, $ct_seen );
+foreach ( [ 'a visitor' => [ 0, false ], 'a logged-in user' => [ $hal, true ] ] as $who => [ $user, $loaded ] ) {
+	wp_set_current_user( $user );
+	wp_cache_delete( $ct_hidden, 'post_meta' );
+	$ct_seen = [
+		'hidden' => in_array( $ct_hidden, Trips::hidden_trip_ids( [ 'publish' ] ), true ),
+		'meta'   => false !== wp_cache_get( $ct_hidden, 'post_meta' ),
+	];
+	check( 'hidden trips: a protected trip’s meta is ' . ( $loaded ? '' : 'not ' ) . "loaded to find them for $who", [ 'hidden' => true, 'meta' => $loaded ] === $ct_seen, $ct_seen );
+}
 // Trashing a trip leaves its steps published, but they go with it.
 [ $ct_trashed, $ct_trashed_step ] = $ct_trip( 'Koala Ridge', 'Koala', '2024-08-03 04:05:06' );
 wp_trash_post( $ct_trashed );

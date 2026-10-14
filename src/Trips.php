@@ -233,7 +233,7 @@ class Trips {
 		// can_view() decides an unpublished trip without its meta, so none is loaded for
 		// it. The exception is a trashed trip of the current user's: map_meta_cap() reads
 		// its trash status, which loads that trip's meta on its own. A published trip's
-		// meta is loaded only for a logged-in user: needs_password() reads their viewer
+		// meta is loaded only for a logged-in user: needs_password() may read their viewer
 		// lists, and loading one key lazily would fetch every row anyway. For a visitor
 		// it reads none.
 		$trips = array_merge(

@@ -5,6 +5,7 @@
  * row(), $render, $get, $stopped, $person, $alice, $bob and $eddie.
  */
 use TravelSteps\RestController;
+use TravelSteps\Settings;
 use TravelSteps\Trips;
 
 require_once ABSPATH . WPINC . '/class-phpass.php';
@@ -101,3 +102,41 @@ foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	check( "the trip’s $role sees it without the password", false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] );
 	check( "…listed to them with a “Password protected” badge", 1 === preg_match( '#<span class="ts-badge">Password protected</span>(?:(?!</a>).)*Hidden Lisbon#s', $seen['list'] ) );
 }
+
+// Logged-in users REST knows only by a nonce, so their photo URLs carry one, the cover's too.
+$pw_nonced = fn( string $html, string $asset ) => 1 === preg_match( '#/photo/' . $asset . '\?[^"]*_wpnonce=#', $html );
+foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
+	wp_set_current_user( $user );
+	$seen = $pw_reach( $pw_a, $pw_a_step );
+	check( "the {$role}’s cover and photo URLs carry a nonce", $pw_nonced( $seen['list'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_photo ) );
+}
+
+// Viewer lists: the author's covers all their trips, a trip's only that trip.
+$frank = $person( 'frank', 'subscriber' ); // On Alice's list.
+$gina  = $person( 'gina', 'subscriber' );  // On Hidden Lisbon's list.
+$hal   = $person( 'hal', 'subscriber' );   // On neither.
+[ $pw_b, $pw_b_step ] = $pw_trip( 'Hidden Porto' );
+$pw_set( $pw_b, 'porto' );
+Settings::update_account( $alice, [ 'viewers' => [ $frank, 999999 ] ] + Settings::account( $alice ) );
+update_post_meta( $pw_a, Trips::META_VIEWERS, [ $gina ] );
+$pw_sees = function ( int $user, int $trip, int $step ) use ( $pw_reach ) {
+	wp_set_current_user( $user );
+	$seen = $pw_reach( $trip, $step );
+	return false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] && 200 === $seen['step'];
+};
+$pw_listed = function ( int $user, string $title ) use ( $render ) {
+	wp_set_current_user( $user );
+	return false !== strpos( $render( 'index.php', '' ), $title );
+};
+check( 'on the author’s list: all their protected trips, without a password', $pw_sees( $frank, $pw_a, $pw_a_step ) && $pw_sees( $frank, $pw_b, $pw_b_step ) );
+check( '…listed, without a badge', $pw_listed( $frank, 'Hidden Lisbon' ) && $pw_listed( $frank, 'Hidden Porto' ) && false === strpos( $render( 'index.php', '' ), 'Password protected' ) );
+wp_set_current_user( $frank );
+$page = $render( 'trip.php', (string) $pw_a );
+check( '…with nonces on its photos and REST', $pw_nonced( $page, $pw_photo ) && $pw_nonced( $page, $pw_cover ) && 1 === preg_match( '#data-nonce="[a-f0-9]+"#', $page ) && $pw_nonced( $render( 'index.php', '' ), $pw_cover ) );
+check( 'on a trip’s list: that trip without a password', $pw_sees( $gina, $pw_a, $pw_a_step ) && $pw_listed( $gina, 'Hidden Lisbon' ) );
+check( '…but not the author’s other protected trips', ! $pw_sees( $gina, $pw_b, $pw_b_step ) && ! $pw_listed( $gina, 'Hidden Porto' ) );
+check( 'on neither list: the password form', ! $pw_sees( $hal, $pw_a, $pw_a_step ) && false !== strpos( $render( 'trip.php', (string) $pw_a ), 'name="post_password"' ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
+$pw_enter( 'new sesame' );
+check( '…in with the password, but still not listed to them', $pw_sees( $hal, $pw_a, $pw_a_step ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
+$pw_enter( null );
+check( 'logged out, a listed user is a visitor', ! $pw_sees( 0, $pw_a, $pw_a_step ) );

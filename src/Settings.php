@@ -32,6 +32,8 @@ class Settings {
 		'home_lat'       => '',
 		'home_lon'       => '',
 		'home_radius_km' => 1,
+		// User ids who see all this user's password-protected trips without the password.
+		'viewers'        => [],
 	];
 
 	public static function all(): array {
@@ -59,11 +61,20 @@ class Settings {
 	/**
 	 * A user's own keys and home.
 	 *
-	 * @return array{immich_key: string, dawarich_key: string, home_lat: string, home_lon: string, home_radius_km: float|int}
+	 * @return array{immich_key: string, dawarich_key: string, home_lat: string, home_lon: string, home_radius_km: float|int, viewers: int[]}
 	 */
 	public static function account( int $user_id ): array {
 		$saved = $user_id ? get_user_option( self::ACCOUNT, $user_id ) : [];
 		return array_merge( self::ACCOUNT_DEFAULTS, is_array( $saved ) ? $saved : [] );
+	}
+
+	/**
+	 * Users who see all of a user's password-protected trips without the password.
+	 *
+	 * @return int[]
+	 */
+	public static function viewers( int $user_id ): array {
+		return Trips::user_ids( self::account( $user_id )['viewers'] );
 	}
 
 	public static function update_account( int $user_id, array $account ): void {

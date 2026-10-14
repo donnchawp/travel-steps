@@ -20,7 +20,7 @@ if ( ! $trip || ! Trips::can_view( $trip ) ) {
 $can_edit   = current_user_can( 'edit_post', $trip->ID );
 // Pinning, hiding and choosing the cover also take the travel-steps capability.
 $can_curate = Trips::can_edit_trip( $trip->ID );
-$authed     = $can_edit || 'publish' !== $trip->post_status;
+$authed     = $can_edit || Trips::by_login( $trip );
 $steps      = Trips::timeline_steps( $trip, $can_edit );
 $by_step    = Trips::photos_by_step( $trip->ID, $steps );
 $pinned     = array_flip( Trips::pinned( $trip->ID ) );
@@ -84,7 +84,7 @@ include __DIR__ . '/_header.php';
 ?>
 <article class="ts-trip"
 	data-api="<?php echo esc_url( rest_url( RestController::NS . '/trips/' . $trip->ID ) ); ?>"
-	data-nonce="<?php echo esc_attr( $can_edit ? wp_create_nonce( 'wp_rest' ) : '' ); ?>">
+	data-nonce="<?php echo esc_attr( $authed ? wp_create_nonce( 'wp_rest' ) : '' ); ?>">
 
 	<header class="ts-hero<?php echo $cover ? ' has-cover' : ''; ?>">
 		<?php if ( $cover ) : ?>

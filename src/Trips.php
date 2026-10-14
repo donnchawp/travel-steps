@@ -33,6 +33,7 @@ class Trips {
 	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries.
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
+	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.
 
 	// Step meta. A step is a day: the date part of its post date.
 	const META_LAT  = '_ts_lat';
@@ -220,10 +221,43 @@ class Trips {
 
 	/**
 	 * Whether the current user may see a protected trip without typing its password: they
-	 * can edit it.
+	 * can edit it, or they're logged in and on its author's viewer list or its own.
 	 */
 	public static function skips_password( \WP_Post $trip ): bool {
-		return current_user_can( 'edit_post', $trip->ID );
+		if ( current_user_can( 'edit_post', $trip->ID ) ) {
+			return true;
+		}
+		$user = get_current_user_id();
+		return $user && in_array( $user, array_merge( Settings::viewers( (int) $trip->post_author ), self::viewers( $trip->ID ) ), true );
+	}
+
+	/**
+	 * Whether the current user's requests for a trip's photos and REST must carry a REST
+	 * nonce, which REST needs to know who they are: they see it by their login, as it
+	 * isn't public. Visitors with a protected trip's password need none: core's cookie
+	 * is read without one.
+	 */
+	public static function by_login( \WP_Post $trip ): bool {
+		return 'publish' !== $trip->post_status || ( self::is_protected( $trip ) && self::skips_password( $trip ) );
+	}
+
+	/**
+	 * Users who see the trip without its password, besides its author's viewer list.
+	 *
+	 * @return int[]
+	 */
+	public static function viewers( int $trip_id ): array {
+		return self::user_ids( get_post_meta( $trip_id, self::META_VIEWERS, true ) );
+	}
+
+	/**
+	 * A list of user ids from stored or submitted values.
+	 *
+	 * @param mixed $ids
+	 * @return int[]
+	 */
+	public static function user_ids( $ids ): array {
+		return is_array( $ids ) ? array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ) : [];
 	}
 
 	/**

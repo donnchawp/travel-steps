@@ -454,6 +454,24 @@ add_filter( 'rest_' . Trips::STEP . '_query', $ct_parent );
 $ct_seen = [ $ct_step( $ct_hidden_step, 'Quokka' ), $ct_total( '/wp/v2/ts_step', [] ) ];
 remove_filter( 'rest_' . Trips::STEP . '_query', $ct_parent );
 check( '…and steps asked for by hidden trips match nothing', [ [ 0, 0 ], 0 ] === $ct_seen, $ct_seen );
+// p, page_id and attachment_id win over post__in, and a numeric post_parent over
+// post_parent__in, so one set by a filter to a hidden trip must match nothing too.
+$ct_by = function ( string $route, string $type, array $vars ) use ( $ct_total ) {
+	$set = fn( $args ) => $vars + $args;
+	add_filter( "rest_{$type}_query", $set );
+	$total = $ct_total( $route, [] );
+	remove_filter( "rest_{$type}_query", $set );
+	return $total;
+};
+$ct_seen = [
+	'p'             => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => $ct_hidden ] ),
+	'page_id'       => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'page_id' => $ct_hidden ] ),
+	'attachment_id' => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'attachment_id' => $ct_hidden ] ),
+	'post_parent'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent' => $ct_hidden ] ),
+	'open p'        => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => $ct_open ] ),
+	'open parent'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent' => $ct_open ] ),
+];
+check( '…and a hidden trip named by p, page_id, attachment_id or post_parent matches nothing', [ 'p' => 0, 'page_id' => 0, 'attachment_id' => 0, 'post_parent' => 0, 'open p' => 1, 'open parent' => 1 ] === $ct_seen, $ct_seen );
 // A step of no trip, of a trip deleted since, or of another post is nobody's but its editors'.
 wp_set_current_user( 1 );
 [ $ct_gone, $ct_gone_step ] = $ct_trip( 'Bunyip Gorge', 'Bunyip', '2024-05-03 04:05:06' );

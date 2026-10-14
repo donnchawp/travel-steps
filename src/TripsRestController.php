@@ -15,4 +15,13 @@ class TripsRestController extends \WP_REST_Posts_Controller {
 	public function check_read_permission( $post ) {
 		return Trips::can_view( $post ) && parent::check_read_permission( $post );
 	}
+
+	/**
+	 * Core counts a collection (X-WP-Total) before check_read_permission() drops a trip
+	 * from it, so a count filtered by slug, date or a word would tell of trips the user
+	 * can't see. They're left out of the query instead.
+	 */
+	protected function prepare_items_query( $prepared_args = [], $request = null ) {
+		return Trips::exclude_from_query( parent::prepare_items_query( $prepared_args, $request ), 'post', Trips::hidden_ids() );
+	}
 }

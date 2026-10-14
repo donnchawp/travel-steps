@@ -207,6 +207,49 @@ class Trips {
 	}
 
 	/**
+	 * Trips can_view() refuses the current user, for leaving them out of a query. Only
+	 * unpublished trips and published ones with a password are asked about: the rest are
+	 * public.
+	 *
+	 * @return int[]
+	 */
+	public static function hidden_ids(): array {
+		$candidates = [
+			'post_type'   => self::TRIP,
+			'numberposts' => -1,
+			'orderby'     => 'ID',
+		];
+		$trips = array_merge(
+			get_posts( [ 'post_status' => array_values( array_diff( get_post_stati(), [ 'publish' ] ) ) ] + $candidates ),
+			get_posts( [ 'post_status' => 'publish', 'has_password' => true ] + $candidates )
+		);
+		return array_values( array_map( fn( $trip ) => $trip->ID, array_filter( $trips, fn( $trip ) => ! self::can_view( $trip ) ) ) );
+	}
+
+	/**
+	 * Query args that match none of $ids by $field ('post' or 'post_parent'), on top of
+	 * any exclusions they had. WP_Query ignores {$field}__not_in once {$field}__in is
+	 * set, so the IDs come out of that too, and if nothing is left it matches nothing.
+	 *
+	 * @param int[] $ids
+	 */
+	public static function exclude_from_query( array $args, string $field, array $ids ): array {
+		if ( ! $ids ) {
+			return $args;
+		}
+		$in = $field . '__in';
+		if ( ! empty( $args[ $in ] ) ) {
+			$args[ $in ] = array_values( array_diff( array_map( 'intval', (array) $args[ $in ] ), $ids ) );
+			if ( ! $args[ $in ] ) {
+				$args['post__in'] = [ 0 ];
+			}
+		}
+		$not_in          = $field . '__not_in';
+		$args[ $not_in ] = array_values( array_unique( array_merge( array_map( 'intval', (array) ( $args[ $not_in ] ?? [] ) ), $ids ) ) );
+		return $args;
+	}
+
+	/**
 	 * Whether a trip has a password: core's post password, checked with core's cookie.
 	 * Empty as core's post_password_required() sees it, so "0" is no password.
 	 */

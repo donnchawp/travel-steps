@@ -54,6 +54,8 @@ class Trips {
 				'public'       => false,
 				'show_ui'      => true,
 				'show_in_rest' => true,
+				// Core REST would otherwise show a password-protected trip's title to anyone.
+				'rest_controller_class' => TripsRestController::class,
 				'menu_icon'    => 'dashicons-location-alt',
 				'supports'     => [ 'title', 'editor', 'excerpt', 'custom-fields', 'thumbnail' ],
 				'rewrite'      => false,

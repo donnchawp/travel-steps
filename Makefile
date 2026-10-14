@@ -7,7 +7,7 @@ RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo -
 
 # Judges a Playground run by its out dir ($(1)) and the exit status in $$status: prints result.txt and
 # fails if the run failed, wrote no results ($(2) didn't finish) or has a FAIL line.
-playground_result = { if test -s "$(1)/result.txt"; then cat "$(1)/result.txt"; else echo "No results: $(2) didn't finish"; false; fi && ! grep -q '^FAIL' "$(1)/result.txt" && test $$status -eq 0; }
+playground_result = { if test -s "$(1)/result.txt"; then cat "$(1)/result.txt"; else echo "No results: $(2) didn't finish"; false; fi && ! grep -q '^FAIL' "$(1)/result.txt" && { test $$status -eq 0 || { echo "Playground exited with $$status"; false; }; }; }
 
 .PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist release-check geonames
 

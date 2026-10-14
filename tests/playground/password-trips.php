@@ -170,6 +170,10 @@ $pw_enter( null );
 check( 'posting the right password: back to the trip, flagged, with core’s cookie', $pw_flagged === $pw_to && null !== $pw_cookie, [ $pw_to, $pw_cookie ] );
 $pw_keep( $pw_cookie );
 check( '…which core takes as the trip’s password', ! post_password_required( get_post( $pw_a ) ) );
+$_GET  = [ 'tried' => '1' ];
+$pw_to = $pw_redirect( $pw_a );
+$_GET  = [];
+check( '…whose flagged URL then drops the flag', Trips::url( get_post( $pw_a ) ) === $pw_to, $pw_to );
 check( '…to show the trip', false !== strpos( $render( 'trip.php', (string) $pw_a ), 'Secret story' ) );
 $pw_enter( null );
 
@@ -187,9 +191,14 @@ $pw_enter( null );
 check( 'posting post_password[]: back flagged, without a cookie', $pw_flagged === $pw_to && null === $pw_cookie, [ $pw_to, $pw_cookie ] );
 
 // Where to is always the trip: nothing in the request picks it.
+$pw_referer              = $_SERVER['HTTP_REFERER'] ?? null;
 $_SERVER['HTTP_REFERER'] = 'http://example.com/';
 [ $pw_to ] = $pw_post( $pw_a, 'open sesame', [ 'redirect_to' => 'http://example.com/', '_wp_http_referer' => home_url( '/elsewhere' ) ] );
-unset( $_SERVER['HTTP_REFERER'] );
+if ( null === $pw_referer ) {
+	unset( $_SERVER['HTTP_REFERER'] );
+} else {
+	$_SERVER['HTTP_REFERER'] = $pw_referer;
+}
 check( '…a redirect_to or referer in the request is ignored', $pw_flagged === $pw_to, $pw_to );
 
 // Core's cookie: its 10 days, core's filter on them, path, and secure on an https site.

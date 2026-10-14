@@ -247,8 +247,10 @@ class Trips {
 
 	/**
 	 * Query args that match none of $ids by $field ('post' or 'post_parent'), on top of
-	 * any exclusions they had. WP_Query ignores {$field}__not_in once {$field}__in is
-	 * set, so the IDs come out of that too, and if nothing is left it matches nothing.
+	 * any exclusions they had. WP_Query ignores {$field}__not_in once a single ID (p,
+	 * page_id, attachment_id; a numeric post_parent) or {$field}__in is set, so a single
+	 * ID among $ids matches nothing, and the IDs come out of {$field}__in, which matches
+	 * nothing if none are left.
 	 *
 	 * @param int[] $ids
 	 */
@@ -256,16 +258,31 @@ class Trips {
 		if ( ! $ids ) {
 			return $args;
 		}
+		$singles = 'post' === $field ? [ 'p', 'page_id', 'attachment_id' ] : [ 'post_parent' ];
+		foreach ( $singles as $single ) {
+			if ( isset( $args[ $single ] ) && is_numeric( $args[ $single ] ) && in_array( (int) $args[ $single ], $ids, true ) ) {
+				return self::match_nothing( $args );
+			}
+		}
 		$in = $field . '__in';
 		if ( ! empty( $args[ $in ] ) ) {
 			$args[ $in ] = array_values( array_diff( (array) $args[ $in ], $ids ) );
 			if ( ! $args[ $in ] ) {
-				$args['post__in'] = [ 0 ];
+				return self::match_nothing( $args );
 			}
 		}
 		$not_in          = $field . '__not_in';
 		$args[ $not_in ] = array_merge( (array) ( $args[ $not_in ] ?? [] ), $ids );
 		return $args;
+	}
+
+	/**
+	 * Query args that match no post: post__in [0], with the single IDs that would win
+	 * over it taken out.
+	 */
+	private static function match_nothing( array $args ): array {
+		unset( $args['p'], $args['page_id'], $args['attachment_id'] );
+		return [ 'post__in' => [ 0 ] ] + $args;
 	}
 
 	/**

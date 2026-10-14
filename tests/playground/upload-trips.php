@@ -153,6 +153,12 @@ $ut_lhome  = $ut_lrow( 'home' );
 check( 'an upload trip keeps photos taken at home, with no position or place', 3 === count( $ut_lrows ) && [ null, null, '', '' ] === [ $ut_lhome['lat'], $ut_lhome['lon'], $ut_lhome['city'], $ut_lhome['country'] ] && null === $ut_lrow( 'near' )['lat'], $ut_lrows );
 check( '…while one taken away keeps its position', 48.8566 === round( (float) $ut_lrow( 'paris' )['lat'], 4 ), $ut_lrow( 'paris' ) );
 check( '…counting them as taken at home, not as left out or without a location', [ 'outside' => 0, 'untimed' => 0 ] === ( $ut_result['left_out'] ?? null ) && 2 === ( $ut_result['at_home'] ?? null ) && 0 === ( $ut_result['unlocated'] ?? null ), $ut_result );
+$ut_map   = $get( "/travel-steps/v1/trips/$ut_local" )->get_data();
+$ut_steps = array_column( array_map( fn( $st ) => [ Trips::day( $st ), $st->ID ], Trips::steps( $ut_local, true ) ), 1, 0 );
+$ut_route = array_merge( ...( $ut_map['route'] ?: [ [] ] ) );
+check( 'a day of only home photos still gets a step, with no marker', 2 === $ut_result['new_steps'] && isset( $ut_steps['2025-08-02'] ) && ! in_array( $ut_steps['2025-08-02'], array_column( $ut_map['markers'], 'step' ), true ), [ $ut_steps, $ut_map['markers'] ] );
+check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && ! array_filter( $ut_map['markers'], $ut_home_at ) && ! array_filter( array_map( fn( $p ) => [ 'lat' => $p[0], 'lon' => $p[1] ], $ut_route ), $ut_home_at ), $ut_map );
+check( '…or in the trip’s countries', [ 'France' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
 
 // A trip without dates takes them from its uploads.
 $ut_undated = $ut_trip( 'Undated', $ut_author );

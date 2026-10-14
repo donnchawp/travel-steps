@@ -5,10 +5,10 @@ PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
 # Dotfiles (.git, .github in dependencies…), tests and build files stay behind: Plugin Check rejects hidden files.
 RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude docs --exclude tools --exclude AGENTS.md --exclude Makefile --exclude Makefile.local --exclude dist --exclude 'whats-next*'
 
-.PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist geonames
+.PHONY: help test smoke check demo deploy deploy-dry deploy-dest dist release-check geonames
 
 help: ## List targets
-	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-11s %s\n", $$1, $$2}'
+	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
 
 test: ## Standalone unit tests (no WordPress)
 	php tests/GeoTest.php
@@ -55,6 +55,23 @@ dist: ## Build dist/ from HEAD: the plugin zip (runtime deps only) and the demo'
 	git show HEAD:demo/setup.php > dist/demo-setup.php
 	git show HEAD:demo/fake-services.php > dist/demo-fake-services.php
 	@ls dist/*
+
+# The gallery's two blueprints (see the README), with the release's files taken from dist/. Not part of check: the demo needs the network for its photos.
+release-check: dist ## Run the blueprints gallery's blueprints in Playground against a fresh dist/, before a release
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && failed=0 && \
+	for run in plugin:demo/plugin-blueprint.json demo:demo/blueprint.json; do \
+		kind=$${run%%:*} && mkdir "$$tmp/$$kind" && \
+		php tests/release/blueprint.php "$${run#*:}" "$$kind" > "$$tmp/$$kind.json" || exit 1; \
+		echo "== $${run#*:}"; \
+		$(PLAYGROUND) run-blueprint --quiet --blueprint="$$tmp/$$kind.json" \
+			--mount=$(CURDIR)/dist:/dist \
+			--mount=$(CURDIR)/tests/release:/release-check \
+			--mount="$$tmp/$$kind":/out; \
+		status=$$?; \
+		if test -s "$$tmp/$$kind/result.txt"; then cat "$$tmp/$$kind/result.txt"; else echo "No results: the blueprint or its checks didn't finish"; fi; \
+		{ test $$status -eq 0 && test -s "$$tmp/$$kind/result.txt" && ! grep -q '^FAIL' "$$tmp/$$kind/result.txt"; } || failed=1; \
+	done; \
+	exit $$failed
 
 geonames: ## Rebuild the place names in data/geonames from GeoNames (cities500 and countryInfo)
 	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \

@@ -249,9 +249,10 @@ class Trips {
 	/**
 	 * Query args that match none of $ids by $field ('post' or 'post_parent'), on top of
 	 * any exclusions they had. WP_Query ignores {$field}__not_in once a single ID (p,
-	 * page_id, attachment_id; a numeric post_parent) or {$field}__in is set, so a single
-	 * ID among $ids matches nothing, and the IDs come out of {$field}__in, which matches
-	 * nothing if none are left.
+	 * page_id, attachment_id, subpost_id; a numeric post_parent) or {$field}__in is set,
+	 * so a single ID among $ids matches nothing, and the IDs come out of {$field}__in,
+	 * which matches nothing if none are left. Each value is read as WP_Query reads it:
+	 * (int) for p, absint for the other single IDs and for each entry of {$field}__in.
 	 *
 	 * @param int[] $ids
 	 */
@@ -259,15 +260,17 @@ class Trips {
 		if ( ! $ids ) {
 			return $args;
 		}
-		$singles = 'post' === $field ? [ 'p', 'page_id', 'attachment_id' ] : [ 'post_parent' ];
-		foreach ( $singles as $single ) {
-			if ( isset( $args[ $single ] ) && is_numeric( $args[ $single ] ) && in_array( (int) $args[ $single ], $ids, true ) ) {
+		$singles = 'post' === $field
+			? [ 'p' => 'intval', 'page_id' => 'absint', 'attachment_id' => 'absint', 'subpost_id' => 'absint' ]
+			: [ 'post_parent' => fn( $id ) => is_numeric( $id ) ? (int) $id : null ];
+		foreach ( $singles as $single => $read ) {
+			if ( isset( $args[ $single ] ) && is_scalar( $args[ $single ] ) && in_array( $read( $args[ $single ] ), $ids, true ) ) {
 				return self::match_nothing( $args );
 			}
 		}
 		$in = $field . '__in';
 		if ( ! empty( $args[ $in ] ) ) {
-			$args[ $in ] = array_values( array_diff( (array) $args[ $in ], $ids ) );
+			$args[ $in ] = array_values( array_diff( array_map( 'absint', (array) $args[ $in ] ), $ids ) );
 			if ( ! $args[ $in ] ) {
 				return self::match_nothing( $args );
 			}
@@ -279,10 +282,11 @@ class Trips {
 
 	/**
 	 * Query args that match no post: post__in [0], with the single IDs that would win
-	 * over it taken out.
+	 * over it taken out. page_id has to go rather than be outranked: WP_Query replaces
+	 * its whole WHERE clause with one for page_id.
 	 */
 	private static function match_nothing( array $args ): array {
-		unset( $args['p'], $args['page_id'], $args['attachment_id'] );
+		unset( $args['p'], $args['page_id'], $args['attachment_id'], $args['subpost_id'] );
 		return [ 'post__in' => [ 0 ] ] + $args;
 	}
 

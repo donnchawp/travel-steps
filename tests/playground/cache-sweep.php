@@ -51,14 +51,35 @@ $cs_upload  = wp_insert_post( [ 'post_type' => 'attachment', 'post_status' => 'p
 update_post_meta( $cs_upload, Uploads::META_PHOTO_ID, $cs_id( 4 ) );
 $cs_shared  = [ $cs_trip( 'publish', [ $cs_id( 5 ), $cs_id( 6 ) ] ), $cs_trip( 'draft', [ $cs_id( 5 ) ] ) ];
 wp_delete_post( $cs_shared[1], true );
-$cs_in_use  = [
+// Cached two days ago, so unused they'd go.
+$cs_cache_in_use = fn() => [
 	'a binned trip uses'                            => $cs_cache( $cs_id( 3 ), 'medium', 2 ),
 	'only an unsynced upload uses'                  => $cs_cache( $cs_id( 4 ), 'thumbnail', 2 ),
 	'a trip uses after another using it is deleted' => $cs_cache( $cs_id( 5 ), 'preview', 2 ),
 ];
+$cs_in_use = $cs_cache_in_use();
 CacheSweep::run();
 foreach ( $cs_in_use as $why => $file ) {
 	check( "cache sweep: keeps a photo $why", true === $cs_kept( $file ) );
+}
+
+// A failed lookup of the photos in use would make every one look unused.
+global $wpdb;
+$cs_failing = [
+	'the uploads lookup'      => "WHERE meta_key = '" . Uploads::META_PHOTO_ID . "'",
+	'the trips lookup'        => "post_type = '" . Trips::TRIP . "'",
+	'a trip’s photos lookup' => "meta_key = '" . Trips::META_PHOTOS . "'",
+];
+foreach ( $cs_failing as $what => $sql ) {
+	$cs_break = fn( $query ) => false !== strpos( $query, $sql ) ? 'SELECT * FROM travel_steps_no_such_table' : $query;
+	$cs_in_use = $cs_cache_in_use();
+	add_filter( 'query', $cs_break );
+	$cs_errors = $wpdb->suppress_errors( true );
+	CacheSweep::run();
+	$wpdb->suppress_errors( $cs_errors );
+	remove_filter( 'query', $cs_break );
+	$cs_lost = array_keys( array_filter( $cs_in_use, fn( $file ) => true !== $cs_kept( $file ) ) );
+	check( "cache sweep: a database error in $what deletes no photo in use", [] === $cs_lost, $cs_lost );
 }
 
 // An age set by an administrator: photos in use cached longer ago than that go too.

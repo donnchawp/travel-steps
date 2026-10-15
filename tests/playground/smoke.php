@@ -504,6 +504,13 @@ $GLOBALS['wpdb']->update( $GLOBALS['wpdb']->posts, [ 'post_status' => 'future' ]
 clean_post_cache( $trip_id );
 check( 'scheduled trip: no warning, its steps go public with it', false === strpos( $render( 'trip-edit.php', (string) $trip_id ), 'This trip isn’t public' ) );
 wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
+check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
+check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
+// Day 1 shows its two favourites; the expander holds only the other two.
+preg_match_all( '#<summary>\s*(.*?)\s*</summary>#s', $html, $summaries );
+check( 'expander counts only the photos it reveals', 'Show 2 more photos' === ( $summaries[1][0] ?? '' ), $summaries[1] );
+check( 'editor trip page: block editor opens in a new tab', 1 === preg_match( '/<a href="[^"]*post\.php\?post=\d+&(amp;|#038;)?action=edit" target="_blank" rel="noopener">/', $html ) );
+check( 'editor trip page: photo grid under heading', preg_match( '/Sintra<\/h2>.*?ts-photos/s', $html ) === 1 );
 
 // A public trip whose steps visitors can't see: one notice for the trip.
 $post_as  = fn( string $status ) => new WP_Post( (object) [ 'post_status' => $status ] );
@@ -532,32 +539,27 @@ foreach ( [
 	check( $label, $want === $got, $got );
 }
 
-// The trip page and the edit page show them.
+// The trip page and the edit page show them, with or without a password; on a draft trip, grey badges only.
 wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
 $warned = '<span class="ts-badge is-warning">Draft, not public</span>';
 foreach ( [ 'trip.php', 'trip-edit.php' ] as $tpl ) {
 	$page = $render( $tpl, (string) $trip_id );
 	check( "published trip with a draft step: $tpl has one notice, visitors see 1 of 2", 1 === substr_count( $page, 'Visitors see 1 of 2 steps.' ) && false === strpos( $page, 'This trip isn’t public' ), substr( $page, strpos( $page, 'ts-notice' ) ?: 0, 400 ) );
 	check( "published trip with a draft step: $tpl warns on its badge", 1 === substr_count( $page, $warned ) );
+	wp_update_post( [ 'ID' => $trip_id, 'post_password' => 'secret' ] );
+	$page = $render( $tpl, (string) $trip_id );
+	check( "password trip with a draft step: $tpl warns too", 1 === substr_count( $page, 'Visitors see 1 of 2 steps.' ) && 1 === substr_count( $page, $warned ), substr( $page, strpos( $page, 'ts-notice' ) ?: 0, 400 ) );
+	wp_update_post( [ 'ID' => $trip_id, 'post_password' => '', 'post_status' => 'draft' ] );
+	$page = $render( $tpl, (string) $trip_id );
+	check( "draft trip with a draft step: $tpl has a grey badge, no new notice", false === strpos( $page, 'is-warning">Draft' ) && false !== strpos( $page, '<span class="ts-badge">Draft</span>' ) && false === strpos( $page, 'Visitors see' ) );
+	wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
 }
-wp_update_post( [ 'ID' => $trip_id, 'post_password' => 'secret' ] );
-check( 'password trip with a draft step: the edit page warns too', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'Visitors see 1 of 2 steps.' ) );
-wp_update_post( [ 'ID' => $trip_id, 'post_password' => '', 'post_status' => 'draft' ] );
-$page = $render( 'trip-edit.php', (string) $trip_id );
-check( 'draft trip with a draft step: grey badge, no new notice', false === strpos( $page, 'is-warning">Draft' ) && false !== strpos( $page, '<span class="ts-badge">Draft</span>' ) && false === strpos( $page, 'Visitors see' ) );
-wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
 wp_set_current_user( 0 );
 $page = $render( 'trip.php', (string) $trip_id );
 check( 'visitors get no notice or badge on a trip with a draft step', false === strpos( $page, 'Visitors see' ) && false === strpos( $page, 'ts-badge' ) );
 wp_set_current_user( 1 );
 wp_publish_post( $d2->ID );
-check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
-check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
-// Day 1 shows its two favourites; the expander holds only the other two.
-preg_match_all( '#<summary>\s*(.*?)\s*</summary>#s', $html, $summaries );
-check( 'expander counts only the photos it reveals', 'Show 2 more photos' === ( $summaries[1][0] ?? '' ), $summaries[1] );
-check( 'editor trip page: block editor opens in a new tab', 1 === preg_match( '/<a href="[^"]*post\.php\?post=\d+&(amp;|#038;)?action=edit" target="_blank" rel="noopener">/', $html ) );
-check( 'editor trip page: photo grid under heading', preg_match( '/Sintra<\/h2>.*?ts-photos/s', $html ) === 1 );
+
 wp_set_current_user( 0 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );

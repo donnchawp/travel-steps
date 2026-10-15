@@ -33,15 +33,24 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 		wp_unschedule_hook( TravelSteps\CacheFill::HOOK );
 		$root = TravelSteps\RestController::cache_root();
 		if ( is_dir( $root ) && ! is_link( $root ) ) {
+			// A folder is removed only once it's empty: a file that couldn't be deleted (one a
+			// CLI cron wrote as another user, say) keeps its folders, without a warning that
+			// would break the JSON reply of the request deleting the plugin.
+			$rmdir_empty = function ( string $dir ) {
+				$left = scandir( $dir );
+				if ( false !== $left && [] === array_diff( $left, [ '.', '..' ] ) ) {
+					rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+				}
+			};
 			$inside = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
 			foreach ( $inside as $file ) {
 				if ( $file->isDir() && ! $file->isLink() ) {
-					rmdir( $file->getPathname() ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+					$rmdir_empty( $file->getPathname() );
 				} else {
 					wp_delete_file( $file->getPathname() );
 				}
 			}
-			rmdir( $root ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+			$rmdir_empty( $root );
 		}
 		if ( $site ) {
 			restore_current_blog();

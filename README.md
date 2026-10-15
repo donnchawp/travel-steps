@@ -24,7 +24,7 @@ A trip of uploads uses every photo uploaded to it, and needs no dates: left empt
 
 A trip with an Immich album needs no dates either: left empty, they're taken from the album's first and last photo, and move with it as you add or remove photos. A date you change yourself stays put. A trip of all your Immich photos needs both, since they're what picks the photos.
 
-Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position, from that day's photos or your Dawarich track; when neither has one, the step loses any position an earlier sync gave it.
+Headings and tags are seeded once. After that a step is yours. Re-syncing never changes its title, story, date, status or tags, and doesn't recreate days whose step you've moved to the bin; the notice after a sync says how many days that skipped, with a link to the trash. To recreate a day, empty its step from the trash and sync again. It only refreshes each step's map position: from that day's photos, or else from your Dawarich track (or, without Dawarich, the trip's other photos) within 12 hours. When there's none, the step's position is cleared, even one set by hand.
 
 Publish the days you want shown. Draft steps and their photos stay private, but a published trip's map route, distance and country count cover all its dates, unpublished days included. To keep a day's whereabouts private, leave it outside the trip's dates.
 

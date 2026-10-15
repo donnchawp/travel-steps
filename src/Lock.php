@@ -19,7 +19,8 @@ class Lock {
 	 * @return mixed
 	 */
 	public static function run( string $name, callable $job, $busy = null ) {
-		// add_option() is an atomic insert, so two requests can't both take the lock.
+		// add_option() fails when the lock exists. Two requests starting in different seconds
+		// can still both take it (#67).
 		if ( ! add_option( $name, time(), '', false ) ) {
 			if ( (int) get_option( $name ) > time() - 10 * MINUTE_IN_SECONDS ) {
 				return $busy;

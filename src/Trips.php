@@ -30,7 +30,7 @@ class Trips {
 	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.
 	const META_PINNED = '_ts_pinned';      // array of photo ids always shown.
 	const META_COVER  = '_ts_cover';       // photo id chosen for the header, else automatic.
-	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries.
+	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
 	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.

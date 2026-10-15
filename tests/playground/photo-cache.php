@@ -42,7 +42,15 @@ check( 'no cached file has the photo’s id in its path', [] === $pc_named, $pc_
 check( '…they’re under its keyed hash, at both sizes, with their types', file_exists( $cache_path( $pc_photo, 'preview' ) ) && file_exists( $cache_path( $pc_photo, 'medium' ) ) && 'image/jpeg' === file_get_contents( $cache_path( $pc_photo, 'medium' ) . '.type' ), array_keys( $pc_files() ) );
 $pc_fetched = [];
 $image      = RestController::fetch( $pc_trip, $pc_photo, 'medium' );
-check( 'a photo cached once is served from the cache, without asking Immich', [] === $pc_fetched && ( $image['file'] ?? '' ) === $cache_path( $pc_photo, 'medium' ), [ $pc_fetched, $image ] );
+check( 'a photo cached once is served from the cache, without asking Immich', [] === $pc_fetched && ( $image['body'] ?? '' ) === file_get_contents( $cache_path( $pc_photo, 'medium' ) ), $pc_fetched );
+// The sweep, or an upload's edit, may delete a cached photo between fetch() finding it and
+// reading it. A folder in its place is found, then can't be read.
+$pc_gone = $cache_path( $pc_photo, 'preview' );
+RestController::delete_cached_file( $pc_gone );
+mkdir( $pc_gone );
+$image = RestController::fetch( $pc_trip, $pc_photo, 'preview' );
+rmdir( $pc_gone );
+check( 'a cached photo gone by the time it’s read is fetched from Immich instead, never sent empty', [ 1, $jpeg( 1440, 1080 ) ] === [ count( $pc_fetched ), $image['body'] ?? '' ], [ $pc_fetched, is_wp_error( $image ) ? $image->get_error_message() : array_keys( $image ) ] );
 RestController::fetch( $pc_trip, $pc_photo, 'thumbnail' );
 RestController::delete_cached( $pc_photo );
 $pc_left = array_filter( RestController::SIZES, fn( $size ) => file_exists( $cache_path( $pc_photo, $size ) ) || file_exists( $cache_path( $pc_photo, $size ) . '.type' ) );
@@ -83,7 +91,7 @@ check( '…and new folders can’t be listed', [] === $pc_unlisted, $pc_unlisted
 check( '…and the new layout is recorded', RestController::CACHE_LAYOUT_VERSION === (int) get_option( RestController::CACHE_LAYOUT ) );
 $pc_fetched = [];
 $image      = RestController::fetch( $pc_trip, $pc_a, 'preview' );
-check( '…and the proxy serves the moved photos without asking Immich', [] === $pc_fetched && "old $pc_a preview" === file_get_contents( $image['file'] ?? '' ) && 'image/webp' === $image['type'], [ $pc_fetched, $image ] );
+check( '…and the proxy serves the moved photos without asking Immich', [ [], "old $pc_a preview", 'image/webp' ] === [ $pc_fetched, $image['body'] ?? '', $image['type'] ?? '' ], [ $pc_fetched, $image ] );
 
 $pc_before = $pc_files();
 delete_option( RestController::CACHE_LAYOUT );

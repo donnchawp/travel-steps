@@ -232,7 +232,7 @@ class RestController {
 		if ( is_wp_error( $image ) ) {
 			return $image;
 		}
-		self::send_image( $cache, $etag, $image );
+		return self::send_image( $cache, $etag, $image );
 	}
 
 	/**
@@ -255,13 +255,14 @@ class RestController {
 	/**
 	 * A photo at a size, as the proxy sends it: its cached copy, else fetched from its
 	 * source, an Immich photo being cached on the way. Checks no access: serve_photo() does.
+	 * Only a copy WordPress made of an upload comes back as a file.
 	 *
 	 * @return array{body: string, type: string}|array{file: string, type: string}|\WP_Error
 	 */
 	public static function fetch( int $trip_id, string $asset, string $size, int $upload = 0 ) {
-		$cache = self::cache_file( $asset, $size );
-		if ( is_readable( $cache ) ) {
-			return [ 'file' => $cache, 'type' => self::cached_type( $cache ) ];
+		$cached = self::read_cached( self::cache_file( $asset, $size ) );
+		if ( $cached ) {
+			return $cached;
 		}
 		$image = self::image( $trip_id, $asset, $size, $upload );
 		if ( is_wp_error( $image ) || '' === ( $image['body'] ?? $image['file'] ) ) {
@@ -287,13 +288,19 @@ class RestController {
 	/**
 	 * @param string $cache As photo_cache() gives it.
 	 * @param array{body: string, type: string}|array{file: string, type: string} $image As fetch() gives it.
+	 * @return \WP_Error|never A 502, sending nothing, if the file can't be opened.
 	 */
-	private static function send_image( string $cache, string $etag, array $image ): void {
+	private static function send_image( string $cache, string $etag, array $image ) {
+		// Opened before any header is sent: a file deleted after that is still read whole.
+		$handle = isset( $image['file'] ) ? @fopen( $image['file'], 'rb' ) : null; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		if ( false === $handle ) {
+			return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
+		}
 		self::send_cache_headers( $cache, $etag );
 		self::send_type( $image['type'] );
-		if ( isset( $image['file'] ) ) {
-			header( 'Content-Length: ' . filesize( $image['file'] ) );
-			readfile( $image['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		if ( $handle ) {
+			header( 'Content-Length: ' . fstat( $handle )['size'] );
+			fpassthru( $handle );
 		} else {
 			header( 'Content-Length: ' . strlen( $image['body'] ) );
 			echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -330,10 +337,8 @@ class RestController {
 	 * @return array{body: string, type: string}|\WP_Error
 	 */
 	private static function medium( ImmichSource $source, string $asset ) {
-		$preview = self::cache_file( $asset, 'preview' );
-		if ( is_readable( $preview ) ) {
-			$image = [ 'body' => (string) file_get_contents( $preview ), 'type' => self::cached_type( $preview ) ]; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		} else {
+		$image = self::read_cached( self::cache_file( $asset, 'preview' ) );
+		if ( ! $image ) {
 			$image = $source->image( $asset, 'preview' );
 			if ( is_wp_error( $image ) ) {
 				return $image;
@@ -417,6 +422,21 @@ class RestController {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * A cached photo and its type, or null if it isn't cached. The sweep, or an upload's
+	 * edit, can delete it at any moment, so it's read, not checked for: one that's found,
+	 * then gone (or empty) when read, is null too.
+	 *
+	 * @return array{body: string, type: string}|null
+	 */
+	private static function read_cached( string $file ): ?array {
+		$body = is_readable( $file ) ? (string) @file_get_contents( $file ) : ''; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		return '' === $body ? null : [
+			'body' => $body,
+			'type' => self::cached_type( $file ),
+		];
 	}
 
 	/**

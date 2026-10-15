@@ -80,7 +80,7 @@ class Geocoder {
 	private array $tiles = [];
 	/** @var array<string, string>|null */
 	private ?array $countries = null;
-	/** @var array<string, string>|null ISO codes by case-folded name, GeoNames' and others. */
+	/** @var array<string, string>|null ISO codes by case-folded code or name, GeoNames' and others. */
 	private ?array $country_names = null;
 	/** @var resource|false|null */
 	private $index = null;
@@ -199,26 +199,27 @@ class Geocoder {
 	 * Earth), "United States" (GeoNames) and "us" count once.
 	 */
 	public function country_key( string $name ): string {
-		$name  = trim( $name );
-		$upper = strtoupper( $name );
+		$name = trim( $name );
 		if ( '' === $name ) {
 			return '';
 		}
-		if ( isset( $this->countries()[ $upper ] ) ) {
-			return $upper;
-		}
+		$folded = self::fold( $name );
+		// Without the data files any two letters may be a code, as no country's name is.
+		return $this->country_names()[ $folded ] ?? ( ! $this->countries() && preg_match( '/^[a-z]{2}$/i', $name ) ? strtoupper( $name ) : $folded );
+	}
+
+	/**
+	 * @return array<string, string> ISO codes by case-folded name or code.
+	 */
+	private function country_names(): array {
 		if ( null === $this->country_names ) {
 			$this->country_names = [];
-			foreach ( array_flip( $this->countries() ) + self::COUNTRY_ALIASES as $known => $code ) {
-				$this->country_names[ self::fold( $known ) ] = $code;
+			$codes               = array_keys( $this->countries() );
+			foreach ( array_flip( $this->countries() ) + array_combine( $codes, $codes ) + self::COUNTRY_ALIASES as $known => $code ) {
+				$this->country_names[ self::fold( (string) $known ) ] = $code;
 			}
 		}
-		$folded = self::fold( $name );
-		if ( isset( $this->country_names[ $folded ] ) ) {
-			return $this->country_names[ $folded ];
-		}
-		// Without the data files any two letters may be a code, as no country's name is.
-		return ! $this->countries() && preg_match( '/^[a-z]{2}$/i', $name ) ? $upper : $folded;
+		return $this->country_names;
 	}
 
 	private static function fold( string $text ): string {

@@ -60,7 +60,11 @@ Photos of a synced Immich trip are cached in the background, so the trip keeps w
 
 When WP-Cron runs from page loads, under a PHP time limit, each run fetches for 20 seconds at most (or half the limit, if that's less). If it cached anything, it schedules another run for the rest. When a system crontab runs WP-Cron with PHP CLI, there's no time limit, so it carries on until it's done.
 
-Once a day, another WP-Cron event sweeps the cache. It deletes cached photos that no trip uses any more, such as photos a sync dropped and those of trips deleted permanently, once they were cached more than a day ago. A photo in any trip, a binned one included, stays, and so does one uploaded to a trip and not synced yet. An administrator can also set **Delete cached photos after (days)** in the Site settings. Cached photos older than that are then deleted whether a trip uses them or not, and the proxy fetches them from Immich again the next time someone views them. That's also how an edit made in Immich, such as a rotation, eventually shows up: the cache doesn't notice edits. It undoes some of the background caching, though. If Immich is down, or the author's key stops working, an expired photo is a broken image (a 502) until they're back. The default, 0, keeps cached photos for as long as a trip uses them.
+Once a day, another WP-Cron event sweeps the cache. It deletes cached photos that no trip uses any more, if they were cached more than a day ago. Those are photos a sync dropped, and the photos of trips deleted permanently. A photo in any trip stays, even if the trip is in the bin. So does a photo uploaded to a trip that hasn't synced yet.
+
+An administrator can also set **Delete cached photos after (days)** in the Site settings. The sweep then deletes cached photos older than that, whether a trip uses them or not. The proxy fetches each one from Immich again the next time someone views it. That's also how an edit made in Immich, such as a rotation, eventually shows up, because the cache doesn't notice edits.
+
+Expiry undoes some of the background caching, though. If Immich is down, or the author's key stops working, an expired photo is a broken image (a 502) until they're back. The default is 0, which keeps cached photos for as long as a trip uses them.
 
 The map gets a marker for each place heading (3a, 3b…), or one for each step without headings, numbered by trip day. A step with no position, such as a day of photos taken at home, still appears on the timeline with its story and photos, but has no marker on the map.
 

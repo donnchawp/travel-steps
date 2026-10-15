@@ -119,17 +119,15 @@ class TripSync {
 		$uploads = Trips::uses_uploads( $trip_id );
 		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, $uploads );
 		$geocoder = $this->geocoder ?? new Geocoder(); // One for the sync.
-		if ( $uploads ) {
-			// Uploads carry no place names, and some have a position only from Dawarich:
-			// name them all here.
-			$no_places = ! $geocoder->available();
-			foreach ( $photos as &$photo ) {
-				if ( null !== $photo['lat'] && '' === $photo['city'] ) {
-					$photo = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
-				}
+		// Uploads carry no place names, and photos with a position only from Dawarich have
+		// none either: name them here. Immich's own names stay.
+		$no_places = ! $geocoder->available();
+		foreach ( $photos as &$photo ) {
+			if ( null !== $photo['lat'] && '' === $photo['city'] ) {
+				$photo = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
 			}
-			unset( $photo );
 		}
+		unset( $photo );
 
 		// No location history for these dates? Fall back to the photos' own positions.
 		$track = $points;

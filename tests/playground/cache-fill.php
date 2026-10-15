@@ -19,11 +19,18 @@ $cf_immich  = function ( $pre, $args, $url ) use ( &$cf_fetched, &$cf_failing, $
 add_filter( 'pre_http_request', $cf_immich, 10, 3 );
 $cf_cached = fn( string $asset ) => file_exists( $cache_path( $asset, 'preview' ) );
 $cf_id     = fn( int $n ) => row( $n, '2025-07-01', '09:00', 0, 0, '', false )['id'];
+// Which of these photos are cached at preview.
+$cf_has      = fn( array $ids ) => array_values( array_filter( $ids, $cf_cached ) );
+$cf_all      = array_map( $cf_id, range( 1801, 1806 ) );
+$cf_new_trip = function ( string $title ) use ( $alice ) {
+	$trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => $title, 'post_status' => 'publish', 'post_author' => $alice ] );
+	update_post_meta( $trip, Trips::META_START, '2025-07-01' );
+	update_post_meta( $trip, Trips::META_END, '2025-07-03' );
+	return $trip;
+};
 
 wp_set_current_user( $alice );
-$cf_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Cache me', 'post_status' => 'publish', 'post_author' => $alice ] );
-update_post_meta( $cf_trip, Trips::META_START, '2025-07-01' );
-update_post_meta( $cf_trip, Trips::META_END, '2025-07-03' );
+$cf_trip         = $cf_new_trip( 'Cache me' );
 $cf_source       = new FakeSource();
 $cf_source->rows = [
 	row( 1801, '2025-07-01', '09:00', 38.71, -9.13, 'Lisbon', true ),  // Day 1, published: shown.
@@ -33,7 +40,8 @@ $cf_source->rows = [
 	row( 1805, '2025-07-03', '09:00', 37.01, -7.93, 'Faro', true ),    // Day 3, step binned: the chosen cover.
 	row( 1806, '2025-07-03', '10:00', 37.01, -7.93, 'Faro', false ),   // …on no step.
 ];
-$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $cf_source ) )->sync( $cf_trip );
+$cf_sync = fn( int $trip ) => ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $cf_source ) )->sync( $trip );
+$r       = $cf_sync( $cf_trip );
 [ $cf_day1, , $cf_day3 ] = Trips::steps( $cf_trip, true ) + [ null, null, null ];
 check( 'cache fill: the trip syncs with three steps', ! is_wp_error( $r ) && $cf_day3, $r );
 wp_publish_post( $cf_day1->ID );
@@ -44,8 +52,7 @@ update_post_meta( $cf_trip, Trips::META_COVER, $cf_id( 1805 ) );
 $cf_fetched = [];
 CacheFill::run( $cf_trip, 0 );
 $cf_want = array_map( $cf_id, [ 1801, 1802, 1803, 1805 ] );
-$cf_has  = array_values( array_filter( array_map( $cf_id, range( 1801, 1806 ) ), $cf_cached ) );
-check( 'cache fill: every photo visitors can see, on published and draft steps, and the cover, is cached at preview', $cf_want === $cf_has, [ $cf_has, $cf_fetched ] );
+check( 'cache fill: every photo visitors can see, on published and draft steps, and the cover, is cached at preview', $cf_want === $cf_has( $cf_all ), [ $cf_has( $cf_all ), $cf_fetched ] );
 check( '…fetched from Immich at preview only', [] === array_diff( $cf_fetched, array_map( fn( $id ) => "$id preview", $cf_want ) ) && 4 === count( $cf_fetched ), $cf_fetched );
 $cf_fetched = [];
 CacheFill::run( $cf_trip, 0 );
@@ -54,16 +61,16 @@ $cf_served = [ RestController::fetch( $cf_trip, $cf_id( 1802 ), 'preview' ), Res
 check( '…and the proxy serves its preview and medium without asking Immich', [] === $cf_fetched && ! array_filter( $cf_served, 'is_wp_error' ), [ $cf_fetched, $cf_served ] );
 
 // Fetches that fail: one is skipped, three in a row stop the run until the next trigger.
-$cf_reset = function () use ( $cf_id, $cf_trip ) {
-	foreach ( range( 1801, 1806 ) as $n ) {
-		RestController::delete_cached( $cf_id( $n ) );
+$cf_reset = function () use ( $cf_all, $cf_trip ) {
+	foreach ( $cf_all as $asset ) {
+		RestController::delete_cached( $asset );
 	}
 	wp_clear_scheduled_hook( CacheFill::HOOK, [ $cf_trip ] );
 };
 $cf_reset();
 $cf_failing = [ $cf_id( 1801 ) ];
 CacheFill::run( $cf_trip, 0 );
-check( 'cache fill: a photo that fails to fetch is skipped, and the rest are cached', array_map( $cf_id, [ 1802, 1803, 1805 ] ) === array_values( array_filter( array_map( $cf_id, range( 1801, 1806 ) ), $cf_cached ) ) );
+check( 'cache fill: a photo that fails to fetch is skipped, and the rest are cached', array_map( $cf_id, [ 1802, 1803, 1805 ] ) === $cf_has( $cf_all ) );
 $cf_reset();
 $cf_failing = array_map( $cf_id, [ 1801, 1802, 1803 ] );
 $cf_fetched = [];
@@ -80,15 +87,15 @@ do {
 	CacheFill::run( $cf_trip, 300, 0 );
 	++$cf_runs;
 	if ( 1 === $cf_runs ) {
-		check( 'cache fill: with a tiny budget, a run caches a photo and schedules another', 1 === count( array_filter( $cf_want, $cf_cached ) ) && wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
+		check( 'cache fill: with a tiny budget, a run caches a photo and schedules another', 1 === count( $cf_has( $cf_want ) ) && wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
 	}
 } while ( wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) && $cf_runs < 10 );
-check( '…and later runs finish the trip, the last scheduling nothing', 4 === $cf_runs && $cf_want === array_values( array_filter( $cf_want, $cf_cached ) ), $cf_runs );
+check( '…and later runs finish the trip, the last scheduling nothing', 4 === $cf_runs && $cf_want === $cf_has( $cf_want ), $cf_runs );
 // Without a PHP time limit (WP-Cron run from a system crontab, by PHP CLI), the next run
 // could be a whole cron interval away, so there's no budget.
 $cf_reset();
 CacheFill::run( $cf_trip, 0, 0 );
-check( 'cache fill: with no PHP time limit, one run caches every photo even with a tiny budget', $cf_want === array_values( array_filter( $cf_want, $cf_cached ) ) );
+check( 'cache fill: with no PHP time limit, one run caches every photo even with a tiny budget', $cf_want === $cf_has( $cf_want ) );
 check( '…and schedules nothing', false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
 // A PHP time limit under twice the budget: a run stops at half the limit.
 $cf_reset();
@@ -99,7 +106,7 @@ $cf_slow = function ( $pre ) {
 add_filter( 'pre_http_request', $cf_slow, 5 );
 CacheFill::run( $cf_trip, 1 );
 remove_filter( 'pre_http_request', $cf_slow, 5 );
-check( 'cache fill: a run stops at half a PHP time limit lower than its budget', 1 === count( array_filter( $cf_want, $cf_cached ) ) && wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
+check( 'cache fill: a run stops at half a PHP time limit lower than its budget', 1 === count( $cf_has( $cf_want ) ) && wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
 $cf_reset();
 
 // When a run is scheduled: one event per trip, after a sync or a change to what it shows.
@@ -109,18 +116,16 @@ CacheFill::schedule( $cf_trip );
 CacheFill::schedule( $cf_trip );
 check( 'cache fill: scheduling twice for a trip leaves a single event', 1 === $cf_events( $cf_trip ), $cf_events( $cf_trip ) );
 $cf_reset();
-( new TripSync( new FakeDawarich( 'http://x', 'k' ), $cf_source ) )->sync( $cf_trip );
+$cf_sync( $cf_trip );
 check( 'cache fill: a sync schedules a run', 1 === $cf_events( $cf_trip ) );
 $cf_reset();
 check( '…changing a photo’s state too', 200 === $rest_post( "/travel-steps/v1/trips/$cf_trip/photo-state", [ 'asset' => $cf_id( 1804 ), 'state' => 'default' ] )->get_status() && 1 === $cf_events( $cf_trip ) );
 $cf_reset();
 check( '…and choosing the cover', 200 === $rest_post( "/travel-steps/v1/trips/$cf_trip/cover", [ 'asset' => $cf_id( 1801 ) ] )->get_status() && 1 === $cf_events( $cf_trip ) );
 $cf_reset();
-$cf_uploads = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Uploaded', 'post_status' => 'publish', 'post_author' => $alice ] );
+$cf_uploads = $cf_new_trip( 'Uploaded' );
 update_post_meta( $cf_uploads, Trips::META_SOURCE, Trips::SOURCE_UPLOADS );
-update_post_meta( $cf_uploads, Trips::META_START, '2025-07-01' );
-update_post_meta( $cf_uploads, Trips::META_END, '2025-07-03' );
-$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $cf_source ) )->sync( $cf_uploads );
+$r = $cf_sync( $cf_uploads );
 check( 'cache fill: syncing a trip of uploads schedules nothing', ! is_wp_error( $r ) && 0 === $cf_events( $cf_uploads ), $r );
 foreach ( Trips::steps( $cf_uploads, true ) as $cf_step ) {
 	wp_delete_post( $cf_step->ID, true );

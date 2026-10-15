@@ -41,6 +41,8 @@ class App extends BaseApp {
 		// via nested add_action( 'init', … ) which won't fire reliably.
 		Trips::register_post_types();
 		Settings::migrate();
+		// Activation hooks don't run on update, so the first request after one moves the cache.
+		RestController::migrate_cache();
 		PhotosBlock::register();
 		Uploads::register();
 

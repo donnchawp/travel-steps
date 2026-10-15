@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Travel Steps
- * Description: Document trips: photos from Immich or uploaded to the trip, your route from Dawarich or the photos themselves, and the story in WordPress posts.
+ * Description: A travel journal with photos from Immich or uploaded to the trip, a route from Dawarich or the photos themselves, and a post for each day's story.
  * Version: 0.4.0
  * Requires at least: 6.7
  * Requires PHP: 8.0

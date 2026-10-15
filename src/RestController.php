@@ -447,6 +447,13 @@ class RestController {
 		return wp_hash( $asset );
 	}
 
+	/**
+	 * Whether a photo is cached at a size, so fetch() would send it without its source.
+	 */
+	public static function cached( string $asset, string $size ): bool {
+		return is_readable( self::cache_file( $asset, $size ) );
+	}
+
 	private static function cache_file( string $asset, string $size ): string {
 		$name = self::cache_name( $asset );
 		return self::cache_root() . '/' . self::cache_folder( $name, $size ) . '/' . $name;

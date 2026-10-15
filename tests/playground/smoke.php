@@ -1099,6 +1099,7 @@ require '/smoke/upload-trips.php';
 require '/smoke/upload-pages.php';
 require '/smoke/password-trips.php';
 require '/smoke/photo-cache.php';
+require '/smoke/cache-fill.php';
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

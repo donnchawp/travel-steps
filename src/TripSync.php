@@ -350,7 +350,8 @@ class TripSync {
 
 	/**
 	 * Put a step at its day's first located favourite, else its first located photo,
-	 * else wherever Dawarich says you were around its post date.
+	 * else wherever Dawarich says you were around its post date. With none of those, it has
+	 * no position, even if an earlier sync stored one: that may since have become home.
 	 */
 	private function place_step( \WP_Post $step, array $day_photos, array $track ): void {
 		$photo = Selection::lead( array_filter( $day_photos, fn( $p ) => null !== $p['lat'] ) );
@@ -359,6 +360,8 @@ class TripSync {
 		} else {
 			$index = Geo::nearest_in_time( $track, Trips::arrived( $step ), 12 * HOUR_IN_SECONDS );
 			if ( null === $index ) {
+				delete_post_meta( $step->ID, Trips::META_LAT );
+				delete_post_meta( $step->ID, Trips::META_LON );
 				return;
 			}
 			[ $lat, $lon ] = [ $track[ $index ][0], $track[ $index ][1] ];

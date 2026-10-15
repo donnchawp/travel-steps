@@ -143,6 +143,29 @@ $r = $sync->sync( $trip_id );
 check( 'concurrent sync refused', is_wp_error( $r ) && 'travel_steps_sync_running' === $r->get_error_code() );
 delete_option( 'travel_steps_sync_lock_' . $trip_id );
 
+// A step's position is derived data: each sync refreshes it, and clears it when there's none to be had.
+$stale_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Stale', 'post_status' => 'draft' ] );
+update_post_meta( $stale_trip, Trips::META_START, '2025-06-01' );
+update_post_meta( $stale_trip, Trips::META_END, '2025-06-02' );
+$stale_source       = new FakeSource();
+$stale_source->rows = [ row( 51, '2025-06-01', '10:00', 38.7139, -9.1394, 'Lisbon', true ), row( 52, '2025-06-02', '10:00', 37.0194, -7.9304, 'Faro', true ) ];
+$stale_no_track     = new TripSync( new DawarichClient( 'http://x', '' ), $stale_source );
+$stale_no_track->sync( $stale_trip );
+[ $stale_d1, $stale_d2 ] = Trips::steps( $stale_trip, true ) + [ null, null ];
+$stale_at = fn( $step ) => [ get_post_meta( $step->ID ?? 0, Trips::META_LAT, true ), get_post_meta( $step->ID ?? 0, Trips::META_LON, true ) ];
+check( 'stale: both days placed by the first sync', [ '38.7139', '-9.1394' ] === array_map( 'strval', $stale_at( $stale_d1 ) ) && '37.0194' === (string) $stale_at( $stale_d2 )[0], [ $stale_at( $stale_d1 ), $stale_at( $stale_d2 ) ] );
+// Day 1's photo loses its position and there's no track; day 2's photo moves.
+$stale_source->rows = [ row( 51, '2025-06-01', '10:00', null, null, '', true ), row( 52, '2025-06-02', '10:00', 37.1, -7.9, 'Faro', true ) ];
+$stale_no_track->sync( $stale_trip );
+check( 'a step sync finds no position for loses the one an earlier sync stored', ! metadata_exists( 'post', $stale_d1->ID ?? 0, Trips::META_LAT ) && ! metadata_exists( 'post', $stale_d1->ID ?? 0, Trips::META_LON ), $stale_at( $stale_d1 ) );
+check( '…while one placed from a photo follows it', [ '37.1', '-7.9' ] === array_map( 'strval', $stale_at( $stale_d2 ) ), $stale_at( $stale_d2 ) );
+( new TripSync( new FakeDawarich( 'http://x', 'k' ), $stale_source ) )->sync( $stale_trip );
+check( '…and one with a track point near its day is placed from the track again', [ '38.7139', '-9.1394' ] === array_map( 'strval', $stale_at( $stale_d1 ) ), $stale_at( $stale_d1 ) );
+foreach ( Trips::steps( $stale_trip, true ) as $stale_step ) {
+	wp_delete_post( $stale_step->ID, true );
+}
+wp_delete_post( $stale_trip, true );
+
 // A trip's photos come from Immich, from its album when it has one.
 class AlbumImmich extends ImmichClient {
 	public ?string $album = null;

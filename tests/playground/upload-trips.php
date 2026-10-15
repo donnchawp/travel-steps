@@ -164,7 +164,7 @@ $ut_steps = $ut_steps_by_day( $ut_local );
 $ut_route = array_merge( ...( $ut_map['route'] ?: [ [] ] ) );
 check( 'a day of only home photos still gets a step, with no marker', 2 === $ut_result['new_steps'] && isset( $ut_steps['2025-08-02'] ) && ! in_array( $ut_steps['2025-08-02'], array_column( $ut_map['markers'], 'step' ), true ), [ $ut_steps, $ut_map['markers'] ] );
 check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && $ut_off_home( $ut_marker_points( $ut_map ) ) && $ut_off_home( $ut_route ), $ut_map );
-check( '…or in the trip’s countries', [ 'France' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
+check( '…or in the trip’s countries', [ 'FR' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
 // Visitors see that day too, published: on the timeline with its photos, but not on the map.
 foreach ( $ut_steps as $ut_step_id ) {
 	wp_publish_post( $ut_step_id );

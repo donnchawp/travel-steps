@@ -118,10 +118,10 @@ class TripSync {
 		$outside = count( $photos ) - count( $on_days );
 		$uploads = Trips::uses_uploads( $trip_id );
 		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, $uploads );
+		$geocoder = $this->geocoder ?? new Geocoder(); // One for the sync.
 		if ( $uploads ) {
 			// Uploads carry no place names, and some have a position only from Dawarich:
-			// name them all here, with one geocoder for the sync.
-			$geocoder  = $this->geocoder ?? new Geocoder();
+			// name them all here.
 			$no_places = ! $geocoder->available();
 			foreach ( $photos as &$photo ) {
 				if ( null !== $photo['lat'] && '' === $photo['city'] ) {
@@ -148,7 +148,9 @@ class TripSync {
 		update_post_meta( $trip_id, Trips::META_ROUTE, wp_slash( wp_json_encode( $route ) ) );
 		update_post_meta( $trip_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( $photos ) ) );
 
-		$countries = array_values( array_unique( array_filter( array_merge( array_column( $track, 4 ), array_column( $photos, 'country' ) ) ) ) );
+		// Counted by ISO code: Immich, GeoNames and Dawarich don't all spell a country alike.
+		$names     = array_merge( array_column( $track, 4 ), array_column( $photos, 'country' ) );
+		$countries = array_values( array_unique( array_filter( array_map( [ $geocoder, 'country_key' ], $names ) ) ) );
 		update_post_meta(
 			$trip_id,
 			Trips::META_STATS,

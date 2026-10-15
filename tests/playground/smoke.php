@@ -504,6 +504,12 @@ $GLOBALS['wpdb']->update( $GLOBALS['wpdb']->posts, [ 'post_status' => 'future' ]
 clean_post_cache( $trip_id );
 check( 'scheduled trip: no warning, its steps go public with it', false === strpos( $render( 'trip-edit.php', (string) $trip_id ), 'This trip isn’t public' ) );
 wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
+
+// A public trip whose steps visitors can't see: one notice for the trip.
+$post_as = fn( string $status, string $password = '' ) => new WP_Post( (object) [ 'post_status' => $status, 'post_password' => $password ] );
+$as_steps = fn( string ...$statuses ) => array_map( $post_as, $statuses );
+$notice   = View::unseen_notice( $post_as( 'publish' ), $as_steps( 'draft', 'draft' ) );
+check( 'published trip with two draft steps: visitors see 0 of 2', 'Visitors see 0 of 2 steps. The other 2 aren’t published, so only the trip’s editors can see them.' === $notice, $notice );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
 // Day 1 shows its two favourites; the expander holds only the other two.

@@ -36,19 +36,53 @@ class View {
 	}
 
 	/**
-	 * A warning for editors when published steps can't be seen because their trip isn't
-	 * public, else ''. A private trip is hidden on purpose, and a scheduled one goes
-	 * public by itself, so neither needs it.
+	 * Step statuses that hide a step from visitors on a published trip and need a warning.
+	 * A scheduled step publishes itself, so it isn't one.
+	 */
+	private const NOT_PUBLIC = [ 'draft', 'pending', 'private' ];
+
+	/**
+	 * A warning for editors when visitors can't see some of a trip's steps, else ''.
+	 *
+	 * On a published trip (with or without a password), it counts the steps that aren't
+	 * published. On a trip that isn't public, it counts the published steps, which
+	 * visitors can't see either. A private trip is hidden on purpose, and a scheduled one
+	 * goes public by itself, so neither gets a warning.
 	 */
 	public static function unseen_notice( \WP_Post $trip, array $steps ): string {
+		if ( 'publish' === $trip->post_status ) {
+			return self::hidden_steps_notice( $steps );
+		}
 		$unseen = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
-		if ( ! $unseen || in_array( $trip->post_status, [ 'publish', 'private', 'future' ], true ) ) {
+		if ( ! $unseen || in_array( $trip->post_status, [ 'private', 'future' ], true ) ) {
 			return '';
 		}
 		return sprintf(
 			/* translators: %s: number of published steps */
 			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $unseen, 'travel-steps' ),
 			number_format_i18n( $unseen )
+		);
+	}
+
+	/**
+	 * The warning for a published trip with steps that aren't published, else ''.
+	 */
+	private static function hidden_steps_notice( array $steps ): string {
+		$shown  = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
+		$hidden = count( array_filter( $steps, fn( $step ) => in_array( $step->post_status, self::NOT_PUBLIC, true ) ) );
+		if ( ! $hidden ) {
+			return '';
+		}
+		$total = $shown + $hidden;
+		return sprintf(
+			/* translators: 1: number of published steps, 2: number of steps on the trip */
+			_n( 'Visitors see %1$s of %2$s step.', 'Visitors see %1$s of %2$s steps.', $total, 'travel-steps' ),
+			number_format_i18n( $shown ),
+			number_format_i18n( $total )
+		) . ' ' . sprintf(
+			/* translators: %s: number of steps that aren't published */
+			_n( 'The other %s isn’t published, so only the trip’s editors can see it.', 'The other %s aren’t published, so only the trip’s editors can see them.', $hidden, 'travel-steps' ),
+			number_format_i18n( $hidden )
 		);
 	}
 

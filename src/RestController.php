@@ -435,7 +435,7 @@ class RestController {
 	 * under a keyed hash of their id (nginx), which no visitor sees: the id is in the
 	 * proxy URL. So they're meant to be reached only through the checks above.
 	 */
-	private static function cache_root(): string {
+	public static function cache_root(): string {
 		return wp_get_upload_dir()['basedir'] . '/travel-steps-cache';
 	}
 
@@ -457,7 +457,7 @@ class RestController {
 		return is_readable( self::cache_file( $asset, $size ) );
 	}
 
-	private static function cache_file( string $asset, string $size ): string {
+	public static function cache_file( string $asset, string $size ): string {
 		$name = self::cache_name( $asset );
 		return self::cache_root() . '/' . self::cache_folder( $name, $size ) . '/' . $name;
 	}

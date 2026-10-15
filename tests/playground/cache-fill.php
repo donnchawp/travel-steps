@@ -5,7 +5,7 @@
  * row(), FakeDawarich, FakeSource, $alice (who has an Immich key), $jpeg, $cache_path
  * and $rest_post.
  */
-use TravelSteps\{CacheFill, RestController, TripSync, Trips, Uploads};
+use TravelSteps\{CacheFill, RestController, Settings, TripSync, Trips, Uploads};
 
 // Every request to Immich for a photo, as "<asset> <size>"; the assets in $cf_failing fail.
 $cf_fetched = [];
@@ -59,6 +59,19 @@ CacheFill::run( $cf_trip, 0 );
 check( 'cache fill: a photo already cached isn’t fetched again', [] === $cf_fetched, $cf_fetched );
 $cf_served = [ RestController::fetch( $cf_trip, $cf_id( 1802 ), 'preview' ), RestController::fetch( $cf_trip, $cf_id( 1802 ), 'medium' ) ];
 check( '…and the proxy serves its preview and medium without asking Immich', [] === $cf_fetched && ! array_filter( $cf_served, 'is_wp_error' ), [ $cf_fetched, $cf_served ] );
+// The author's key revoked after a fill: a filled photo is still served, with no HTTP call.
+$cf_account = Settings::account( $alice );
+Settings::update_account( $alice, [ 'immich_key' => '' ] + $cf_account );
+$cf_http    = 0;
+$cf_count   = function ( $pre ) use ( &$cf_http ) {
+	++$cf_http;
+	return $pre;
+};
+add_filter( 'pre_http_request', $cf_count, 5 );
+$cf_served = [ RestController::fetch( $cf_trip, $cf_id( 1803 ), 'preview' ), RestController::fetch( $cf_trip, $cf_id( 1803 ), 'medium' ) ];
+remove_filter( 'pre_http_request', $cf_count, 5 );
+Settings::update_account( $alice, $cf_account );
+check( 'cache fill: with the author’s Immich key removed, the proxy serves a filled photo’s preview and medium with no HTTP call', 0 === $cf_http && ! array_filter( $cf_served, 'is_wp_error' ), [ $cf_http, $cf_served ] );
 
 // Fetches that fail: one is skipped, three in a row stop the run until the next trigger.
 $cf_reset = function () use ( $cf_all, $cf_trip ) {

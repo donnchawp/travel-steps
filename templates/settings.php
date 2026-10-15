@@ -139,11 +139,11 @@ include __DIR__ . '/_header.php';
 
 		<fieldset>
 			<legend><?php esc_html_e( 'Cached photos', 'travel-steps' ); ?></legend>
-			<p class="ts-muted"><?php esc_html_e( 'Photos are cached on this site as they’re shown. Once a day, cached photos that no trip uses any more are deleted.', 'travel-steps' ); ?></p>
+			<p class="ts-muted"><?php esc_html_e( 'Photos are cached on this site when they’re shown, and after a sync. Once a day, cached photos that no trip uses any more are deleted.', 'travel-steps' ); ?></p>
 			<label>
 				<span><?php esc_html_e( 'Delete cached photos after (days)', 'travel-steps' ); ?></span>
 				<input type="number" min="0" step="1" name="cache_days" value="<?php echo esc_attr( $settings['cache_days'] ); ?>">
-				<small class="ts-muted"><?php esc_html_e( '0 keeps them. Expired photos are fetched from Immich again when someone views them, so that needs Immich and the trip author’s key to be working.', 'travel-steps' ); ?></small>
+				<small class="ts-muted"><?php esc_html_e( '0 keeps them. An expired photo is cached again when someone next views it: an uploaded one from its original on this site, and others from Immich, which needs Immich and the trip author’s key to be working.', 'travel-steps' ); ?></small>
 			</label>
 		</fieldset>
 

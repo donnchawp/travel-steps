@@ -48,6 +48,8 @@ The Trip photos block marks where a section's photos go and previews them in the
 
 Grids load a 640 px (short side) copy of Immich's preview, made once and cached; a photo shown on its own, and the lightbox, use the full preview.
 
+A synced Immich trip's visible photos are cached in full in the background, so the trip keeps working if Immich is down or its author's key stops working. After a sync, and whenever a photo is pinned, hidden or shown again or the cover changes, a WP-Cron event fetches the preview of every photo visitors can see once its step is published (every photo not hidden, on draft steps too, and the chosen cover) that isn't cached yet. That's roughly 300 KB of disk per photo. Under a PHP time limit, as when WP-Cron runs from page loads, each run fetches for 20 seconds at most (or half the limit if that's less) and schedules another for the rest; run from a system crontab by PHP CLI, which has no limit, it carries on until it's done. Three failed fetches in a row stop it until the next sync or change. Either way, a photo that isn't cached yet is still fetched and cached the first time someone views it. Trips of uploads don't need this: their copies are already on the site.
+
 The map gets a marker per place heading (3a, 3b…), or one per step without headings, numbered by trip day. A step with no position, such as a day of photos taken at home, is still on the timeline with its story and photos, but puts no marker on the map.
 
 Selection happens when the page loads, so pin and hide take effect immediately. New favourites need a re-sync to be picked up, and only create a step for a day that doesn't have one yet.

@@ -8,29 +8,35 @@ Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A travel journal: photos from Immich or uploaded to the trip, an optional route from Dawarich, and each day's story as a post.
+A travel journal with photos from Immich or uploaded to the trip, an optional route from Dawarich, and a post for each day's story.
 
 == Description ==
 
-Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip; either way they're served through WordPress, so Immich and the original files stay private.
+Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip.
 
-Sync creates a draft step for every day with favourite photos, with a heading and a Trip photos block for each place you visited. You write each step up in the block editor and publish it. Pin, hide or choose a cover photo on the trip page. Only published steps of published trips are public, and your home area is kept off every map: photos uploaded to a trip that were taken at home are shown without a place, while trips of Immich photos leave them out. A step with no position, such as a day at home, shows on the timeline without a marker on the map. A trip can also have a password, with lists of logged-in users who see it without one.
+Visitors never reach Immich. WordPress fetches the photos and serves them itself, so Immich and the original files stay private.
 
-Photos come from an Immich server reachable from your WordPress server, or are uploaded to each trip, which needs PHP's exif extension. Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location; a trip always uses its author's.
+Sync creates a draft step for every day with favourite photos. Each place you visited that day gets a heading and a Trip photos block. You write each step in the block editor and publish it. On the trip page you can pin or hide a photo, or make one the cover.
+
+Only published steps of published trips are public. Your home is kept off every map. Photos uploaded to a trip that were taken at home show without a place, and trips of Immich photos leave them out. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
+
+A trip can also have a password. Logged-in users on its viewer lists see it without one.
+
+Photos come from an Immich server your WordPress server can reach, or are uploaded to each trip, which needs PHP's exif extension. Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location. A trip always uses its author's keys.
 
 == Installation ==
 
 1. Upload the plugin with its `vendor/` directory (or run `composer install --no-dev` in it) and activate it.
-2. Open `/travel-steps/settings`. As an administrator, optionally enter the Immich and Dawarich URLs under Site. Everyone who makes trips enters their own Immich API key if they use Immich, and optionally their Dawarich key and home location, under Personal settings.
-3. Create a trip at `/travel-steps/new`. For all your Immich photos, set its dates and press Sync; for an Immich album the dates are optional. For uploads, choose "Photos uploaded to this trip", press Save and add photos, and close the media window when they're in: that syncs the trip if anything changed.
+2. Open `/travel-steps/settings`. If you're an administrator, enter the Immich and Dawarich URLs under Site. Both are optional. Everyone who makes trips fills in Personal settings: an Immich API key if they use Immich, and a Dawarich key and home location if they want them.
+3. Create a trip at `/travel-steps/new`. For all your Immich photos, set its dates and press Sync. For an Immich album the dates are optional. For uploads, choose "Photos uploaded to this trip", press Save and add photos. Close the media window when they're in, and the trip syncs if anything changed.
 
 == External services ==
 
-Travel Steps connects to three services. The plugin sends nothing anywhere else: Leaflet, the map library, ships with the plugin.
+Travel Steps connects to three services, and sends nothing anywhere else. Leaflet, the map library, ships with the plugin.
 
 = OpenStreetMap map tiles =
 
-The map on each trip page loads its background images from the OpenStreetMap Foundation's tile servers (`tile.openstreetmap.org`). The visitor's browser requests the tiles directly, so the OpenStreetMap Foundation receives the visitor's IP address, browser user agent, the trip page's address (as the referrer) and which part of the map they view. This happens whenever someone opens a trip page. Map data © OpenStreetMap contributors.
+The map on each trip page loads its background images from the OpenStreetMap Foundation's tile servers (`tile.openstreetmap.org`). The visitor's browser requests the tiles directly. So the OpenStreetMap Foundation receives the visitor's IP address, browser user agent, the trip page's address (as the referrer) and which part of the map they view. This happens whenever someone opens a trip page. Map data © OpenStreetMap contributors.
 
 * [Tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
 * [Terms of use](https://osmfoundation.org/wiki/Terms_of_Use)
@@ -38,15 +44,15 @@ The map on each trip page loads its background images from the OpenStreetMap Fou
 
 = Dawarich (your own server, optional) =
 
-If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawarich server for the location points between the trip's dates. It sends the trip author's Dawarich API key and the date range. Nothing is sent to Dawarich at any other time, and visitors never contact it. Dawarich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [dawarich.app](https://dawarich.app).
+If you set up Dawarich, syncing a trip makes your WordPress server ask your Dawarich server for the location points between the trip's dates. It sends the trip author's Dawarich API key and the date range. Nothing is sent to Dawarich at any other time, and visitors never contact it. Dawarich is self-hosted software, so its terms and privacy are those of whoever runs that server. See [dawarich.app](https://dawarich.app).
 
 = Immich (your own server) =
 
-Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends the trip author's Immich API key and the date range or album id. The trip edit page also lists the author's Immich albums, for the author only. Photos on trip pages are fetched from Immich by your WordPress server and served from your site, so visitors never contact Immich. After a sync, or a change to which photos a trip shows, your server also fetches every photo visitors can see on the trip in the background, with the trip author's key, and keeps a copy, so the trip keeps working without Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server; see [immich.app](https://immich.app).
+Syncing a trip makes your WordPress server ask your Immich server for the photos taken during the trip, or in the album you chose. It sends the trip author's Immich API key and the date range or album id. The trip edit page also lists the author's Immich albums, and only the author sees them. Your WordPress server fetches the photos on trip pages from Immich and serves them from your site, so visitors never contact Immich. After a sync, or a change to which photos a trip shows, your server also fetches every photo visitors can see on the trip in the background, using the trip author's key, and keeps a copy. That way the trip keeps working without Immich. Immich is self-hosted software, so its terms and privacy are those of whoever runs that server. See [immich.app](https://immich.app).
 
 == Credits ==
 
-Place names come from [GeoNames](https://www.geonames.org) (towns of 500 people or more, and country names), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), trimmed to names, countries and positions and filtered (most neighbourhoods and historical places left out, and Paris's and Marseille's arrondissements named after their city). They ship with the plugin, so naming a place sends nothing anywhere.
+Place names come from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The plugin ships towns of 500 people or more, and country names, trimmed to names, countries and positions. Most neighbourhoods and historical places are left out, and Paris's and Marseille's arrondissements are named after their city. Because the names ship with the plugin, naming a place sends nothing anywhere.
 
 == Changelog ==
 

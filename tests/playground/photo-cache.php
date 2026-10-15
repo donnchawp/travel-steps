@@ -2,14 +2,14 @@
 /**
  * The photo cache: cached Immich photos are named after a keyed hash of their id, never
  * the id in their proxy URL, and caches made before that are moved once. Required at the
- * end of smoke.php, in its scope: uses check(), $alice, $jpeg and $cache_path.
+ * end of smoke.php, in its scope: uses check(), $alice, $jpeg, $base and $cache_path.
  */
 use TravelSteps\RestController;
 use TravelSteps\Trips;
 
-$pc_base = wp_get_upload_dir()['basedir'] . '/travel-steps-cache';
+$pc_base = "$base/travel-steps-cache";
 // Every file under the cache, by path from its top.
-$pc_files = function () use ( &$pc_base ) {
+$pc_files = function () use ( $pc_base ) {
 	if ( ! is_dir( $pc_base ) ) {
 		return [];
 	}
@@ -51,11 +51,7 @@ check( 'deleting a cached photo deletes it at every size, with its types', [] ==
 // Caches made before photos were named after a hash: moved once, on the first request after the update.
 check( 'the cache layout is recorded when the plugin loads', RestController::CACHE_LAYOUT_VERSION === (int) get_option( RestController::CACHE_LAYOUT ), get_option( RestController::CACHE_LAYOUT ) );
 $pc_old    = fn( string $asset, string $size ) => "$pc_base/$size/" . substr( $asset, 0, 2 ) . "/$asset";
-$pc_store  = function ( string $file, string $body ) {
-	wp_mkdir_p( dirname( $file ) );
-	file_put_contents( $file, $body );
-	file_put_contents( "$file.type", 'image/webp' );
-};
+$pc_store  = fn( string $file, string $body ) => RestController::store_cached( $file, $body, 'image/webp' );
 $pc_a      = 'aa000000-0000-4000-8000-000000000001';
 $pc_b      = 'bb000000-0000-4000-8000-000000000002';
 $pc_taken  = 'cc000000-0000-4000-8000-000000000003';
@@ -78,8 +74,9 @@ check( '…a photo already under its new name keeps that copy, and the old one i
 $pc_named = array_filter( array_keys( $pc_files() ), fn( $path ) => preg_match( '/[a-f0-9]{8}-[a-f0-9]{4}-/', $path ) );
 check( '…no file is left under a photo id', [] === $pc_named, $pc_named );
 // An old folder stays only if a moved photo's hash starts the same way.
-$pc_now_used = array_map( fn( $m ) => dirname( $cache_path( ...$m ) ), array_merge( $pc_moving, [ [ $pc_taken, 'preview' ] ] ) );
-$pc_folders  = array_filter( array_map( fn( $m ) => dirname( $pc_old( ...$m ) ), array_merge( $pc_moving, [ [ $pc_taken, 'preview' ] ] ) ), fn( $dir ) => is_dir( $dir ) && ! in_array( $dir, $pc_now_used, true ) );
+$pc_all      = [ ...$pc_moving, [ $pc_taken, 'preview' ] ];
+$pc_now_used = array_map( fn( $m ) => dirname( $cache_path( ...$m ) ), $pc_all );
+$pc_folders  = array_filter( array_map( fn( $m ) => dirname( $pc_old( ...$m ) ), $pc_all ), fn( $dir ) => is_dir( $dir ) && ! in_array( $dir, $pc_now_used, true ) );
 check( '…emptied old folders are removed', [] === $pc_folders, $pc_folders );
 $pc_unlisted = array_filter( array_unique( $pc_now_used ), fn( $dir ) => ! file_exists( "$dir/index.html" ) );
 check( '…and new folders can’t be listed', [] === $pc_unlisted, $pc_unlisted );

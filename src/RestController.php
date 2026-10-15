@@ -14,6 +14,8 @@ class RestController {
 	// The cache layout a site has: 2 names photos after a keyed hash of their id, not the id.
 	const CACHE_LAYOUT         = 'travel_steps_cache_layout';
 	const CACHE_LAYOUT_VERSION = 2;
+	// An Immich asset id, or the photo id of an upload: a UUID.
+	const ASSET_ID = '[a-f0-9-]{36}';
 
 	public function register_routes(): void {
 		register_rest_route(
@@ -36,7 +38,7 @@ class RestController {
 					'asset' => [
 						'type'     => 'string',
 						'required' => true,
-						'pattern'  => '^[a-f0-9-]{36}$',
+						'pattern'  => '^' . self::ASSET_ID . '$',
 					],
 					'state' => [
 						'type'     => 'string',
@@ -58,14 +60,14 @@ class RestController {
 					'asset' => [
 						'type'     => 'string',
 						'required' => true,
-						'pattern'  => '^([a-f0-9-]{36})?$',
+						'pattern'  => '^(' . self::ASSET_ID . ')?$',
 					],
 				],
 			]
 		);
 		register_rest_route(
 			self::NS,
-			'/trips/(?P<id>\d+)/photo/(?P<asset>[a-f0-9-]{36})',
+			'/trips/(?P<id>\d+)/photo/(?P<asset>' . self::ASSET_ID . ')',
 			[
 				'methods'             => 'GET',
 				'callback'            => [ $this, 'serve_photo' ],
@@ -227,14 +229,7 @@ class RestController {
 		if ( is_wp_error( $image ) ) {
 			return $image;
 		}
-		if ( isset( $image['file'] ) ) {
-			self::send_file( $is_public, $etag, $image['file'], $image['type'] );
-		}
-		self::send_cache_headers( $is_public, $etag );
-		self::send_type( $image['type'] );
-		header( 'Content-Length: ' . strlen( $image['body'] ) );
-		echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		exit;
+		self::send_image( $is_public, $etag, $image );
 	}
 
 	/**
@@ -269,11 +264,19 @@ class RestController {
 		return '"' . md5( $asset . '/' . $size . ( '' !== $version ? '/' . $version : '' ) ) . '"';
 	}
 
-	private static function send_file( bool $is_public, string $etag, string $file, string $type ): void {
+	/**
+	 * @param array{body: string, type: string}|array{file: string, type: string} $image As fetch() gives it.
+	 */
+	private static function send_image( bool $is_public, string $etag, array $image ): void {
 		self::send_cache_headers( $is_public, $etag );
-		self::send_type( $type );
-		header( 'Content-Length: ' . filesize( $file ) );
-		readfile( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		self::send_type( $image['type'] );
+		if ( isset( $image['file'] ) ) {
+			header( 'Content-Length: ' . filesize( $image['file'] ) );
+			readfile( $image['file'] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		} else {
+			header( 'Content-Length: ' . strlen( $image['body'] ) );
+			echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
 		exit;
 	}
 
@@ -429,21 +432,36 @@ class RestController {
 	 * under a keyed hash of their id (nginx), which no visitor sees: the id is in the
 	 * proxy URL. So they're meant to be reached only through the checks above.
 	 */
-	private static function cache_folder( string $asset, string $size ): string {
-		return $size . '/' . substr( self::cache_name( $asset ), 0, 2 );
+	private static function cache_root(): string {
+		return wp_get_upload_dir()['basedir'] . '/travel-steps-cache';
 	}
 
-	private static function cache_file( string $asset, string $size ): string {
-		return wp_get_upload_dir()['basedir'] . '/travel-steps-cache/' . self::cache_folder( $asset, $size ) . '/' . self::cache_name( $asset );
+	/**
+	 * The folder under cache_root() a photo is cached in at a size, by its cache_name().
+	 */
+	private static function cache_folder( string $name, string $size ): string {
+		return $size . '/' . substr( $name, 0, 2 );
 	}
 
 	private static function cache_name( string $asset ): string {
 		return wp_hash( $asset );
 	}
 
+	private static function cache_file( string $asset, string $size ): string {
+		$name = self::cache_name( $asset );
+		return self::cache_root() . '/' . self::cache_folder( $name, $size ) . '/' . $name;
+	}
+
+	/**
+	 * cache_file(), its folders made and protected first, ready to be written.
+	 */
+	private static function cache_target( string $asset, string $size ): string {
+		$name = self::cache_name( $asset );
+		return Uploads::protect( self::cache_root(), self::cache_folder( $name, $size ) ) . '/' . $name;
+	}
+
 	private static function cache( string $asset, string $size, array $image ): void {
-		Uploads::protect( wp_get_upload_dir()['basedir'] . '/travel-steps-cache', self::cache_folder( $asset, $size ) );
-		self::store_cached( self::cache_file( $asset, $size ), $image['body'], $image['type'] );
+		self::store_cached( self::cache_target( $asset, $size ), $image['body'], $image['type'] );
 	}
 
 	/**
@@ -456,42 +474,35 @@ class RestController {
 		if ( (int) get_option( self::CACHE_LAYOUT ) >= self::CACHE_LAYOUT_VERSION ) {
 			return;
 		}
-		// add_option() is an atomic insert, so two requests can't both move the files.
-		$lock = self::CACHE_LAYOUT . '_lock';
-		if ( ! add_option( $lock, time(), '', false ) ) {
-			if ( (int) get_option( $lock ) > time() - 10 * MINUTE_IN_SECONDS ) {
-				return;
+		// So two requests can't both move the files.
+		Lock::run(
+			self::CACHE_LAYOUT . '_lock',
+			function () {
+				foreach ( glob( self::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
+					self::migrate_cache_folder( $dir );
+				}
+				update_option( self::CACHE_LAYOUT, self::CACHE_LAYOUT_VERSION );
 			}
-			update_option( $lock, time(), false ); // Left behind by a migration that died.
-		}
-		try {
-			$root = wp_get_upload_dir()['basedir'] . '/travel-steps-cache';
-			foreach ( glob( $root . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
-				self::migrate_cache_folder( $root, $dir );
-			}
-			update_option( self::CACHE_LAYOUT, self::CACHE_LAYOUT_VERSION );
-		} finally {
-			delete_option( $lock );
-		}
+		);
 	}
 
-	private static function migrate_cache_folder( string $root, string $dir ): void {
+	private static function migrate_cache_folder( string $dir ): void {
 		$size = basename( dirname( $dir ) );
 		foreach ( scandir( $dir ) ?: [] as $name ) {
-			if ( preg_match( '/^[a-f0-9-]{36}(\.type)?\.[A-Za-z0-9]+\.tmp$/', $name ) ) {
+			// A photo, its type, or a temporary file left by a write that never finished.
+			if ( ! preg_match( '/^(' . self::ASSET_ID . ')(\.type)?(\.[A-Za-z0-9]+\.tmp)?$/', $name, $m ) ) {
+				continue;
+			}
+			if ( isset( $m[3] ) ) {
 				wp_delete_file( "$dir/$name" );
-			} elseif ( preg_match( '/^([a-f0-9-]{36})(\.type)?$/', $name, $m ) ) {
-				Uploads::protect( $root, self::cache_folder( $m[1], $size ) );
-				$to = self::cache_file( $m[1], $size ) . ( $m[2] ?? '' );
-				if ( file_exists( $to ) || ! rename( "$dir/$name", $to ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
-					wp_delete_file( "$dir/$name" );
-				}
+				continue;
+			}
+			$to = self::cache_target( $m[1], $size ) . ( $m[2] ?? '' );
+			if ( file_exists( $to ) || ! rename( "$dir/$name", $to ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
+				wp_delete_file( "$dir/$name" );
 			}
 		}
-		if ( [] === array_diff( scandir( $dir ) ?: [ 'kept' ], [ '.', '..', 'index.html' ] ) ) {
-			wp_delete_file( "$dir/index.html" );
-			rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
-		}
+		Uploads::remove_empty( $dir );
 	}
 
 	/**

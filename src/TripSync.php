@@ -46,19 +46,12 @@ class TripSync {
 	 *         photos taken at home, kept without a position; unlocated, the others without one.
 	 */
 	public function sync( int $trip_id ) {
-		// add_option() is an atomic insert, so a double-clicked sync can't create a day twice.
-		$lock = 'travel_steps_sync_lock_' . $trip_id;
-		if ( ! add_option( $lock, time(), '', false ) ) {
-			if ( (int) get_option( $lock ) > time() - 10 * MINUTE_IN_SECONDS ) {
-				return new \WP_Error( 'travel_steps_sync_running', __( 'A sync of this trip is already running.', 'travel-steps' ) );
-			}
-			update_option( $lock, time(), false ); // Left behind by a sync that died.
-		}
-		try {
-			return $this->run( $trip_id );
-		} finally {
-			delete_option( $lock );
-		}
+		// So a double-clicked sync can't create a day twice.
+		return Lock::run(
+			'travel_steps_sync_lock_' . $trip_id,
+			fn() => $this->run( $trip_id ),
+			new \WP_Error( 'travel_steps_sync_running', __( 'A sync of this trip is already running.', 'travel-steps' ) )
+		);
 	}
 
 	/**

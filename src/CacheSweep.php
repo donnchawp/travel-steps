@@ -18,15 +18,17 @@ class CacheSweep {
 	const GRACE_S = DAY_IN_SECONDS;
 
 	public static function run(): void {
-		$now   = time();
-		$files = self::in_use_files();
+		$now     = time();
+		$files   = self::in_use_files();
+		$max_age = max( 0, (int) Settings::get( 'cache_days' ) ) * DAY_IN_SECONDS;
 		foreach ( glob( RestController::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
 			foreach ( scandir( $dir ) ?: [] as $name ) {
 				$file = "$dir/$name";
 				if ( in_array( $name, [ '.', '..', 'index.html' ], true ) || ! is_file( $file ) || str_ends_with( $name, '.type' ) ) {
 					continue;
 				}
-				if ( ! isset( $files[ $file ] ) && filemtime( $file ) < $now - self::GRACE_S ) {
+				$age = $now - (int) filemtime( $file );
+				if ( ( ! isset( $files[ $file ] ) && $age > self::GRACE_S ) || ( $max_age && $age > $max_age ) ) {
 					wp_delete_file( $file );
 					wp_delete_file( "$file.type" );
 				}

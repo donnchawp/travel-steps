@@ -24,6 +24,8 @@ class Settings {
 		'immich_url'      => '',
 		'place_radius_km' => 2,
 		'auto_pick'       => 8,
+		// Days after which cached photos are deleted, to be fetched again; 0 for never.
+		'cache_days'      => 0,
 	];
 
 	const ACCOUNT_DEFAULTS = [

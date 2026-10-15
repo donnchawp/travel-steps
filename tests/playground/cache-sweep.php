@@ -2,9 +2,9 @@
 /**
  * The daily sweep of the photo cache: it deletes cached photos no trip or upload uses,
  * and, at an age an administrator sets, those older than that. Required at the end of
- * smoke.php, in its scope: uses check(), $alice, $base and $cache_path.
+ * smoke.php, in its scope: uses check(), $alice, $cache_path, $render and $stopped.
  */
-use TravelSteps\{CacheSweep, RestController, Trips};
+use TravelSteps\{CacheSweep, RestController, Settings, Trips};
 
 $cs_id = fn( int $n ) => sprintf( '5eeb0000-0000-4000-8000-%012d', $n );
 // Cache a photo at a size, its files last written $days ago.
@@ -54,7 +54,7 @@ foreach ( $cs_in_use as $why => $file ) {
 // An age set by an administrator: photos in use cached longer ago than that go too.
 $cs_trip( 'publish', [ $cs_id( 7 ), $cs_id( 8 ) ] );
 $cs_aged = function ( int $days ) use ( $cs_cache, $cs_id, $cs_kept ) {
-	update_option( TravelSteps\Settings::OPTION, [ 'cache_days' => $days ] + TravelSteps\Settings::all() );
+	update_option( Settings::OPTION, [ 'cache_days' => $days ] + Settings::all() );
 	$files = [ $cs_cache( $cs_id( 7 ), 'preview', 4 ), $cs_cache( $cs_id( 8 ), 'medium', 2 ) ];
 	CacheSweep::run();
 	return array_map( $cs_kept, $files );
@@ -87,3 +87,20 @@ do_action( "deactivate_$cs_plugin" );
 check( '…deactivating the plugin unschedules it', 0 === $cs_events() );
 do_action( "activate_$cs_plugin" );
 check( '…and activating it schedules it', 1 === $cs_events() && 'daily' === wp_get_schedule( CacheSweep::HOOK ) );
+
+// The setting: in the Site form, for administrators only, saved as a whole number of days.
+$cs_save = function ( $days ) use ( $stopped ) {
+	$_POST = $_REQUEST = [ 'immich_url' => 'http://immich.test', 'cache_days' => $days, '_wpnonce' => wp_create_nonce( 'travel_steps_settings' ) ];
+	$result = $stopped( [ Settings::class, 'handle_save_site' ] );
+	$_POST  = $_REQUEST = [];
+	return 'redirect' === $result ? Settings::get( 'cache_days' ) : $result;
+};
+wp_set_current_user( 1 );
+check( 'cache sweep setting: never, until an administrator chooses an age', 0 === Settings::DEFAULTS['cache_days'] );
+check( '…an administrator saves it in days', 30 === $cs_save( '30' ) );
+check( '…negative or non-numeric, it’s saved as never', [ 0, 0, 0 ] === [ $cs_save( '-3' ), $cs_save( 'soon' ), $cs_save( '' ) ] );
+$cs_page = $render( 'settings.php', '' );
+check( '…it’s in the Site form, which says expired photos are fetched from Immich again', 1 === preg_match( '/name="cache_days"[^>]*value="0"/', $cs_page ) && false !== strpos( $cs_page, 'fetched from Immich again' ) );
+wp_set_current_user( $alice );
+check( '…which authors don’t see', false === strpos( $render( 'settings.php', '' ), 'name="cache_days"' ) );
+wp_set_current_user( 1 );

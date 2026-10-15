@@ -135,6 +135,7 @@ class Settings {
 			'immich_url'      => esc_url_raw( trim( $input['immich_url'] ?? '' ) ),
 			'place_radius_km' => max( 0.1, (float) ( $input['place_radius_km'] ?? 2 ) ),
 			'auto_pick'       => min( 50, max( 1, (int) ( $input['auto_pick'] ?? 8 ) ) ),
+			'cache_days'      => max( 0, (int) ( $input['cache_days'] ?? 0 ) ),
 		];
 	}
 

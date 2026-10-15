@@ -359,7 +359,7 @@ class Trips {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hashed, as core does: sanitising would change the password.
 			$hash = ( new \PasswordHash( 8, true ) )->HashPassword( wp_unslash( $_POST['post_password'] ) );
 			/** This filter is documented in wp-login.php */
-			$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS );
+			$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's filter, so a site's cookie lifetime applies here too.
 			setcookie( self::password_cookie(), $hash, $expire, COOKIEPATH, COOKIE_DOMAIN, 'https' === wp_parse_url( $to, PHP_URL_SCHEME ) );
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing

@@ -899,7 +899,9 @@ check( 'an editor can fetch a trip photo before it’s synced', '' !== TravelSte
 check( 'a trip photo is found by its id, under its own trip only', $tagged === TravelSteps\Uploads::attachment( $photos_trip, $tagged_id ) && 0 === TravelSteps\Uploads::attachment( $trip_id, $tagged_id ) );
 check( '…not through another trip', '' === TravelSteps\RestController::access( $trip_id, $tagged_id ) );
 check( '…and, as only editors can see it, not into shared caches, though the trip is published', 'publish' === get_post_status( $photos_trip ) && 'private' === TravelSteps\RestController::access( $photos_trip, $tagged_id ) );
-$cached_copy = "$base/travel-steps-cache/medium/" . substr( $tagged_id, 0, 2 ) . "/$tagged_id";
+// Where a photo is cached at a size: under a keyed hash of its id, in a folder named after the hash's start.
+$cache_path  = fn( string $asset, string $size ) => "$base/travel-steps-cache/$size/" . substr( wp_hash( $asset ), 0, 2 ) . '/' . wp_hash( $asset );
+$cached_copy = $cache_path( $tagged_id, 'medium' );
 TravelSteps\RestController::store_cached( $cached_copy, 'IMAGE', 'image/jpeg' );
 wp_update_attachment_metadata( $tagged, wp_get_attachment_metadata( $tagged ) );
 check( 'new sizes for a trip photo (regenerated, edited) replace its cached copies and are checked again', ! file_exists( $cached_copy ) && '' === get_post_meta( $tagged, TravelSteps\Uploads::META_CHECKED, true ) );
@@ -908,7 +910,7 @@ check( 'visitors can’t fetch a trip photo sync hasn’t published', '' === Tra
 wp_set_current_user( 1 );
 
 // Deleting a trip for good deletes its photos; binning it doesn't.
-$cached = "$base/travel-steps-cache/thumbnail/" . substr( $photo_id, 0, 2 ) . "/$photo_id";
+$cached = $cache_path( $photo_id, 'thumbnail' );
 TravelSteps\RestController::store_cached( $cached, 'IMAGE', 'image/jpeg' );
 wp_trash_post( $photos_trip );
 check( 'binning a trip keeps its photos', get_post( $photo ) && file_exists( "$base/$stored" ) && file_exists( $cached ) );
@@ -1096,6 +1098,7 @@ check( '…and moving a step out of a trip is allowed', 0 === $step_parent( $ali
 require '/smoke/upload-trips.php';
 require '/smoke/upload-pages.php';
 require '/smoke/password-trips.php';
+require '/smoke/photo-cache.php';
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

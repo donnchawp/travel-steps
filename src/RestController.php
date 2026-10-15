@@ -220,26 +220,41 @@ class RestController {
 			exit;
 		}
 
-		$cache = self::cache_file( $asset, $size );
-		if ( ! is_readable( $cache ) ) {
-			$image = self::image( $trip_id, $asset, $size, $upload );
-			if ( is_wp_error( $image ) || '' === ( $image['body'] ?? $image['file'] ) ) {
-				return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
-			}
-			// A copy WordPress made of an upload is served as it is, not cached again.
-			if ( isset( $image['file'] ) ) {
-				self::send_file( $is_public, $etag, $image['file'], $image['type'] );
-			}
-			// Serve what we fetched even if it couldn't be cached.
-			self::cache( $asset, $size, $image );
-			self::send_cache_headers( $is_public, $etag );
-			self::send_type( $image['type'] );
-			header( 'Content-Length: ' . strlen( $image['body'] ) );
-			echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			exit;
+		$image = self::fetch( $trip_id, $asset, $size, $upload );
+		if ( is_wp_error( $image ) ) {
+			return $image;
 		}
+		if ( isset( $image['file'] ) ) {
+			self::send_file( $is_public, $etag, $image['file'], $image['type'] );
+		}
+		self::send_cache_headers( $is_public, $etag );
+		self::send_type( $image['type'] );
+		header( 'Content-Length: ' . strlen( $image['body'] ) );
+		echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		exit;
+	}
 
-		self::send_file( $is_public, $etag, $cache, self::cached_type( $cache ) );
+	/**
+	 * A photo at a size, as the proxy sends it: its cached copy, else fetched from its
+	 * source, an Immich photo being cached on the way. Checks no access: serve_photo() does.
+	 *
+	 * @return array{body: string, type: string}|array{file: string, type: string}|\WP_Error
+	 */
+	public static function fetch( int $trip_id, string $asset, string $size, int $upload = 0 ) {
+		$cache = self::cache_file( $asset, $size );
+		if ( is_readable( $cache ) ) {
+			return [ 'file' => $cache, 'type' => self::cached_type( $cache ) ];
+		}
+		$image = self::image( $trip_id, $asset, $size, $upload );
+		if ( is_wp_error( $image ) || '' === ( $image['body'] ?? $image['file'] ) ) {
+			return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
+		}
+		// A copy WordPress made of an upload is served as it is, not cached again. What
+		// was fetched from Immich is served even if it couldn't be cached.
+		if ( isset( $image['body'] ) ) {
+			self::cache( $asset, $size, $image );
+		}
+		return $image;
 	}
 
 	/**
@@ -407,16 +422,20 @@ class RestController {
 	}
 
 	/**
-	 * Cached thumbnails sit behind a deny rule (Apache), in folders that can't be
-	 * listed, under unguessable asset ids, so they're meant to be reached only through
-	 * the checks above.
+	 * Cached photos sit behind a deny rule (Apache), in folders that can't be listed,
+	 * under a keyed hash of their id (nginx), which no visitor sees: the id is in the
+	 * proxy URL. So they're meant to be reached only through the checks above.
 	 */
 	private static function cache_folder( string $asset, string $size ): string {
-		return $size . '/' . substr( $asset, 0, 2 );
+		return $size . '/' . substr( self::cache_name( $asset ), 0, 2 );
 	}
 
 	private static function cache_file( string $asset, string $size ): string {
-		return wp_get_upload_dir()['basedir'] . '/travel-steps-cache/' . self::cache_folder( $asset, $size ) . '/' . $asset;
+		return wp_get_upload_dir()['basedir'] . '/travel-steps-cache/' . self::cache_folder( $asset, $size ) . '/' . self::cache_name( $asset );
+	}
+
+	private static function cache_name( string $asset ): string {
+		return wp_hash( $asset );
 	}
 
 	private static function cache( string $asset, string $size, array $image ): void {

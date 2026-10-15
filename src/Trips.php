@@ -44,6 +44,15 @@ class Trips {
 	// over post__in, so exclude_from_query() checks them and match_nothing() drops them.
 	private const SINGLE_IDS = [ 'p' => 'intval', 'page_id' => 'absint', 'attachment_id' => 'absint', 'subpost_id' => 'absint' ];
 
+	private ?TripSync $sync;
+
+	/**
+	 * @param TripSync|null $sync What the sync form runs; by default, one with each trip's own sources.
+	 */
+	public function __construct( ?TripSync $sync = null ) {
+		$this->sync = $sync;
+	}
+
 	public static function register_post_types(): void {
 		register_post_type(
 			self::TRIP,
@@ -703,7 +712,7 @@ class Trips {
 	}
 
 	private function run_sync_and_redirect( \WP_Post $trip ): void {
-		$result = ( new TripSync() )->sync( $trip->ID );
+		$result = ( $this->sync ?? new TripSync() )->sync( $trip->ID );
 		if ( is_wp_error( $result ) ) {
 			update_post_meta( $trip->ID, self::META_ERROR, $result->get_error_message() );
 			wp_safe_redirect( add_query_arg( 'synced', 'error', self::url( $trip, 'edit' ) ) );
@@ -720,8 +729,11 @@ class Trips {
 			$args += array_map( 'intval', $result['left_out'] ) + [
 				'at_home'   => (int) $result['at_home'],
 				'unlocated' => (int) $result['unlocated'],
-				'no_places' => (int) $result['no_places'],
 			];
+		}
+		// For any trip: photos that needed a place name went without.
+		if ( $result['no_places'] ) {
+			$args['no_places'] = 1;
 		}
 		wp_safe_redirect( add_query_arg( $args, self::url( $trip, 'edit' ) ) );
 		exit;

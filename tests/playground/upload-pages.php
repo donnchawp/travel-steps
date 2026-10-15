@@ -135,7 +135,7 @@ wp_set_current_user( $ut_author );
 $up_result = ( new TravelSteps\TripSync() )->sync( $ut_tour );
 $up_to     = $up_sync( $ut_tour );
 parse_str( (string) wp_parse_url( $up_to, PHP_URL_QUERY ), $up_args );
-$up_want = array_map( 'strval', $up_result['left_out'] + [ 'unlocated' => $up_result['unlocated'], 'no_places' => (int) $up_result['no_places'] ] );
+$up_want = array_map( 'strval', $up_result['left_out'] + [ 'unlocated' => $up_result['unlocated'] ] );
 check( 'syncing a trip of uploads passes what it left out to the notice', $up_want === array_intersect_key( $up_args, $up_want ) && array_filter( $up_want ), [ $up_want, $up_to ] );
 parse_str( (string) wp_parse_url( $up_sync( $ut_local ), PHP_URL_QUERY ), $up_args );
 check( '…and how many it kept from home', '2' === ( $up_args['at_home'] ?? null ) && ! isset( $up_args['home'] ), $up_args );
@@ -155,6 +155,25 @@ check( '…only counts above zero, and missing place names', false !== strpos( $
 wp_set_current_user( $alice );
 $up_to = $up_with_servers( fn() => $up_sync( $alices ) );
 check( 'an Immich trip’s sync passes no left-out counts', false !== strpos( $up_to, 'synced=1' ) && false === strpos( $up_to, 'untimed' ), $up_to );
+check( '…nor missing place names, when no photo needed one', false === strpos( $up_to, 'no_places' ), $up_to );
+// An Immich photo only Dawarich could place, with the geocoder's data missing.
+$up_immich       = $trip_by( $alice );
+$up_source       = new FakeSource();
+$up_source->rows = [ row( 71, '2025-05-01', '10:00', null, null, '', true ) ];
+$up_trips        = new Trips( new TravelSteps\TripSync( new FakeDawarich( 'http://x', 'k' ), $up_source, new TravelSteps\Geocoder( '/nowhere' ) ) );
+$_POST           = $_REQUEST = [ 'trip_id' => $up_immich, '_wpnonce' => wp_create_nonce( 'travel_steps_sync' ) ];
+$up_to           = $ut_location( [ $up_trips, 'handle_sync' ] );
+$_POST           = $_REQUEST = [];
+parse_str( (string) wp_parse_url( $up_to, PHP_URL_QUERY ), $up_args );
+check( 'an Immich trip’s sync passes missing place names on its own', '1' === ( $up_args['no_places'] ?? null ) && [] === array_intersect_key( $up_args, array_flip( [ 'outside', 'untimed', 'at_home', 'unlocated' ] ) ), $up_to );
+$_GET    = $up_args;
+$up_html = $render( 'trip-edit.php', (string) $up_immich );
+$_GET    = [];
+check( '…and its edit page warns about them, with no left-out counts', false !== strpos( $up_html, 'Place names are unavailable: the plugin’s geonames data is missing.' ) && false === strpos( $up_html, 'Left out' ) && false === strpos( $up_html, 'no location' ), substr( $up_html, strpos( $up_html, 'Synced.' ) ?: 0, 1200 ) );
+foreach ( Trips::steps( $up_immich, true ) as $up_step_post ) {
+	wp_delete_post( $up_step_post->ID, true );
+}
+wp_delete_post( $up_immich, true );
 
 // Uploads with no time taken are listed in the Photos panel, for the author to give them
 // one: from the name they were uploaded with until a time is saved.

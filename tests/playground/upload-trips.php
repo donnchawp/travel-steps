@@ -246,9 +246,9 @@ check( '…and so are its photos', [ 'Lisdoonvarna', 'Ireland' ] === [ $ut_first
 check( '…with no warning about place names', false === ( ( new TripSync() )->sync( $ut_tour )['no_places'] ?? null ) );
 $ut_result = ( new TripSync( null, null, new TravelSteps\Geocoder( '/nowhere' ) ) )->sync( $ut_tour );
 check( 'missing geocoder data is reported', true === ( $ut_result['no_places'] ?? null ), $ut_result );
-$ut_blind  = $ut_trip( 'No positions', $ut_author, '2025-06-01', '2025-06-01' );
+$ut_blind       = $ut_trip( 'No positions', $ut_author, '2025-06-01', '2025-06-01' );
 $ut_blind_photo = $ut_photo( $ut_blind, [ 'taken' => '2025:06:01 09:00:00', 'offset' => '+01:00' ] + $ut_iphone );
-$ut_result = ( new TripSync( null, null, new TravelSteps\Geocoder( '/nowhere' ) ) )->sync( $ut_blind );
+$ut_result      = ( new TripSync( null, null, new TravelSteps\Geocoder( '/nowhere' ) ) )->sync( $ut_blind );
 check( '…but not when no upload has a position to name', false === ( $ut_result['no_places'] ?? null ) && 1 === ( $ut_result['unlocated'] ?? null ), $ut_result );
 wp_delete_attachment( $ut_blind_photo, true );
 foreach ( Trips::steps( $ut_blind, true ) as $ut_step ) {

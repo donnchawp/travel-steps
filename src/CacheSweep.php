@@ -38,9 +38,10 @@ class CacheSweep {
 		if ( ! $folders ) {
 			return;
 		}
-		$files = self::in_use_files();
-		// A failed lookup would make every photo look unused. The next day's sweep tries again.
-		if ( null === $files ) {
+		try {
+			$files = self::in_use_files();
+		} catch ( \RuntimeException $e ) {
+			// A failed lookup would make every photo look unused. The next day's sweep tries again.
 			return;
 		}
 		$now     = time();
@@ -71,17 +72,13 @@ class CacheSweep {
 	/**
 	 * Where the photos in use are cached, at every size, as RestController::cache_file()
 	 * names them: the photo ids aren't in the file names, so they can't be read back.
-	 * Null if a database lookup failed.
 	 *
-	 * @return array<string, true>|null
+	 * @return array<string, true>
+	 * @throws \RuntimeException If a database lookup failed.
 	 */
-	private static function in_use_files(): ?array {
-		$ids = self::in_use_ids();
-		if ( null === $ids ) {
-			return null;
-		}
+	private static function in_use_files(): array {
 		$files = [];
-		foreach ( $ids as $asset => $_ ) {
+		foreach ( self::in_use_ids() as $asset => $_ ) {
 			foreach ( RestController::SIZES as $size ) {
 				$files[ RestController::cache_file( (string) $asset, $size ) ] = true;
 			}
@@ -91,27 +88,18 @@ class CacheSweep {
 
 	/**
 	 * The ids of every photo in a trip, whatever its status (a binned one can be
-	 * restored), and of every photo uploaded to one, synced or not. Null if a lookup
-	 * failed: a failed query comes back empty.
+	 * restored), and of every photo uploaded to one, synced or not.
 	 *
-	 * @return array<string, true>|null
+	 * @return array<string, true>
+	 * @throws \RuntimeException If a lookup failed.
 	 */
-	private static function in_use_ids(): ?array {
+	private static function in_use_ids(): array {
 		global $wpdb;
-		$ids = array_fill_keys( $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s", Uploads::META_PHOTO_ID ) ), true ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		if ( '' !== $wpdb->last_error ) {
-			return null;
-		}
-		$trips = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s", Trips::TRIP ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		if ( '' !== $wpdb->last_error ) {
-			return null;
-		}
+		$ids   = array_fill_keys( self::checked( $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s", Uploads::META_PHOTO_ID ) ) ), true ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$trips = self::checked( $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s", Trips::TRIP ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		// One trip at a time, past the object cache, which would keep all of every trip's meta, routes included.
 		foreach ( $trips as $trip_id ) {
-			$photos = Trips::decode_photos( (string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $trip_id, Trips::META_PHOTOS ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			if ( '' !== $wpdb->last_error ) {
-				return null;
-			}
+			$photos = Trips::decode_photos( (string) self::checked( $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $trip_id, Trips::META_PHOTOS ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			foreach ( $photos as $photo ) {
 				if ( isset( $photo['id'] ) ) {
 					$ids[ (string) $photo['id'] ] = true;
@@ -119,5 +107,21 @@ class CacheSweep {
 			}
 		}
 		return $ids;
+	}
+
+	/**
+	 * A query's result, passed through. A failed query comes back empty, as if nothing
+	 * were in use, so it throws instead.
+	 *
+	 * @param mixed $result What $wpdb returned for the query just run.
+	 * @return mixed
+	 * @throws \RuntimeException If the query failed.
+	 */
+	private static function checked( $result ) {
+		global $wpdb;
+		if ( '' !== $wpdb->last_error ) {
+			throw new \RuntimeException( 'A lookup of the photos in use failed.' );
+		}
+		return $result;
 	}
 }

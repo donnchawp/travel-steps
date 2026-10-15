@@ -2,7 +2,8 @@
 /**
  * The daily sweep of the photo cache: it deletes cached photos no trip or upload uses,
  * and, at an age an administrator sets, those older than that. Required at the end of
- * smoke.php, in its scope: uses check(), $alice, $cache_path, $render and $stopped.
+ * smoke.php, in its scope: uses check(), $alice, $cache_path, $render, $stopped and
+ * photo-cache.php's $pc_files.
  */
 use TravelSteps\{CacheFill, CacheSweep, RestController, Settings, Trips, Uploads};
 
@@ -157,10 +158,7 @@ try {
 	// Or Playground can't remove its site when it's done.
 	chmod( $cs_locked, 0755 );
 }
-$cs_left = [];
-foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( RestController::cache_root(), FilesystemIterator::SKIP_DOTS ) ) as $cs_file ) {
-	$cs_left[] = substr( $cs_file->getPathname(), strlen( RestController::cache_root() ) + 1 );
-}
+$cs_left = array_keys( $pc_files() );
 check( 'uninstall: a cache folder it can’t read is skipped, and the rest of the cache deleted', [ 'preview/locked/photo' ] === $cs_left, $cs_left );
 // Readable again, the next uninstall gets it.
 require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';

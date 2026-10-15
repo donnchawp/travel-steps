@@ -49,6 +49,7 @@ register_activation_hook(
 	function () {
 		Trips::register_post_types();
 		flush_rewrite_rules();
+		CacheSweep::schedule();
 	}
 );
 
@@ -57,5 +58,6 @@ register_deactivation_hook(
 	function () {
 		flush_rewrite_rules();
 		wp_unschedule_hook( CacheFill::HOOK );
+		wp_unschedule_hook( CacheSweep::HOOK );
 	}
 );

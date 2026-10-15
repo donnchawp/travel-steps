@@ -76,3 +76,14 @@ CacheSweep::run();
 check( 'cache sweep: a half-written file more than a day old is deleted, one newer is kept', ! file_exists( $cs_old_tmp ) && file_exists( $cs_new_tmp ) );
 check( '…so is a type more than a day old without its photo', ! file_exists( $cs_lone ) );
 check( '…and the .htaccess and every index.html stay', file_exists( RestController::cache_root() . '/.htaccess' ) && file_exists( RestController::cache_root() . '/index.html' ) && file_exists( "$cs_dir/index.html" ) && file_exists( dirname( $cs_dir ) . '/index.html' ) );
+
+// Scheduling: one daily event, from the first request after the plugin loads.
+$cs_events = fn() => count( array_filter( _get_cron_array(), fn( $hooks ) => isset( $hooks[ CacheSweep::HOOK ] ) ) );
+check( 'cache sweep: WP-Cron runs it once a day', 'daily' === wp_get_schedule( CacheSweep::HOOK ) && false !== has_action( CacheSweep::HOOK, [ CacheSweep::class, 'run' ] ), wp_get_schedule( CacheSweep::HOOK ) );
+CacheSweep::schedule();
+check( '…scheduling it again leaves a single event', 1 === $cs_events(), $cs_events() );
+$cs_plugin = plugin_basename( TRAVEL_STEPS_PLUGIN_FILE );
+do_action( "deactivate_$cs_plugin" );
+check( '…deactivating the plugin unschedules it', 0 === $cs_events() );
+do_action( "activate_$cs_plugin" );
+check( '…and activating it schedules it', 1 === $cs_events() && 'daily' === wp_get_schedule( CacheSweep::HOOK ) );

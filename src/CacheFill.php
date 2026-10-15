@@ -35,15 +35,25 @@ class CacheFill {
 		$deadline     = $time_limit > 0 ? microtime( true ) + min( $budget, $time_limit / 2 ) : INF;
 		// Every photo visitors can see once its step is published, drafts included.
 		$visible  = array_keys( Trips::visible_photo_ids( $trip_id, Trips::steps( $trip_id, true ) ) );
-		$left     = array_values( array_filter( $visible, fn( $asset ) => ! RestController::cached( $asset, 'preview' ) ) );
-		$failures = 0;
+		// A photo uploaded to the trip, left over from before it switched to Immich, is
+		// served from the upload, so it isn't asked of Immich.
+		$left       = array_values( array_filter( $visible, fn( $asset ) => ! RestController::cached( $asset, 'preview' ) && ! Uploads::attachment( $trip_id, $asset ) ) );
+		$failures   = 0;
+		$cached_any = false;
 		foreach ( $left as $i => $asset ) {
-			$failures = is_wp_error( RestController::fetch( $trip_id, $asset, 'preview' ) ) ? $failures + 1 : 0;
+			// What was fetched but couldn't be stored (a full disk) is a failure too.
+			$cached     = ! is_wp_error( RestController::fetch( $trip_id, $asset, 'preview' ) ) && RestController::cached( $asset, 'preview' );
+			$cached_any = $cached_any || $cached;
+			$failures   = $cached ? 0 : $failures + 1;
 			if ( $failures >= self::MAX_FAILURES ) {
 				return;
 			}
+			// A run that cached nothing by its deadline stops: a fetch slower than the
+			// budget (Immich unreachable, the connection hanging) would be retried forever.
 			if ( microtime( true ) >= $deadline && isset( $left[ $i + 1 ] ) ) {
-				self::schedule( $trip_id );
+				if ( $cached_any ) {
+					self::schedule( $trip_id );
+				}
 				return;
 			}
 		}

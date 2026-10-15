@@ -17,6 +17,16 @@ class CacheSweep {
 	// just cached it for a trip whose photos aren't saved yet.
 	const GRACE_S = DAY_IN_SECONDS;
 
+	/**
+	 * Sweep daily, unless that's scheduled already. Each site of a network sweeps its own
+	 * cache, in its own uploads folder.
+	 */
+	public static function schedule(): void {
+		if ( ! wp_next_scheduled( self::HOOK ) ) {
+			wp_schedule_event( time(), 'daily', self::HOOK );
+		}
+	}
+
 	public static function run(): void {
 		$now     = time();
 		$files   = self::in_use_files();

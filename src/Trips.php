@@ -326,11 +326,19 @@ class Trips {
 	}
 
 	/**
-	 * Whether anyone may see a trip, so shared caches may keep it and its photos: it's
-	 * published without a password.
+	 * Whether anyone may see a trip: it's published without a password.
 	 */
 	public static function is_public( \WP_Post $trip ): bool {
 		return 'publish' === $trip->post_status && ! self::is_protected( $trip );
+	}
+
+	/**
+	 * Whether shared caches may keep what the current user is sent of a trip (its REST
+	 * response and photos): it's public, and they can't edit it, as editors' URLs carry
+	 * their nonce.
+	 */
+	public static function shared_cacheable( \WP_Post $trip ): bool {
+		return self::is_public( $trip ) && ! current_user_can( 'edit_post', $trip->ID );
 	}
 
 	/**

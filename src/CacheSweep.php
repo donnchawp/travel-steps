@@ -28,6 +28,11 @@ class CacheSweep {
 	}
 
 	public static function run(): void {
+		// Files the layout upgrade hasn't moved yet (another request may be moving them)
+		// look unused under their old names. The next day's sweep, after it, gets them.
+		if ( (int) get_option( RestController::CACHE_LAYOUT ) < RestController::CACHE_LAYOUT_VERSION ) {
+			return;
+		}
 		$folders = RestController::cache_folders();
 		// Nothing cached, so nothing to look up.
 		if ( ! $folders ) {

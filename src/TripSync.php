@@ -121,8 +121,8 @@ class TripSync {
 		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, $uploads );
 		$geocoder = $this->geocoder ?? new Geocoder(); // One for the sync.
 		// Uploads carry no place names, and photos with a position only from Dawarich have
-		// none either: name them here. Immich's own names stay.
-		// Missing data only matters when a photo needed a name.
+		// none either: name them here. Immich's own names stay. Missing data only matters
+		// when a photo needed a name.
 		$no_places = false;
 		foreach ( $photos as &$photo ) {
 			if ( null !== $photo['lat'] && '' === $photo['city'] ) {

@@ -161,7 +161,7 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-photo.is-hidden img { opacity: .3; filter: grayscale(1); }
 .ts-photo.is-pinned .ts-photo-open { box-shadow: 0 0 0 3px var(--ts-accent); }
 
-/* Lead photo of each step: larger, Polarsteps-style. */
+/* Lead photo of each step: larger. */
 .ts-photos:not(.ts-photos-more):not(.is-single) .ts-photo:first-child { grid-column: span 2; grid-row: span 2; }
 
 .ts-photo-tools {

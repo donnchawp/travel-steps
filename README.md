@@ -54,11 +54,13 @@ Shown photos sit under the place heading they belong to. Each seeded heading has
 
 The Trip photos block marks where a section's photos go, and previews them in the block editor. Move it to put text after the photos, or insert one under a heading in a step made before the block existed. A section without one gets its photos after its text. Only the first block in a section shows photos.
 
-Grids load a 640 px (short side) copy of Immich's preview, made once and cached. A photo shown on its own, and the lightbox, use the full preview.
+Grids load a 640 px (short side) copy of Immich's preview, made once and cached until the daily sweep deletes it (see below). A photo shown on its own, and the lightbox, use the full preview.
 
 Photos of a synced Immich trip are cached in the background, so the trip keeps working if Immich is down or its author's key stops working. A WP-Cron event runs after a sync, and whenever a photo is pinned, unpinned, hidden or shown again, or the cover changes. It fetches the preview of every photo visitors will be able to see once its step is published, unless it's cached already. That's every photo that isn't hidden, on draft steps too, and the chosen cover. Each one takes roughly 300 KB of disk. Three failed fetches in a row stop it until the next sync or change. A photo that isn't cached yet is still fetched and cached the first time someone views it. Trips of uploads don't need any of this, since their copies are already on the site.
 
 When WP-Cron runs from page loads, under a PHP time limit, each run fetches for 20 seconds at most (or half the limit, if that's less). If it cached anything, it schedules another run for the rest. When a system crontab runs WP-Cron with PHP CLI, there's no time limit, so it carries on until it's done.
+
+Once a day, another WP-Cron event sweeps the cache. It deletes cached photos that no trip uses any more, such as photos a sync dropped and those of trips deleted permanently, once they were cached more than a day ago. A photo in any trip, a binned one included, stays, and so does one uploaded to a trip and not synced yet. An administrator can also set **Delete cached photos after (days)** in the Site settings. Cached photos older than that are then deleted whether a trip uses them or not, and the proxy fetches them from Immich again the next time someone views them. That's also how an edit made in Immich, such as a rotation, eventually shows up: the cache doesn't notice edits. It undoes some of the background caching, though. If Immich is down, or the author's key stops working, an expired photo is a broken image (a 502) until they're back. The default, 0, keeps cached photos for as long as a trip uses them.
 
 The map gets a marker for each place heading (3a, 3b…), or one for each step without headings, numbered by trip day. A step with no position, such as a day of photos taken at home, still appears on the timeline with its story and photos, but has no marker on the map.
 
@@ -103,7 +105,9 @@ Cached photos (`uploads/travel-steps-cache/`) and photos uploaded to a trip (`up
 - A cached photo is named after a keyed hash of its photo id, made with the site's salts, so its name isn't the id in its proxy URL.
 - An uploaded photo's file name is a random UUID, which isn't its photo id either.
 
-Photos that version 0.4.0 or earlier cached under their photo id are moved to their new names on the first request after the update. If you change the site's salts, cached photos are left under names nothing uses, and they're fetched from Immich again.
+Photos that version 0.4.0 or earlier cached under their photo id are moved to their new names on the first request after the update. If you change the site's salts, cached photos are left under names nothing uses, and they're fetched from Immich again. The next sweep deletes the old files.
+
+The daily sweep deletes cached photos that no trip or upload uses any more, so a photo dropped from a trip doesn't stay on disk for long. The proxy never serves one in the meantime, since it isn't in the trip's photos. With **Delete cached photos after (days)** set, it also deletes photos cached longer ago than that. Deleting the plugin deletes `uploads/travel-steps-cache/` on every site. It leaves `uploads/travel-steps/`, trips, steps and settings alone.
 
 The file names are only a fallback, so block those folders on nginx too (on multisite, use each site's `uploads/sites/<id>/` path):
 
@@ -130,7 +134,7 @@ The place names used offline ship in `data/geonames/`. They're towns of 500 peop
 | `/travel-steps/` | Everyone: published trips (editors also see drafts, and password-protected trips are listed only to their editors and viewer lists) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox, or a password form for a protected trip. Editors can pin and hide photos. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, photos (Immich or uploads), visibility, sync, step list |
-| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius and photos to pick |
+| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius, photos to pick and how long cached photos are kept |
 
 ## Setup
 

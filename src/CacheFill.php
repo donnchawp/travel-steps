@@ -32,16 +32,17 @@ class CacheFill {
 			return;
 		}
 		$time_limit ??= (int) ini_get( 'max_execution_time' );
-		$budget       = min( $budget, $time_limit / 2 );
-		$start        = microtime( true );
-		$left         = array_values( array_filter( self::photo_ids( $trip_id ), fn( $asset ) => ! RestController::cached( $asset, 'preview' ) ) );
-		$failures     = 0;
+		$deadline     = $time_limit > 0 ? microtime( true ) + min( $budget, $time_limit / 2 ) : INF;
+		// Every photo visitors can see once its step is published, drafts included.
+		$visible  = array_keys( Trips::visible_photo_ids( $trip_id, Trips::steps( $trip_id, true ) ) );
+		$left     = array_values( array_filter( $visible, fn( $asset ) => ! RestController::cached( $asset, 'preview' ) ) );
+		$failures = 0;
 		foreach ( $left as $i => $asset ) {
 			$failures = is_wp_error( RestController::fetch( $trip_id, $asset, 'preview' ) ) ? $failures + 1 : 0;
 			if ( $failures >= self::MAX_FAILURES ) {
 				return;
 			}
-			if ( $time_limit > 0 && microtime( true ) - $start >= $budget && isset( $left[ $i + 1 ] ) ) {
+			if ( microtime( true ) >= $deadline && isset( $left[ $i + 1 ] ) ) {
 				self::schedule( $trip_id );
 				return;
 			}
@@ -63,25 +64,5 @@ class CacheFill {
 	 */
 	private static function fills( int $trip_id ): bool {
 		return Trips::TRIP === get_post_type( $trip_id ) && ! Trips::uses_uploads( $trip_id );
-	}
-
-	/**
-	 * Every photo visitors can see once its step is published: the hidden ones left out,
-	 * on every step, drafts included, and the chosen cover.
-	 *
-	 * @return string[]
-	 */
-	private static function photo_ids( int $trip_id ): array {
-		$ids = [];
-		foreach ( Trips::photos_by_step( $trip_id, Trips::steps( $trip_id, true ) ) as $groups ) {
-			foreach ( array_merge( $groups['shown'], $groups['rest'] ) as $photo ) {
-				$ids[ $photo['id'] ] = true;
-			}
-		}
-		$cover = Trips::cover( $trip_id );
-		if ( '' !== $cover ) {
-			$ids[ $cover ] = true;
-		}
-		return array_keys( $ids );
 	}
 }

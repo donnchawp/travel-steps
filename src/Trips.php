@@ -600,14 +600,25 @@ class Trips {
 		if ( self::TRIP !== $trip->post_type || 'publish' !== $trip->post_status ) {
 			return [];
 		}
+		return self::visible_photo_ids( $trip->ID, self::steps( $trip->ID ) );
+	}
+
+	/**
+	 * Asset ids of a trip's photos visitors see on $steps once they're published: the
+	 * non-hidden photos of those steps, and the chosen cover.
+	 *
+	 * @param \WP_Post[] $steps
+	 * @return array<string, true>
+	 */
+	public static function visible_photo_ids( int $trip_id, array $steps ): array {
 		$ids = [];
-		foreach ( self::photos_by_step( $trip->ID, self::steps( $trip->ID ) ) as $groups ) {
+		foreach ( self::photos_by_step( $trip_id, $steps ) as $groups ) {
 			foreach ( array_merge( $groups['shown'], $groups['rest'] ) as $photo ) {
 				$ids[ $photo['id'] ] = true;
 			}
 		}
 		// The chosen cover is public with the trip, whichever step it's from.
-		$cover = self::cover( $trip->ID );
+		$cover = self::cover( $trip_id );
 		if ( '' !== $cover ) {
 			$ids[ $cover ] = true;
 		}

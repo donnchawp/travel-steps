@@ -62,16 +62,10 @@ check( '…and the proxy serves its preview and medium without asking Immich', [
 // The author's key revoked after a fill: a filled photo is still served, with no HTTP call.
 $cf_account = Settings::account( $alice );
 Settings::update_account( $alice, [ 'immich_key' => '' ] + $cf_account );
-$cf_http    = 0;
-$cf_count   = function ( $pre ) use ( &$cf_http ) {
-	++$cf_http;
-	return $pre;
-};
-add_filter( 'pre_http_request', $cf_count, 5 );
-$cf_served = [ RestController::fetch( $cf_trip, $cf_id( 1803 ), 'preview' ), RestController::fetch( $cf_trip, $cf_id( 1803 ), 'medium' ) ];
-remove_filter( 'pre_http_request', $cf_count, 5 );
+$cf_fetched = [];
+$cf_served  = [ RestController::fetch( $cf_trip, $cf_id( 1803 ), 'preview' ), RestController::fetch( $cf_trip, $cf_id( 1803 ), 'medium' ) ];
 Settings::update_account( $alice, $cf_account );
-check( 'cache fill: with the author’s Immich key removed, the proxy serves a filled photo’s preview and medium with no HTTP call', 0 === $cf_http && ! array_filter( $cf_served, 'is_wp_error' ), [ $cf_http, $cf_served ] );
+check( 'cache fill: with the author’s Immich key removed, the proxy serves a filled photo’s preview and medium with no HTTP call', [] === $cf_fetched && ! array_filter( $cf_served, 'is_wp_error' ), [ $cf_fetched, $cf_served ] );
 
 // Fetches that fail: one is skipped, three in a row stop the run until the next trigger.
 $cf_reset = function () use ( $cf_all, $cf_trip ) {

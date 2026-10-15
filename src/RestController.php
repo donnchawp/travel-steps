@@ -11,6 +11,9 @@ class RestController {
 	// A photo source's sizes, plus medium: its preview scaled down to this on the short side, for grids.
 	const SIZES           = [ 'thumbnail', 'medium', 'preview' ];
 	const MEDIUM_SHORT_PX = 640;
+	// The cache layout a site has: 2 names photos after a keyed hash of their id, not the id.
+	const CACHE_LAYOUT         = 'travel_steps_cache_layout';
+	const CACHE_LAYOUT_VERSION = 2;
 
 	public function register_routes(): void {
 		register_rest_route(
@@ -441,6 +444,54 @@ class RestController {
 	private static function cache( string $asset, string $size, array $image ): void {
 		Uploads::protect( wp_get_upload_dir()['basedir'] . '/travel-steps-cache', self::cache_folder( $asset, $size ) );
 		self::store_cached( self::cache_file( $asset, $size ), $image['body'], $image['type'] );
+	}
+
+	/**
+	 * Move photos cached under their id (in its proxy URL, so a visitor can find them on
+	 * nginx) to their hashed names, once. A photo that can't be moved is deleted instead:
+	 * it's fetched from Immich again when it's next viewed. Half-written files are deleted
+	 * too, and emptied folders removed.
+	 */
+	public static function migrate_cache(): void {
+		if ( (int) get_option( self::CACHE_LAYOUT ) >= self::CACHE_LAYOUT_VERSION ) {
+			return;
+		}
+		// add_option() is an atomic insert, so two requests can't both move the files.
+		$lock = self::CACHE_LAYOUT . '_lock';
+		if ( ! add_option( $lock, time(), '', false ) ) {
+			if ( (int) get_option( $lock ) > time() - 10 * MINUTE_IN_SECONDS ) {
+				return;
+			}
+			update_option( $lock, time(), false ); // Left behind by a migration that died.
+		}
+		try {
+			$root = wp_get_upload_dir()['basedir'] . '/travel-steps-cache';
+			foreach ( glob( $root . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
+				self::migrate_cache_folder( $root, $dir );
+			}
+			update_option( self::CACHE_LAYOUT, self::CACHE_LAYOUT_VERSION );
+		} finally {
+			delete_option( $lock );
+		}
+	}
+
+	private static function migrate_cache_folder( string $root, string $dir ): void {
+		$size = basename( dirname( $dir ) );
+		foreach ( scandir( $dir ) ?: [] as $name ) {
+			if ( preg_match( '/^[a-f0-9-]{36}(\.type)?\.[A-Za-z0-9]+\.tmp$/', $name ) ) {
+				wp_delete_file( "$dir/$name" );
+			} elseif ( preg_match( '/^([a-f0-9-]{36})(\.type)?$/', $name, $m ) ) {
+				Uploads::protect( $root, self::cache_folder( $m[1], $size ) );
+				$to = self::cache_file( $m[1], $size ) . ( $m[2] ?? '' );
+				if ( file_exists( $to ) || ! rename( "$dir/$name", $to ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
+					wp_delete_file( "$dir/$name" );
+				}
+			}
+		}
+		if ( [] === array_diff( scandir( $dir ) ?: [ 'kept' ], [ '.', '..', 'index.html' ] ) ) {
+			wp_delete_file( "$dir/index.html" );
+			rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+		}
 	}
 
 	/**

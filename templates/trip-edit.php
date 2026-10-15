@@ -425,8 +425,9 @@ include __DIR__ . '/_header.php';
 						<li>
 							<a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>"><?php echo esc_html( get_the_title( $step ) ); ?></a>
 							<span class="ts-muted"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></span>
-							<?php if ( 'publish' !== $step->post_status ) : ?>
-								<span class="ts-badge"><?php echo esc_html( get_post_status_object( $step->post_status )->label ?? $step->post_status ); ?></span>
+							<?php $badge = View::step_badge( $trip, $step ); ?>
+							<?php if ( $badge ) : ?>
+								<span class="<?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['text'] ); ?></span>
 							<?php endif; ?>
 							<?php if ( '' === get_post_meta( $step->ID, Trips::META_LAT, true ) ) : ?>
 								<span class="ts-badge is-warning"><?php esc_html_e( 'No location', 'travel-steps' ); ?></span>

@@ -529,6 +529,26 @@ check( 'pending step on a published trip: "Pending, not public" warning', [ 'cla
 check( 'private step on a published trip: "Private" warning', [ 'class' => 'ts-badge is-warning', 'text' => 'Private' ] === $badge( 'publish', 'private' ), $badge( 'publish', 'private' ) );
 check( 'draft step on a draft trip: plain grey "Draft"', [ 'class' => 'ts-badge', 'text' => 'Draft' ] === $badge( 'draft', 'draft' ), $badge( 'draft', 'draft' ) );
 check( 'pending step on a private trip: plain grey "Pending"', [ 'class' => 'ts-badge', 'text' => 'Pending' ] === $badge( 'private', 'pending' ), $badge( 'private', 'pending' ) );
+
+// The trip page and the edit page show them.
+wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
+$warned = '<span class="ts-badge is-warning">Draft, not public</span>';
+foreach ( [ 'trip.php', 'trip-edit.php' ] as $tpl ) {
+	$page = $render( $tpl, (string) $trip_id );
+	check( "published trip with a draft step: $tpl has one notice, visitors see 1 of 2", 1 === substr_count( $page, 'Visitors see 1 of 2 steps.' ) && false === strpos( $page, 'This trip isn’t public' ), substr( $page, strpos( $page, 'ts-notice' ) ?: 0, 400 ) );
+	check( "published trip with a draft step: $tpl warns on its badge", 1 === substr_count( $page, $warned ) );
+}
+wp_update_post( [ 'ID' => $trip_id, 'post_password' => 'secret' ] );
+check( 'password trip with a draft step: the edit page warns too', false !== strpos( $render( 'trip-edit.php', (string) $trip_id ), 'Visitors see 1 of 2 steps.' ) );
+wp_update_post( [ 'ID' => $trip_id, 'post_password' => '', 'post_status' => 'draft' ] );
+$page = $render( 'trip-edit.php', (string) $trip_id );
+check( 'draft trip with a draft step: grey badge, no new notice', false === strpos( $page, 'is-warning">Draft' ) && false !== strpos( $page, '<span class="ts-badge">Draft</span>' ) && false === strpos( $page, 'Visitors see' ) );
+wp_update_post( [ 'ID' => $trip_id, 'post_status' => 'publish' ] );
+wp_set_current_user( 0 );
+$page = $render( 'trip.php', (string) $trip_id );
+check( 'visitors get no notice or badge on a trip with a draft step', false === strpos( $page, 'Visitors see' ) && false === strpos( $page, 'ts-badge' ) );
+wp_set_current_user( 1 );
+wp_publish_post( $d2->ID );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
 // Day 1 shows its two favourites; the expander holds only the other two.

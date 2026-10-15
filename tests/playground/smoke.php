@@ -510,6 +510,25 @@ $post_as = fn( string $status, string $password = '' ) => new WP_Post( (object) 
 $as_steps = fn( string ...$statuses ) => array_map( $post_as, $statuses );
 $notice   = View::unseen_notice( $post_as( 'publish' ), $as_steps( 'draft', 'draft' ) );
 check( 'published trip with two draft steps: visitors see 0 of 2', 'Visitors see 0 of 2 steps. The other 2 aren’t published, so only the trip’s editors can see them.' === $notice, $notice );
+$mixed  = $as_steps( 'publish', 'draft', 'publish', 'pending', 'private', 'publish' );
+$notice = View::unseen_notice( $post_as( 'publish' ), $mixed );
+check( 'published trip with draft, pending and private steps: visitors see 3 of 6', 'Visitors see 3 of 6 steps. The other 3 aren’t published, so only the trip’s editors can see them.' === $notice, $notice );
+$notice = View::unseen_notice( $post_as( 'publish', 'secret' ), $as_steps( 'publish', 'draft' ) );
+check( 'password trip with a draft step: visitors see 1 of 2', 'Visitors see 1 of 2 steps. The other 1 isn’t published, so only the trip’s editors can see it.' === $notice, $notice );
+check( 'published trip with only published steps: no notice', '' === View::unseen_notice( $post_as( 'publish' ), $as_steps( 'publish', 'publish' ) ) );
+check( 'published trip with no steps: no notice', '' === View::unseen_notice( $post_as( 'publish' ), [] ) );
+foreach ( [ 'draft', 'private', 'future', 'pending' ] as $status ) {
+	check( "$status trip with draft steps: no notice", '' === View::unseen_notice( $post_as( $status ), $as_steps( 'draft', 'pending', 'private' ) ) );
+}
+
+// A step's badge: a warning on a published trip, plain grey otherwise.
+$badge = fn( string $trip_status, string $step_status ) => View::step_badge( $post_as( $trip_status ), $post_as( $step_status ) );
+check( 'published step: no badge', null === $badge( 'publish', 'publish' ) );
+check( 'draft step on a published trip: "Draft, not public" warning', [ 'class' => 'ts-badge is-warning', 'text' => 'Draft, not public' ] === $badge( 'publish', 'draft' ), $badge( 'publish', 'draft' ) );
+check( 'pending step on a published trip: "Pending, not public" warning', [ 'class' => 'ts-badge is-warning', 'text' => 'Pending, not public' ] === $badge( 'publish', 'pending' ), $badge( 'publish', 'pending' ) );
+check( 'private step on a published trip: "Private" warning', [ 'class' => 'ts-badge is-warning', 'text' => 'Private' ] === $badge( 'publish', 'private' ), $badge( 'publish', 'private' ) );
+check( 'draft step on a draft trip: plain grey "Draft"', [ 'class' => 'ts-badge', 'text' => 'Draft' ] === $badge( 'draft', 'draft' ), $badge( 'draft', 'draft' ) );
+check( 'pending step on a private trip: plain grey "Pending"', [ 'class' => 'ts-badge', 'text' => 'Pending' ] === $badge( 'private', 'pending' ), $badge( 'private', 'pending' ) );
 check( 'editor trip page: place tags', false !== strpos( $html, 'class="ts-places"' ) && false !== strpos( $html, '<li>Sintra</li>' ), substr( $html, 0, 300 ) );
 check( 'editor trip page: Day 2 shown', false !== strpos( $html, 'Day 2' ) );
 // Day 1 shows its two favourites; the expander holds only the other two.

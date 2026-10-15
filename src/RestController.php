@@ -214,10 +214,11 @@ class RestController {
 		$asset   = (string) $request['asset'];
 		$size    = (string) $request['size'];
 
-		$cache = self::photo_cache( $request );
-		if ( '' === $cache ) {
+		$access = self::access( $trip_id, $asset );
+		if ( '' === $access ) {
 			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
 		}
+		$cache  = self::photo_cache( $access, $request );
 		$upload = Uploads::attachment( $trip_id, $asset );
 		$etag   = self::etag( $asset, $size, $upload );
 		// Revalidation runs the access check above every time, but costs no image bytes.
@@ -238,13 +239,11 @@ class RestController {
 	 * The Cache-Control the proxy sends with a photo, and with its 304: shared caches may
 	 * keep it only if access() says "public" and the URL carries no nonce. A nonce is
 	 * whoever built the URL's, so a shared cache must never keep one, however the URL was
-	 * built and whoever sends it. "" if the current user may not fetch the photo.
+	 * built and whoever sends it.
+	 *
+	 * @param string $access As access() gives it, for a photo the current user may fetch.
 	 */
-	public static function photo_cache( \WP_REST_Request $request ): string {
-		$access = self::access( (int) $request['id'], (string) $request['asset'] );
-		if ( '' === $access ) {
-			return '';
-		}
+	public static function photo_cache( string $access, \WP_REST_Request $request ): string {
 		$nonced = isset( $request->get_query_params()['_wpnonce'] );
 		return self::photo_cache_control( 'public' === $access && ! $nonced );
 	}

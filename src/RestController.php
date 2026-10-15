@@ -488,7 +488,8 @@ class RestController {
 
 	private static function migrate_cache_folder( string $dir ): void {
 		$size = basename( dirname( $dir ) );
-		foreach ( scandir( $dir ) ?: [] as $name ) {
+		// Descending, so a photo's type moves before the photo, as store_cached() writes them.
+		foreach ( scandir( $dir, SCANDIR_SORT_DESCENDING ) ?: [] as $name ) {
 			// A photo, its type, or a temporary file left by a write that never finished.
 			if ( ! preg_match( '/^(' . self::ASSET_ID . ')(\.type)?(\.[A-Za-z0-9]+\.tmp)?$/', $name, $m ) ) {
 				continue;

@@ -2,7 +2,7 @@
 /**
  * Trips whose photos are uploaded to WordPress. Required at the end of smoke.php, in
  * its scope: uses check(), $upload, $sideload, $servers, $keys_used, $rest_post, $get,
- * $stopped, $person, $eddie and $render.
+ * $stopped, $person, $eddie, $render and $unplaced.
  */
 use TravelSteps\MediaSource;
 use TravelSteps\Settings;
@@ -22,6 +22,7 @@ $ut_trip = function ( string $title, int $author, string $start = '', string $en
 	return $id;
 };
 $ut_photo = fn( int $trip_id, array $tags ) => $upload( [ 'post_id' => $trip_id, Uploads::REQUEST_FLAG => '1' ], $trip_id, 600, 400, $tags );
+$ut_steps_by_day = fn( int $trip_id ) => array_column( array_map( fn( $st ) => [ Trips::day( $st ), $st->ID ], Trips::steps( $trip_id, true ) ), 1, 0 );
 $ut_iphone = [ 'make' => 'Apple', 'model' => 'iPhone 15' ];
 $ut_doolin = [ 'lat' => 53.0158, 'lon' => -9.3769 ];
 $ut_dingle = [ 'lat' => 52.1409, 'lon' => -10.2689 ];
@@ -134,7 +135,11 @@ check( 'a deleted upload leaves the trip at the next sync', ! in_array( $ut_ids[
 
 // A trip of uploads keeps the photos taken at home, but not where: home stays off the map.
 $ut_home     = Settings::home( $ut_author );
-$ut_off_home = fn( array $points ) => $ut_home && TravelSteps\Geo::exclude_near( $points, $ut_home ) === $points;
+$ut_off_home = function ( array $points, ?array $home = null ) use ( $ut_home ) {
+	$home = $home ?? $ut_home;
+	return $home && TravelSteps\Geo::exclude_near( $points, $home ) === $points;
+};
+$ut_marker_points = fn( array $map ) => array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $map['markers'] ?? [] );
 $ut_local    = $ut_trip( 'Day trips', $ut_author, '2025-08-01', '2025-08-02' );
 $ut_lids     = [];
 foreach (
@@ -155,10 +160,10 @@ check( 'an upload trip keeps photos taken at home, with no position or place', 3
 check( '…while one taken away keeps its position', 48.8566 === round( (float) $ut_lrow( 'paris' )['lat'], 4 ), $ut_lrow( 'paris' ) );
 check( '…counting them as taken at home, not as left out or without a location', [ 'outside' => 0, 'untimed' => 0 ] === ( $ut_result['left_out'] ?? null ) && 2 === ( $ut_result['at_home'] ?? null ) && 0 === ( $ut_result['unlocated'] ?? null ), $ut_result );
 $ut_map   = $get( "/travel-steps/v1/trips/$ut_local" )->get_data();
-$ut_steps = array_column( array_map( fn( $st ) => [ Trips::day( $st ), $st->ID ], Trips::steps( $ut_local, true ) ), 1, 0 );
+$ut_steps = $ut_steps_by_day( $ut_local );
 $ut_route = array_merge( ...( $ut_map['route'] ?: [ [] ] ) );
 check( 'a day of only home photos still gets a step, with no marker', 2 === $ut_result['new_steps'] && isset( $ut_steps['2025-08-02'] ) && ! in_array( $ut_steps['2025-08-02'], array_column( $ut_map['markers'], 'step' ), true ), [ $ut_steps, $ut_map['markers'] ] );
-check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && $ut_off_home( array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $ut_map['markers'] ) ) && $ut_off_home( $ut_route ), $ut_map );
+check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && $ut_off_home( $ut_marker_points( $ut_map ) ) && $ut_off_home( $ut_route ), $ut_map );
 check( '…or in the trip’s countries', [ 'France' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
 // Visitors see that day too, published: on the timeline with its photos, but not on the map.
 foreach ( $ut_steps as $ut_step_id ) {
@@ -168,7 +173,8 @@ wp_set_current_user( 0 );
 $ut_athome = $ut_steps['2025-08-02'] ?? 0;
 $ut_vmap   = $get( "/travel-steps/v1/trips/$ut_local" );
 $ut_vpage  = $render( 'trip.php', (string) $ut_local );
-check( 'a visitor gets a published step with no position in the trip’s timeline', in_array( $ut_athome, wp_list_pluck( Trips::timeline_steps( get_post( $ut_local ), false ), 'ID' ), true ), wp_list_pluck( Trips::timeline_steps( get_post( $ut_local ), false ), 'ID' ) );
+$ut_vids   = wp_list_pluck( Trips::timeline_steps( get_post( $ut_local ), false ), 'ID' );
+check( 'a visitor gets a published step with no position in the trip’s timeline', in_array( $ut_athome, $ut_vids, true ), $ut_vids );
 check( '…and on the trip page, with its photos', false !== strpos( $ut_vpage, 'id="step-' . $ut_athome . '"' ) && false !== strpos( $ut_vpage, 'data-asset="' . $ut_lids['near'] . '"' ) );
 check( '…but no marker for it on the trip map', 200 === $ut_vmap->get_status() && [ $ut_steps['2025-08-01'] ?? 0 ] === array_column( $ut_vmap->get_data()['markers'] ?? [], 'step' ), [ $ut_vmap->get_status(), $ut_vmap->get_data() ] );
 wp_set_current_user( 1 );
@@ -179,15 +185,15 @@ $ut_dublin = [ 'taken' => '2025:08:10 09:00:00', 'offset' => '+01:00', 'lat' => 
 $ut_photo( $ut_later, $ut_dublin );
 $ut_photo( $ut_later, [ 'taken' => '2025:08:11 18:00:00', 'offset' => '+02:00' ] + $ut_paris + $ut_iphone );
 ( new TripSync() )->sync( $ut_later );
-$ut_lsteps = array_column( array_map( fn( $st ) => [ Trips::day( $st ), $st->ID ], Trips::steps( $ut_later, true ) ), 1, 0 );
+$ut_lsteps = $ut_steps_by_day( $ut_later );
 $ut_lday1  = $ut_lsteps['2025-08-10'] ?? 0;
 check( 'with no home set, a step is placed at a photo taken there', '53.3498' === (string) get_post_meta( $ut_lday1, Trips::META_LAT, true ), [ $ut_lsteps, get_post_meta( $ut_lday1, Trips::META_LAT, true ) ] );
 Settings::update_account( $ut_nomad, [ 'home_lat' => '53.3498', 'home_lon' => '-6.2603', 'home_radius_km' => 1 ] + Settings::ACCOUNT_DEFAULTS );
 ( new TripSync() )->sync( $ut_later );
 $ut_lmap  = $get( "/travel-steps/v1/trips/$ut_later" )->get_data();
-$ut_lmark = array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $ut_lmap['markers'] ?? [] );
-check( '…and once home is set around it, the next sync clears its position', 0 !== $ut_lday1 && ! metadata_exists( 'post', $ut_lday1, Trips::META_LAT ) && ! metadata_exists( 'post', $ut_lday1, Trips::META_LON ), get_post_meta( $ut_lday1 ) );
-check( '…so no marker on the trip map is at home', 1 === count( $ut_lmark ) && TravelSteps\Geo::exclude_near( $ut_lmark, Settings::home( $ut_nomad ) ) === $ut_lmark, $ut_lmap );
+$ut_lmark = $ut_marker_points( $ut_lmap );
+check( '…and once home is set around it, the next sync clears its position', 0 !== $ut_lday1 && $unplaced( $ut_lday1 ), get_post_meta( $ut_lday1 ) );
+check( '…so no marker on the trip map is at home', 1 === count( $ut_lmark ) && $ut_off_home( $ut_lmark, Settings::home( $ut_nomad ) ), $ut_lmap );
 foreach ( Trips::steps( $ut_later, true ) as $ut_step ) {
 	wp_delete_post( $ut_step->ID, true );
 }

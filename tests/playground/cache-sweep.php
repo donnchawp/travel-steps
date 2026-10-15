@@ -4,14 +4,14 @@
  * and, at an age an administrator sets, those older than that. Required at the end of
  * smoke.php, in its scope: uses check(), $alice, $cache_path, $render and $stopped.
  */
-use TravelSteps\{CacheSweep, RestController, Settings, Trips};
+use TravelSteps\{CacheFill, CacheSweep, RestController, Settings, Trips, Uploads};
 
 $cs_id = fn( int $n ) => sprintf( '5eeb0000-0000-4000-8000-%012d', $n );
 // Cache a photo at a size, its files last written $days ago.
 $cs_cache = function ( string $asset, string $size = 'preview', float $days = 0 ) use ( $cache_path ) {
 	$file = $cache_path( $asset, $size );
 	// Its folders as the proxy makes them, protected.
-	TravelSteps\Uploads::protect( RestController::cache_root(), substr( dirname( $file ), strlen( RestController::cache_root() ) + 1 ) );
+	Uploads::protect( RestController::cache_root(), substr( dirname( $file ), strlen( RestController::cache_root() ) + 1 ) );
 	RestController::store_cached( $file, 'IMAGE', 'image/jpeg' );
 	$at = (int) ( time() - $days * DAY_IN_SECONDS );
 	touch( $file, $at );
@@ -38,7 +38,7 @@ $cs_trip = function ( string $status, array $assets ) use ( $alice ) {
 };
 $cs_binned  = $cs_trip( 'trash', [ $cs_id( 3 ) ] );
 $cs_upload  = wp_insert_post( [ 'post_type' => 'attachment', 'post_status' => 'private', 'post_parent' => $cs_binned, 'post_title' => 'upload' ] );
-update_post_meta( $cs_upload, TravelSteps\Uploads::META_PHOTO_ID, $cs_id( 4 ) );
+update_post_meta( $cs_upload, Uploads::META_PHOTO_ID, $cs_id( 4 ) );
 $cs_shared  = [ $cs_trip( 'publish', [ $cs_id( 5 ), $cs_id( 6 ) ] ), $cs_trip( 'draft', [ $cs_id( 5 ) ] ) ];
 wp_delete_post( $cs_shared[1], true );
 $cs_in_use  = [
@@ -106,13 +106,14 @@ check( '…which authors don’t see', false === strpos( $render( 'settings.php'
 wp_set_current_user( 1 );
 
 // Deleting the plugin deletes the cache, and nothing else. Last: the cache is gone after it.
-$cs_upload_dir = TravelSteps\Uploads::protect( wp_get_upload_dir()['basedir'], TravelSteps\Uploads::DIR . '/999' );
+$cs_upload_dir = Uploads::protect( wp_get_upload_dir()['basedir'], Uploads::DIR . '/999' );
 file_put_contents( "$cs_upload_dir/original.jpg", 'ORIGINAL' );
 $cs_cache( $cs_id( 13 ) );
 CacheSweep::schedule();
+wp_schedule_single_event( time(), CacheFill::HOOK, [ $cs_shared[0] ] );
 $cs_options = Settings::all();
 define( 'WP_UNINSTALL_PLUGIN', $cs_plugin );
 require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
 check( 'uninstall: the photo cache is deleted', ! file_exists( RestController::cache_root() ) );
-check( '…and the sweep unscheduled', 0 === $cs_events() );
+check( '…and the sweep and the cache fill unscheduled', 0 === $cs_events() && false === wp_next_scheduled( CacheFill::HOOK, [ $cs_shared[0] ] ) );
 check( '…but not photos uploaded to trips, trips or settings', 'ORIGINAL' === file_get_contents( "$cs_upload_dir/original.jpg" ) && null !== get_post( $cs_binned ) && $cs_options === Settings::all() );

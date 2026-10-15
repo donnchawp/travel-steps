@@ -541,7 +541,14 @@ class Trips {
 	}
 
 	public static function photos( int $trip_id ): array {
-		$photos = json_decode( (string) get_post_meta( $trip_id, self::META_PHOTOS, true ), true );
+		return self::decode_photos( (string) get_post_meta( $trip_id, self::META_PHOTOS, true ) );
+	}
+
+	/**
+	 * A trip's photos from the JSON stored in its META_PHOTOS.
+	 */
+	public static function decode_photos( string $json ): array {
+		$photos = json_decode( $json, true );
 		return is_array( $photos ) ? $photos : [];
 	}
 

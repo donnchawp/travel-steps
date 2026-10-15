@@ -4,8 +4,8 @@
  * the cron events that fill and sweep that cache. Trips, steps, settings, keys and the
  * photos uploaded to trips (uploads/travel-steps/) stay.
  *
- * WordPress runs this without loading the plugin, so the names are spelt out here:
- * RestController::cache_root(), CacheSweep::HOOK and CacheFill::HOOK.
+ * WordPress runs this without loading the plugin. Its autoloader is enough: the classes
+ * do nothing until called, so the names below come from them.
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
@@ -13,6 +13,11 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 ( function () {
+	// Without it, the plugin never ran, so it left nothing to delete.
+	if ( ! is_readable( __DIR__ . '/vendor/autoload.php' ) ) {
+		return;
+	}
+	require_once __DIR__ . '/vendor/autoload.php';
 	$sites = is_multisite() ? get_sites(
 		[
 			'fields' => 'ids',
@@ -24,9 +29,9 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			switch_to_blog( $site );
 		}
 		// A network deactivation only unschedules them on the site it ran on.
-		wp_unschedule_hook( 'travel_steps_sweep_cache' );
-		wp_unschedule_hook( 'travel_steps_fill_cache' );
-		$root = wp_get_upload_dir()['basedir'] . '/travel-steps-cache';
+		wp_unschedule_hook( TravelSteps\CacheSweep::HOOK );
+		wp_unschedule_hook( TravelSteps\CacheFill::HOOK );
+		$root = TravelSteps\RestController::cache_root();
 		if ( is_dir( $root ) && ! is_link( $root ) ) {
 			$inside = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
 			foreach ( $inside as $file ) {

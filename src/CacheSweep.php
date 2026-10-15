@@ -28,10 +28,15 @@ class CacheSweep {
 	}
 
 	public static function run(): void {
+		$folders = RestController::cache_folders();
+		// Nothing cached, so nothing to look up.
+		if ( ! $folders ) {
+			return;
+		}
 		$now     = time();
 		$files   = self::in_use_files();
 		$max_age = max( 0, (int) Settings::get( 'cache_days' ) ) * DAY_IN_SECONDS;
-		foreach ( glob( RestController::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
+		foreach ( $folders as $dir ) {
 			foreach ( scandir( $dir ) ?: [] as $name ) {
 				$file = "$dir/$name";
 				// Not ., .., or the .htaccess and index.html files that keep the cache private.
@@ -48,8 +53,7 @@ class CacheSweep {
 				}
 				// A half-written file (.tmp) is never in use.
 				if ( ( ! isset( $files[ $file ] ) && $age > self::GRACE_S ) || ( $max_age && $age > $max_age ) ) {
-					wp_delete_file( $file );
-					wp_delete_file( "$file.type" );
+					RestController::delete_cached_file( $file );
 				}
 			}
 		}
@@ -83,8 +87,8 @@ class CacheSweep {
 		$trips = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s", Trips::TRIP ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		// One trip at a time, past the object cache, which would keep all of every trip's meta, routes included.
 		foreach ( $trips as $trip_id ) {
-			$photos = json_decode( (string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $trip_id, Trips::META_PHOTOS ) ), true ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			foreach ( is_array( $photos ) ? $photos : [] as $photo ) {
+			$photos = Trips::decode_photos( (string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $trip_id, Trips::META_PHOTOS ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			foreach ( $photos as $photo ) {
 				if ( isset( $photo['id'] ) ) {
 					$ids[ (string) $photo['id'] ] = true;
 				}

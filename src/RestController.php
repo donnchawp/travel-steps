@@ -434,21 +434,18 @@ class RestController {
 	 * edit, can delete it at any moment, so it's read, not checked for: one that's found,
 	 * then gone (or empty) when read, is null too.
 	 *
+	 * The type, which store_cached() writes first and delete_cached_file() deletes last,
+	 * is read first: if the photo is still there after that, the type read is its own.
+	 *
 	 * @return array{body: string, type: string}|null
 	 */
 	private static function read_cached( string $file ): ?array {
+		$type = trim( (string) @file_get_contents( $file . '.type' ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		$body = (string) @file_get_contents( $file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		return '' === $body ? null : [
 			'body' => $body,
-			'type' => self::cached_type( $file ),
+			'type' => '' === $type ? 'image/jpeg' : $type,
 		];
-	}
-
-	/**
-	 * The type stored beside a cached image by store_cached().
-	 */
-	private static function cached_type( string $file ): string {
-		return is_readable( $file . '.type' ) ? trim( (string) file_get_contents( $file . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	}
 
 	/**

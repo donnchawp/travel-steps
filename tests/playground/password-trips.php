@@ -91,8 +91,9 @@ $pw_access = function ( int $user ) use ( $pw_a, $pw_photo, $pw_cover ) {
 	wp_set_current_user( 0 );
 	return $seen;
 };
-check( 'no password: an administrator’s and the author’s photos are private', [ 'private', 'private' ] === $pw_access( 1 ) && [ 'private', 'private' ] === $pw_access( $alice ), [ $pw_access( 1 ), $pw_access( $alice ) ] );
-check( '…another author’s, who can’t edit it, public as a visitor’s', [ 'public', 'public' ] === $pw_access( $bob ), $pw_access( $bob ) );
+[ $pw_admin, $pw_author, $pw_other ] = array_map( $pw_access, [ 1, $alice, $bob ] );
+check( 'no password: an administrator’s and the author’s photos are private', [ 'private', 'private' ] === $pw_admin && [ 'private', 'private' ] === $pw_author, [ $pw_admin, $pw_author ] );
+check( '…another author’s, who can’t edit it, public as a visitor’s', [ 'public', 'public' ] === $pw_other, $pw_other );
 check( 'no password: listed on the landing page', false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and served and listed by core REST', 'open' === $seen['core'], $seen['core'] );
 check( '…and left to page caches', ! $pw_nocache( $pw_a ) );

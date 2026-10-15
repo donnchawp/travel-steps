@@ -56,5 +56,6 @@ register_deactivation_hook(
 	TRAVEL_STEPS_PLUGIN_FILE,
 	function () {
 		flush_rewrite_rules();
+		wp_unschedule_hook( CacheFill::HOOK );
 	}
 );

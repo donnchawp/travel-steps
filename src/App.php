@@ -53,6 +53,7 @@ class App extends BaseApp {
 		add_action( 'admin_post_travel_steps_account', [ Settings::class, 'handle_save_account' ] );
 		add_action( 'admin_post_travel_steps_settings', [ Settings::class, 'handle_save_site' ] );
 		add_action( 'rest_api_init', [ new RestController(), 'register_routes' ] );
+		add_action( CacheFill::HOOK, [ CacheFill::class, 'run' ] );
 		add_filter( 'wp_unique_post_slug', [ Trips::class, 'unique_slug' ], 10, 5 );
 		add_filter( 'wp_insert_post_data', [ Trips::class, 'step_parent' ], 10, 2 );
 		add_filter( 'protected_title_format', [ Trips::class, 'protected_title_format' ], 10, 2 );

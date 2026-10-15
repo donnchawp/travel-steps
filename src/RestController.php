@@ -146,6 +146,7 @@ class RestController {
 			}
 			update_post_meta( $trip_id, $key, $ids );
 		}
+		CacheFill::schedule( $trip_id );
 		return new \WP_REST_Response(
 			[
 				'asset' => $asset,
@@ -169,6 +170,7 @@ class RestController {
 		} else {
 			return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
 		}
+		CacheFill::schedule( $trip_id );
 		return new \WP_REST_Response(
 			[
 				'asset' => Trips::cover( $trip_id ),

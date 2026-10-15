@@ -18,18 +18,57 @@ class CacheSweep {
 	const GRACE_S = DAY_IN_SECONDS;
 
 	public static function run(): void {
-		$now = time();
+		$now   = time();
+		$files = self::in_use_files();
 		foreach ( glob( RestController::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
 			foreach ( scandir( $dir ) ?: [] as $name ) {
 				$file = "$dir/$name";
 				if ( in_array( $name, [ '.', '..', 'index.html' ], true ) || ! is_file( $file ) || str_ends_with( $name, '.type' ) ) {
 					continue;
 				}
-				if ( filemtime( $file ) < $now - self::GRACE_S ) {
+				if ( ! isset( $files[ $file ] ) && filemtime( $file ) < $now - self::GRACE_S ) {
 					wp_delete_file( $file );
 					wp_delete_file( "$file.type" );
 				}
 			}
 		}
+	}
+
+	/**
+	 * Where the photos in use are cached, at every size, as RestController::cache_file()
+	 * names them: the photo ids aren't in the file names, so they can't be read back.
+	 *
+	 * @return array<string, true>
+	 */
+	private static function in_use_files(): array {
+		$files = [];
+		foreach ( self::in_use_ids() as $asset => $_ ) {
+			foreach ( RestController::SIZES as $size ) {
+				$files[ RestController::cache_file( (string) $asset, $size ) ] = true;
+			}
+		}
+		return $files;
+	}
+
+	/**
+	 * The ids of every photo in a trip, whatever its status (a binned one can be
+	 * restored), and of every photo uploaded to one, synced or not.
+	 *
+	 * @return array<string, true>
+	 */
+	private static function in_use_ids(): array {
+		global $wpdb;
+		$ids = array_fill_keys( $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s", Uploads::META_PHOTO_ID ) ), true ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$trips = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s", Trips::TRIP ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// One trip at a time, past the object cache, which would keep all of every trip's meta, routes included.
+		foreach ( $trips as $trip_id ) {
+			$photos = json_decode( (string) $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s", $trip_id, Trips::META_PHOTOS ) ), true ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			foreach ( is_array( $photos ) ? $photos : [] as $photo ) {
+				if ( isset( $photo['id'] ) ) {
+					$ids[ (string) $photo['id'] ] = true;
+				}
+			}
+		}
+		return $ids;
 	}
 }

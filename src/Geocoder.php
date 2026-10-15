@@ -212,8 +212,8 @@ class Geocoder {
 
 	/**
 	 * The key a trip's countries are counted by: the ISO 3166-1 alpha-2 code of a country
-	 * name or code from any source, so "United States of America" (Immich, from Natural
-	 * Earth), "United States" (GeoNames) and "us" count once.
+	 * name or code from any source, so "United States of America" (older Immich photos),
+	 * "United States" (GeoNames) and "us" count once.
 	 */
 	public function country_key( string $name ): string {
 		$name = trim( $name );
@@ -221,8 +221,15 @@ class Geocoder {
 			return '';
 		}
 		$folded = self::fold( $name );
+		$known  = $this->country_names();
+		if ( isset( $known[ $folded ] ) ) {
+			return $known[ $folded ];
+		}
 		// Without the data files any two letters may be a code, as no country's name is.
-		return $this->country_names()[ $folded ] ?? ( ! $this->countries() && preg_match( '/^[a-z]{2}$/i', $name ) ? strtoupper( $name ) : $folded );
+		if ( ! $this->countries() && preg_match( '/^[a-z]{2}$/i', $name ) ) {
+			return strtoupper( $name );
+		}
+		return $folded;
 	}
 
 	/**

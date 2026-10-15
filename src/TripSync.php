@@ -356,18 +356,18 @@ class TripSync {
 	private function place_step( \WP_Post $step, array $day_photos, array $track ): void {
 		$photo = Selection::lead( array_filter( $day_photos, fn( $p ) => null !== $p['lat'] ) );
 		if ( $photo ) {
-			[ $lat, $lon ] = [ $photo['lat'], $photo['lon'] ];
+			$at = [ $photo['lat'], $photo['lon'] ];
 		} else {
 			$index = Geo::nearest_in_time( $track, Trips::arrived( $step ), 12 * HOUR_IN_SECONDS );
-			if ( null === $index ) {
-				delete_post_meta( $step->ID, Trips::META_LAT );
-				delete_post_meta( $step->ID, Trips::META_LON );
-				return;
-			}
-			[ $lat, $lon ] = [ $track[ $index ][0], $track[ $index ][1] ];
+			$at    = null === $index ? null : [ $track[ $index ][0], $track[ $index ][1] ];
 		}
-		update_post_meta( $step->ID, Trips::META_LAT, round( $lat, 6 ) );
-		update_post_meta( $step->ID, Trips::META_LON, round( $lon, 6 ) );
+		if ( null === $at ) {
+			delete_post_meta( $step->ID, Trips::META_LAT );
+			delete_post_meta( $step->ID, Trips::META_LON );
+		} else {
+			update_post_meta( $step->ID, Trips::META_LAT, round( $at[0], 6 ) );
+			update_post_meta( $step->ID, Trips::META_LON, round( $at[1], 6 ) );
+		}
 	}
 
 	/**

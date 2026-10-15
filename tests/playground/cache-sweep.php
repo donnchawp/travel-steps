@@ -10,6 +10,8 @@ $cs_id = fn( int $n ) => sprintf( '5eeb0000-0000-4000-8000-%012d', $n );
 // Cache a photo at a size, its files last written $days ago.
 $cs_cache = function ( string $asset, string $size = 'preview', float $days = 0 ) use ( $cache_path ) {
 	$file = $cache_path( $asset, $size );
+	// Its folders as the proxy makes them, protected.
+	TravelSteps\Uploads::protect( RestController::cache_root(), substr( dirname( $file ), strlen( RestController::cache_root() ) + 1 ) );
 	RestController::store_cached( $file, 'IMAGE', 'image/jpeg' );
 	$at = (int) ( time() - $days * DAY_IN_SECONDS );
 	touch( $file, $at );
@@ -59,3 +61,18 @@ $cs_aged = function ( int $days ) use ( $cs_cache, $cs_id, $cs_kept ) {
 };
 check( 'cache sweep: deleting after 3 days, a photo in use cached 4 days ago goes, and one cached 2 days ago stays', [ false, true ] === $cs_aged( 3 ) );
 check( '…and never deleting, both stay', [ true, true ] === $cs_aged( 0 ) );
+
+// What writes left behind: half-written files, and a type whose photo was never written.
+$cs_dir      = dirname( $cs_cache( $cs_id( 9 ) ) );
+$cs_leftover = function ( string $name, float $days ) use ( $cs_dir ) {
+	file_put_contents( "$cs_dir/$name", 'half' );
+	touch( "$cs_dir/$name", (int) ( time() - $days * DAY_IN_SECONDS ) );
+	return "$cs_dir/$name";
+};
+$cs_old_tmp  = $cs_leftover( wp_hash( $cs_id( 10 ) ) . '.Ab3dE5gH.tmp', 2 );
+$cs_new_tmp  = $cs_leftover( wp_hash( $cs_id( 11 ) ) . '.type.Ab3dE5gH.tmp', 0.5 );
+$cs_lone     = $cs_leftover( wp_hash( $cs_id( 12 ) ) . '.type', 2 );
+CacheSweep::run();
+check( 'cache sweep: a half-written file more than a day old is deleted, one newer is kept', ! file_exists( $cs_old_tmp ) && file_exists( $cs_new_tmp ) );
+check( '…so is a type more than a day old without its photo', ! file_exists( $cs_lone ) );
+check( '…and the .htaccess and every index.html stay', file_exists( RestController::cache_root() . '/.htaccess' ) && file_exists( RestController::cache_root() . '/index.html' ) && file_exists( "$cs_dir/index.html" ) && file_exists( dirname( $cs_dir ) . '/index.html' ) );

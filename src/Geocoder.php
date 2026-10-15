@@ -13,12 +13,75 @@ class Geocoder {
 	const TILES = 180 * 360;
 	// As Immich: a photo farther than this from any town gets no place name.
 	const MAX_DISTANCE_M = 25000;
+	// Other spellings of countries' names, by ISO code: Natural Earth's (which Immich
+	// uses) where they differ from GeoNames', and a few other common ones.
+	const COUNTRY_ALIASES = [
+		'United States of America'                     => 'US',
+		'USA'                                          => 'US',
+		'United Republic of Tanzania'                  => 'TZ',
+		'The Bahamas'                                  => 'BS',
+		'Macedonia'                                    => 'MK',
+		'Republic of North Macedonia'                  => 'MK',
+		'Czech Republic'                               => 'CZ',
+		"Côte d'Ivoire"                                => 'CI',
+		'Côte d’Ivoire'                                => 'CI',
+		"Cote d'Ivoire"                                => 'CI',
+		'Swaziland'                                    => 'SZ',
+		'Republic of Serbia'                           => 'RS',
+		'Russian Federation'                           => 'RU',
+		'DR Congo'                                     => 'CD',
+		'Congo (Kinshasa)'                             => 'CD',
+		'Congo'                                        => 'CG',
+		'Congo (Brazzaville)'                          => 'CG',
+		'Republic of Korea'                            => 'KR',
+		'Korea, Republic of'                           => 'KR',
+		"Democratic People's Republic of Korea"        => 'KP',
+		'East Timor'                                   => 'TL',
+		'Timor-Leste'                                  => 'TL',
+		'Cape Verde'                                   => 'CV',
+		'Federated States of Micronesia'               => 'FM',
+		'Hong Kong S.A.R.'                             => 'HK',
+		'Macao S.A.R'                                  => 'MO',
+		'Macau'                                        => 'MO',
+		'Vatican City'                                 => 'VA',
+		'Holy See'                                     => 'VA',
+		'Palestine'                                    => 'PS',
+		'Netherlands'                                  => 'NL',
+		'UK'                                           => 'GB',
+		'Great Britain'                                => 'GB',
+		'Aland'                                        => 'AX',
+		'Åland'                                        => 'AX',
+		'Åland Islands'                                => 'AX',
+		'Saint Barthélemy'                             => 'BL',
+		'Curaçao'                                      => 'CW',
+		'São Tomé and Principe'                        => 'ST',
+		'São Tomé and Príncipe'                        => 'ST',
+		'Réunion'                                      => 'RE',
+		'Pitcairn Islands'                             => 'PN',
+		'United States Virgin Islands'                 => 'VI',
+		'US Virgin Islands'                            => 'VI',
+		'South Georgia and the Islands'                => 'GS',
+		'French Southern and Antarctic Lands'          => 'TF',
+		'Cocos (Keeling) Islands'                      => 'CC',
+		'Brunei Darussalam'                            => 'BN',
+		'Lao PDR'                                      => 'LA',
+		"Lao People's Democratic Republic"             => 'LA',
+		'Viet Nam'                                     => 'VN',
+		'Syrian Arab Republic'                         => 'SY',
+		'Republic of Moldova'                          => 'MD',
+		'Türkiye'                                      => 'TR',
+		'Turkiye'                                      => 'TR',
+		'Burma'                                        => 'MM',
+		'The Gambia'                                   => 'GM',
+	];
 
 	private string $dir;
 	/** @var array<int, string> Each tile's rows, as stored. */
 	private array $tiles = [];
 	/** @var array<string, string>|null */
 	private ?array $countries = null;
+	/** @var array<string, string>|null ISO codes by case-folded name, GeoNames' and others. */
+	private ?array $country_names = null;
 	/** @var resource|false|null */
 	private $index = null;
 	/** @var resource|false|null */
@@ -131,14 +194,48 @@ class Geocoder {
 	}
 
 	/**
+	 * The key a trip's countries are counted by: the ISO 3166-1 alpha-2 code of a country
+	 * name or code from any source, so "United States of America" (Immich, from Natural
+	 * Earth), "United States" (GeoNames) and "us" count once.
+	 */
+	public function country_key( string $name ): string {
+		$name  = trim( $name );
+		$upper = strtoupper( $name );
+		if ( '' === $name ) {
+			return '';
+		}
+		if ( isset( $this->countries()[ $upper ] ) ) {
+			return $upper;
+		}
+		if ( null === $this->country_names ) {
+			$this->country_names = [];
+			foreach ( array_flip( $this->countries() ) + self::COUNTRY_ALIASES as $known => $code ) {
+				$this->country_names[ self::fold( $known ) ] = $code;
+			}
+		}
+		$folded = self::fold( $name );
+		if ( isset( $this->country_names[ $folded ] ) ) {
+			return $this->country_names[ $folded ];
+		}
+		// Without the data files any two letters may be a code, as no country's name is.
+		return ! $this->countries() && preg_match( '/^[a-z]{2}$/i', $name ) ? $upper : $folded;
+	}
+
+	private static function fold( string $text ): string {
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( $text, 'UTF-8' ) : strtolower( $text );
+	}
+
+	/**
 	 * @return array<string, string> English names by ISO 3166 code.
 	 */
 	private function countries(): array {
 		if ( null === $this->countries ) {
 			$this->countries = [];
 			foreach ( (array) @file( $this->dir . '/countries.tsv', FILE_IGNORE_NEW_LINES ) as $line ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-				[ $code, $name ] = explode( "\t", $line ) + [ '', '' ];
-				$this->countries[ $code ] = $name;
+				[ $code, $name ] = explode( "\t", (string) $line ) + [ '', '' ];
+				if ( '' !== $code ) {
+					$this->countries[ $code ] = $name;
+				}
 			}
 		}
 		return $this->countries;

@@ -94,6 +94,31 @@ $pw_access = function ( int $user ) use ( $pw_a, $pw_photo, $pw_cover ) {
 [ $pw_admin, $pw_author, $pw_other ] = array_map( $pw_access, [ 1, $alice, $bob ] );
 check( 'no password: an administrator’s and the author’s photos are private', [ 'private', 'private' ] === $pw_admin && [ 'private', 'private' ] === $pw_author, [ $pw_admin, $pw_author ] );
 check( '…another author’s, who can’t edit it, public as a visitor’s', [ 'public', 'public' ] === $pw_other, $pw_other );
+// The Cache-Control the proxy sends with a photo and its 304, for a URL as photo_url() builds it.
+$pw_photo_cache = function ( int $user, bool $nonced ) use ( $pw_a, $pw_photo ) {
+	wp_set_current_user( $user );
+	$url = RestController::photo_url( $pw_a, $pw_photo, 'thumbnail', $nonced );
+	parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $query );
+	$req = new WP_REST_Request( 'GET', '/travel-steps/v1/trips/' . $pw_a . '/photo/' . $pw_photo );
+	$req->set_url_params( [ 'id' => (string) $pw_a, 'asset' => $pw_photo ] );
+	$req->set_query_params( $query );
+	$cache = RestController::photo_cache( $req );
+	wp_set_current_user( 0 );
+	return $cache;
+};
+$pw_nonced = $pw_photo_cache( $bob, true );
+check( '…but with a nonce in the URL, theirs is private too', 'private, max-age=3600' === $pw_nonced, $pw_nonced );
+$pw_anon = $pw_photo_cache( 0, false );
+check( '…and a visitor’s, without one, still public', 'public, max-age=3600, s-maxage=300' === $pw_anon, $pw_anon );
+// The trip's REST response: editors get draft-step markers and can_edit, so theirs is never shared.
+$pw_rest_cache = function ( int $user ) use ( $get, $pw_a, $pw_cache ) {
+	wp_set_current_user( $user );
+	$cache = $pw_cache( $get( '/travel-steps/v1/trips/' . $pw_a ) );
+	wp_set_current_user( 0 );
+	return $cache;
+};
+[ $pw_rest_editor, $pw_rest_visitor ] = array_map( $pw_rest_cache, [ $alice, 0 ] );
+check( 'no password: the author’s trip REST is private, a visitor’s public', 'private, no-store' === $pw_rest_editor && 'public, max-age=300' === $pw_rest_visitor, [ $pw_rest_editor, $pw_rest_visitor ] );
 check( 'no password: listed on the landing page', false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and served and listed by core REST', 'open' === $seen['core'], $seen['core'] );
 check( '…and left to page caches', ! $pw_nocache( $pw_a ) );

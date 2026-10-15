@@ -334,8 +334,9 @@ class Trips {
 
 	/**
 	 * Whether shared caches may keep what the current user is sent of a trip (its REST
-	 * response and photos): it's public, and they can't edit it, as editors' URLs carry
-	 * their nonce.
+	 * response and photos): it's public, and they can't edit it. Editors' REST response
+	 * holds what only editors see, the markers of draft steps and can_edit. A photo
+	 * fetched with a nonce is never shared either: see RestController::photo_cache().
 	 */
 	public static function shared_cacheable( \WP_Post $trip ): bool {
 		return self::is_public( $trip ) && ! current_user_can( 'edit_post', $trip->ID );

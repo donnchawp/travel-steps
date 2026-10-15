@@ -180,11 +180,11 @@ class RestController {
 
 	/**
 	 * Who may fetch a photo through a trip: "public" for one anyone may see, fetched by
-	 * someone who can't edit the trip (see Trips::shared_cacheable()), which shared
-	 * caches may keep; "private" for one only the current user may, or that an editor
-	 * fetches with their nonce (for those a protected trip lets in, its shown photos; for
-	 * editors, any synced photo; for the trip's managers, any photo uploaded to it,
-	 * synced or not); "" if they may not.
+	 * someone who can't edit the trip (see Trips::shared_cacheable()); "private" for one
+	 * only some may see, or fetched by anyone who can edit the trip, nonce or not (for
+	 * those a protected trip lets in, its shown photos; for editors, any synced photo;
+	 * for the trip's managers, any photo uploaded to it, synced or not); "" if they may
+	 * not. Whether shared caches may keep it is photo_cache()'s call.
 	 */
 	public static function access( int $trip_id, string $asset ): string {
 		$trip = get_post( $trip_id );
@@ -214,16 +214,15 @@ class RestController {
 		$asset   = (string) $request['asset'];
 		$size    = (string) $request['size'];
 
-		$access = self::access( $trip_id, $asset );
-		if ( '' === $access ) {
+		$cache = self::photo_cache( $request );
+		if ( '' === $cache ) {
 			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
 		}
-		$is_public = 'public' === $access;
 		$upload = Uploads::attachment( $trip_id, $asset );
 		$etag   = self::etag( $asset, $size, $upload );
 		// Revalidation runs the access check above every time, but costs no image bytes.
 		if ( self::not_modified( $etag, (string) $request->get_header( 'if_none_match' ) ) ) {
-			self::send_cache_headers( $is_public, $etag );
+			self::send_cache_headers( $cache, $etag );
 			status_header( 304 );
 			exit;
 		}
@@ -232,7 +231,22 @@ class RestController {
 		if ( is_wp_error( $image ) ) {
 			return $image;
 		}
-		self::send_image( $is_public, $etag, $image );
+		self::send_image( $cache, $etag, $image );
+	}
+
+	/**
+	 * The Cache-Control the proxy sends with a photo, and with its 304: shared caches may
+	 * keep it only if access() says "public" and the URL carries no nonce. A nonce is
+	 * whoever built the URL's, so a shared cache must never keep one, however the URL was
+	 * built and whoever sends it. "" if the current user may not fetch the photo.
+	 */
+	public static function photo_cache( \WP_REST_Request $request ): string {
+		$access = self::access( (int) $request['id'], (string) $request['asset'] );
+		if ( '' === $access ) {
+			return '';
+		}
+		$nonced = isset( $request->get_query_params()['_wpnonce'] );
+		return self::photo_cache_control( 'public' === $access && ! $nonced );
 	}
 
 	/**
@@ -268,10 +282,11 @@ class RestController {
 	}
 
 	/**
+	 * @param string $cache As photo_cache() gives it.
 	 * @param array{body: string, type: string}|array{file: string, type: string} $image As fetch() gives it.
 	 */
-	private static function send_image( bool $is_public, string $etag, array $image ): void {
-		self::send_cache_headers( $is_public, $etag );
+	private static function send_image( string $cache, string $etag, array $image ): void {
+		self::send_cache_headers( $cache, $etag );
 		self::send_type( $image['type'] );
 		if ( isset( $image['file'] ) ) {
 			header( 'Content-Length: ' . filesize( $image['file'] ) );
@@ -284,8 +299,8 @@ class RestController {
 	}
 
 	// Only for a photo actually served, so errors don't land in shared caches.
-	private static function send_cache_headers( bool $is_public, string $etag ): void {
-		header( 'Cache-Control: ' . self::photo_cache_control( $is_public ) );
+	private static function send_cache_headers( string $cache, string $etag ): void {
+		header( 'Cache-Control: ' . $cache );
 		header( 'ETag: ' . $etag );
 		header( 'X-Content-Type-Options: nosniff' );
 	}

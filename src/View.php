@@ -47,17 +47,17 @@ class View {
 	 *                          private steps (Trips::steps() leaves scheduled ones out).
 	 */
 	public static function unseen_notice( \WP_Post $trip, array $steps ): string {
-		$shown = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
+		$published = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
 		if ( 'publish' === $trip->post_status ) {
-			return self::hidden_steps_notice( $shown, count( $steps ) - $shown );
+			return self::hidden_steps_notice( $published, count( $steps ) - $published );
 		}
-		if ( ! $shown || in_array( $trip->post_status, [ 'private', 'future' ], true ) ) {
+		if ( ! $published || in_array( $trip->post_status, [ 'private', 'future' ], true ) ) {
 			return '';
 		}
 		return sprintf(
 			/* translators: %s: number of published steps */
-			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $shown, 'travel-steps' ),
-			number_format_i18n( $shown )
+			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $published, 'travel-steps' ),
+			number_format_i18n( $published )
 		);
 	}
 
@@ -89,15 +89,15 @@ class View {
 	/**
 	 * The warning for a published trip with steps that aren't published, else ''.
 	 */
-	private static function hidden_steps_notice( int $shown, int $hidden ): string {
+	private static function hidden_steps_notice( int $published, int $hidden ): string {
 		if ( ! $hidden ) {
 			return '';
 		}
-		$total = $shown + $hidden;
+		$total = $published + $hidden;
 		return sprintf(
 			/* translators: 1: number of published steps, 2: number of steps on the trip */
 			_n( 'Visitors see %1$s of %2$s step.', 'Visitors see %1$s of %2$s steps.', $total, 'travel-steps' ),
-			number_format_i18n( $shown ),
+			number_format_i18n( $published ),
 			number_format_i18n( $total )
 		) . ' ' . sprintf(
 			/* translators: %s: number of steps that aren't published */

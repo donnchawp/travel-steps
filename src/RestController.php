@@ -179,11 +179,12 @@ class RestController {
 	}
 
 	/**
-	 * Who may fetch a photo through a trip: "public" for one anyone may see, which
-	 * shared caches may keep unless the current user can edit the trip (see
-	 * Trips::shared_cacheable()); "private" for one only the current user may (for those a
-	 * protected trip lets in, its shown photos; for editors, any synced photo; for the
-	 * trip's managers, any photo uploaded to it, synced or not); "" if they may not.
+	 * Who may fetch a photo through a trip: "public" for one anyone may see, fetched by
+	 * someone who can't edit the trip (see Trips::shared_cacheable()), which shared
+	 * caches may keep; "private" for one only the current user may, or that an editor
+	 * fetches with their nonce (for those a protected trip lets in, its shown photos; for
+	 * editors, any synced photo; for the trip's managers, any photo uploaded to it,
+	 * synced or not); "" if they may not.
 	 */
 	public static function access( int $trip_id, string $asset ): string {
 		$trip = get_post( $trip_id );

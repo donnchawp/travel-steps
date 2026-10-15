@@ -143,6 +143,21 @@ wp_set_current_user( 1 );
 $cs_upload_dir = Uploads::protect( wp_get_upload_dir()['basedir'], Uploads::DIR . '/999' );
 file_put_contents( "$cs_upload_dir/original.jpg", 'ORIGINAL' );
 $cs_cache( $cs_id( 13 ) );
+define( 'WP_UNINSTALL_PLUGIN', $cs_plugin );
+// The cache folder itself unreadable (the first cache fill ran from a CLI cron as another
+// user, say): uninstall still finishes, and keeps the cache.
+$cs_root   = RestController::cache_root();
+$cs_before = $pc_files();
+chmod( $cs_root, 0 );
+try {
+	require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+	$cs_failed = '';
+} catch ( Throwable $e ) {
+	$cs_failed = get_class( $e ) . ': ' . $e->getMessage();
+} finally {
+	chmod( $cs_root, 0755 );
+}
+check( 'uninstall: a cache folder it can’t read at all is kept, without a fatal error', '' === $cs_failed && $cs_before === $pc_files(), $cs_failed );
 CacheSweep::schedule();
 wp_schedule_single_event( time(), CacheFill::HOOK, [ $cs_shared[0] ] );
 $cs_options = Settings::all();
@@ -151,7 +166,6 @@ $cs_locked = RestController::cache_root() . '/preview/locked';
 wp_mkdir_p( $cs_locked );
 file_put_contents( "$cs_locked/photo", 'LOCKED' );
 chmod( $cs_locked, 0 );
-define( 'WP_UNINSTALL_PLUGIN', $cs_plugin );
 try {
 	require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
 } finally {

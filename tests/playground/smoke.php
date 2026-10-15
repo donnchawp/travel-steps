@@ -238,6 +238,25 @@ foreach ( Trips::steps( $album_trip, true ) as $album_step ) {
 wp_delete_post( $album_trip, true );
 wp_delete_post( $album_empty, true );
 
+// An Immich photo with no GPS of its own is placed by Dawarich, and named by the geocoder
+// as an upload is. Immich's own names stay.
+$named_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Named', 'post_status' => 'draft' ] );
+update_post_meta( $named_trip, Trips::META_START, '2025-05-01' );
+update_post_meta( $named_trip, Trips::META_END, '2025-05-01' );
+$named_source       = new FakeSource();
+$named_placed       = row( 61, '2025-05-01', '10:00', null, null, '', true );
+$named_placed['country'] = '';
+$named_source->rows = [ $named_placed, row( 62, '2025-05-01', '11:00', 38.7139, -9.1394, 'Lisbon', true ) ];
+$r                  = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $named_source ) )->sync( $named_trip );
+$named_rows         = array_column( Trips::photos( $named_trip ), null, 'id' );
+$named_place        = fn( int $n ) => [ $named_rows[ sprintf( '00000000-0000-4000-8000-%012d', $n ) ]['city'] ?? null, $named_rows[ sprintf( '00000000-0000-4000-8000-%012d', $n ) ]['country'] ?? null ];
+check( 'an Immich photo Dawarich placed gets the geocoder’s city and country', [ 'Baixa', 'Portugal' ] === $named_place( 61 ), [ is_wp_error( $r ) ? $r->get_error_message() : $r, $named_rows ] );
+check( '…while one Immich named keeps its own', [ 'Lisbon', 'Portugal' ] === $named_place( 62 ), $named_rows );
+foreach ( Trips::steps( $named_trip, true ) as $named_step ) {
+	wp_delete_post( $named_step->ID, true );
+}
+wp_delete_post( $named_trip, true );
+
 // Sources hand over wall-clock times; sync works out each photo's zone, and the order.
 $zone_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Zones', 'post_status' => 'draft' ] );
 update_post_meta( $zone_trip, Trips::META_START, '2025-05-01' );

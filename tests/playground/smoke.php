@@ -422,10 +422,10 @@ wp_set_current_user( 0 );
 check( 'cover: an unchosen draft photo is private again', ! isset( Trips::shown_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
 
 // Photo caching: shared caches must drop a photo soon after it's unpublished or hidden.
-$public = TravelSteps\RestController::photo_cache_control( true );
+$public = TravelSteps\RestController::photo_cache( 'public', new WP_REST_Request( 'GET', '/' ) );
 check( 'public photos are not cached as immutable', false === strpos( $public, 'immutable' ), $public );
 check( 'shared caches keep public photos 5 minutes at most', 1 === preg_match( '/s-maxage=(\d+)/', $public, $m ) && (int) $m[1] <= 300, $public );
-check( 'draft photos stay out of shared caches', 0 === strpos( TravelSteps\RestController::photo_cache_control( false ), 'private' ) );
+check( 'draft photos stay out of shared caches', 0 === strpos( TravelSteps\RestController::photo_cache( 'private', new WP_REST_Request( 'GET', '/' ) ), 'private' ) );
 check( 'revalidation matches the ETag', TravelSteps\RestController::not_modified( '"abc"', 'W/"abc", "def"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '"abd"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '' ) );
 
 // Thumbnail cache: written whole or not at all.

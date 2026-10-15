@@ -241,11 +241,15 @@ class RestController {
 	 * whoever built the URL's, so a shared cache must never keep one, however the URL was
 	 * built and whoever sends it.
 	 *
+	 * Unpublishing a step or hiding a photo has to reach shared caches (CDNs, proxies)
+	 * soon, so they keep a public photo 5 minutes; browsers, which already have it, an
+	 * hour.
+	 *
 	 * @param string $access As access() gives it, for a photo the current user may fetch.
 	 */
 	public static function photo_cache( string $access, \WP_REST_Request $request ): string {
 		$nonced = isset( $request->get_query_params()['_wpnonce'] );
-		return self::photo_cache_control( 'public' === $access && ! $nonced );
+		return 'public' === $access && ! $nonced ? 'public, max-age=3600, s-maxage=300' : 'private, max-age=3600';
 	}
 
 	/**
@@ -420,15 +424,6 @@ class RestController {
 	 */
 	private static function cached_type( string $file ): string {
 		return is_readable( $file . '.type' ) ? trim( (string) file_get_contents( $file . '.type' ) ) : 'image/jpeg'; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-	}
-
-	/**
-	 * Unpublishing a step or hiding a photo has to reach shared caches (CDNs, proxies)
-	 * soon, so they keep a public photo 5 minutes; browsers, which already have it, an
-	 * hour. Photos of drafts never go into a shared cache.
-	 */
-	public static function photo_cache_control( bool $is_public ): string {
-		return $is_public ? 'public, max-age=3600, s-maxage=300' : 'private, max-age=3600';
 	}
 
 	/**

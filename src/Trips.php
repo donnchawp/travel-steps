@@ -448,17 +448,13 @@ class Trips {
 	}
 
 	/**
-	 * Steps shown on the trip page: published ones, plus drafts and unplaced steps for editors.
+	 * Steps shown on the trip page: published ones, plus drafts for editors. A step with
+	 * no position is shown too, with no marker on the map.
 	 *
 	 * @return \WP_Post[]
 	 */
 	public static function timeline_steps( \WP_Post $trip, bool $can_edit ): array {
-		return array_values(
-			array_filter(
-				self::steps( $trip->ID, $can_edit ),
-				fn( $step ) => $can_edit || '' !== get_post_meta( $step->ID, self::META_LAT, true )
-			)
-		);
+		return self::steps( $trip->ID, $can_edit );
 	}
 
 	/**

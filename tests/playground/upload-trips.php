@@ -2,7 +2,7 @@
 /**
  * Trips whose photos are uploaded to WordPress. Required at the end of smoke.php, in
  * its scope: uses check(), $upload, $sideload, $servers, $keys_used, $rest_post, $get,
- * $stopped, $person and $eddie.
+ * $stopped, $person, $eddie and $render.
  */
 use TravelSteps\MediaSource;
 use TravelSteps\Settings;
@@ -160,6 +160,18 @@ $ut_route = array_merge( ...( $ut_map['route'] ?: [ [] ] ) );
 check( 'a day of only home photos still gets a step, with no marker', 2 === $ut_result['new_steps'] && isset( $ut_steps['2025-08-02'] ) && ! in_array( $ut_steps['2025-08-02'], array_column( $ut_map['markers'], 'step' ), true ), [ $ut_steps, $ut_map['markers'] ] );
 check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && $ut_off_home( array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $ut_map['markers'] ) ) && $ut_off_home( $ut_route ), $ut_map );
 check( '…or in the trip’s countries', [ 'France' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
+// Visitors see that day too, published: on the timeline with its photos, but not on the map.
+foreach ( $ut_steps as $ut_step_id ) {
+	wp_publish_post( $ut_step_id );
+}
+wp_set_current_user( 0 );
+$ut_athome = $ut_steps['2025-08-02'] ?? 0;
+$ut_vmap   = $get( "/travel-steps/v1/trips/$ut_local" );
+$ut_vpage  = $render( 'trip.php', (string) $ut_local );
+check( 'a visitor gets a published step with no position in the trip’s timeline', in_array( $ut_athome, wp_list_pluck( Trips::timeline_steps( get_post( $ut_local ), false ), 'ID' ), true ), wp_list_pluck( Trips::timeline_steps( get_post( $ut_local ), false ), 'ID' ) );
+check( '…and on the trip page, with its photos', false !== strpos( $ut_vpage, 'id="step-' . $ut_athome . '"' ) && false !== strpos( $ut_vpage, 'data-asset="' . $ut_lids['near'] . '"' ) );
+check( '…but no marker for it on the trip map', 200 === $ut_vmap->get_status() && [ $ut_steps['2025-08-01'] ?? 0 ] === array_column( $ut_vmap->get_data()['markers'] ?? [], 'step' ), [ $ut_vmap->get_status(), $ut_vmap->get_data() ] );
+wp_set_current_user( 1 );
 // Home set after a sync placed a step there: the next sync takes the step off the map.
 $ut_nomad  = $person( 'nomad', 'author' );
 $ut_later  = $ut_trip( 'Home later', $ut_nomad, '2025-08-10', '2025-08-11' );

@@ -80,7 +80,7 @@ include __DIR__ . '/_header.php';
 					<input type="text" name="home_lon" value="<?php echo esc_attr( $account['home_lon'] ); ?>">
 				</label>
 				<label>
-					<span><?php esc_html_e( 'Radius (km)', 'travel-steps' ); ?></span>
+					<span><?php esc_html_e( 'Home radius (km)', 'travel-steps' ); ?></span>
 					<input type="number" step="0.1" min="0" name="home_radius_km" value="<?php echo esc_attr( $account['home_radius_km'] ); ?>">
 				</label>
 			</div>

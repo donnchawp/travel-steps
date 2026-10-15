@@ -13,9 +13,26 @@ class Geocoder {
 	const TILES = 180 * 360;
 	// As Immich: a photo farther than this from any town gets no place name.
 	const MAX_DISTANCE_M = 25000;
-	// Other spellings of countries' names, by ISO code: Natural Earth's (which Immich
-	// uses) where they differ from GeoNames', and a few other common ones.
+	// Other spellings of countries' names, by ISO code, where they differ from GeoNames':
+	// i18n-iso-countries' first English names, which Immich stored until it moved to
+	// GeoNames in September 2026 (older photos keep them), Natural Earth's, and a few
+	// other common ones.
 	const COUNTRY_ALIASES = [
+		"People's Republic of China"                   => 'CN',
+		'Islamic Republic of Iran'                     => 'IR',
+		'Taiwan, Province of China'                    => 'TW',
+		'The Republic of North Macedonia'              => 'MK',
+		'State of Palestine'                           => 'PS',
+		'Republic of The Gambia'                       => 'GM',
+		'Holy See (Vatican City State)'                => 'VA',
+		'Micronesia, Federated States of'              => 'FM',
+		'Moldova, Republic of'                         => 'MD',
+		'Falkland Islands (Malvinas)'                  => 'FK',
+		'Virgin Islands, British'                      => 'VG',
+		'Virgin Islands, U.S.'                         => 'VI',
+		'Bonaire, Sint Eustatius and Saba'             => 'BQ',
+		'Saint Martin (French part)'                   => 'MF',
+		'Sint Maarten (Dutch part)'                    => 'SX',
 		'United States of America'                     => 'US',
 		'USA'                                          => 'US',
 		'United Republic of Tanzania'                  => 'TZ',

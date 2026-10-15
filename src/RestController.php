@@ -266,7 +266,7 @@ class RestController {
 		}
 		$image = self::image( $trip_id, $asset, $size, $upload );
 		if ( is_wp_error( $image ) || '' === ( $image['body'] ?? $image['file'] ) ) {
-			return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
+			return self::unavailable();
 		}
 		// A copy WordPress made of an upload is served as it is, not cached again. What
 		// was fetched from Immich is served even if it couldn't be cached.
@@ -294,7 +294,7 @@ class RestController {
 		// Opened before any header is sent: a file deleted after that is still read whole.
 		$handle = isset( $image['file'] ) ? @fopen( $image['file'], 'rb' ) : null; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 		if ( false === $handle ) {
-			return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
+			return self::unavailable();
 		}
 		self::send_cache_headers( $cache, $etag );
 		self::send_type( $image['type'] );
@@ -306,6 +306,11 @@ class RestController {
 			echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 		exit;
+	}
+
+	// What the proxy answers when it can't get a photo.
+	private static function unavailable(): \WP_Error {
+		return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
 	}
 
 	// Only for a photo actually served, so errors don't land in shared caches.
@@ -432,7 +437,7 @@ class RestController {
 	 * @return array{body: string, type: string}|null
 	 */
 	private static function read_cached( string $file ): ?array {
-		$body = is_readable( $file ) ? (string) @file_get_contents( $file ) : ''; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$body = (string) @file_get_contents( $file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		return '' === $body ? null : [
 			'body' => $body,
 			'type' => self::cached_type( $file ),

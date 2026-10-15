@@ -104,3 +104,15 @@ check( '…it’s in the Site form, which says expired photos are fetched from I
 wp_set_current_user( $alice );
 check( '…which authors don’t see', false === strpos( $render( 'settings.php', '' ), 'name="cache_days"' ) );
 wp_set_current_user( 1 );
+
+// Deleting the plugin deletes the cache, and nothing else. Last: the cache is gone after it.
+$cs_upload_dir = TravelSteps\Uploads::protect( wp_get_upload_dir()['basedir'], TravelSteps\Uploads::DIR . '/999' );
+file_put_contents( "$cs_upload_dir/original.jpg", 'ORIGINAL' );
+$cs_cache( $cs_id( 13 ) );
+CacheSweep::schedule();
+$cs_options = Settings::all();
+define( 'WP_UNINSTALL_PLUGIN', $cs_plugin );
+require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+check( 'uninstall: the photo cache is deleted', ! file_exists( RestController::cache_root() ) );
+check( '…and the sweep unscheduled', 0 === $cs_events() );
+check( '…but not photos uploaded to trips, trips or settings', 'ORIGINAL' === file_get_contents( "$cs_upload_dir/original.jpg" ) && null !== get_post( $cs_binned ) && $cs_options === Settings::all() );

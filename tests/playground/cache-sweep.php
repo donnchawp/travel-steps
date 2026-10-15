@@ -72,7 +72,15 @@ $cs_failing = [
 	'a trip’s photos lookup' => "meta_key = '" . Trips::META_PHOTOS . "'",
 ];
 foreach ( $cs_failing as $what => $sql ) {
-	$cs_break = fn( $query ) => false !== strpos( $query, $sql ) ? 'SELECT * FROM travel_steps_no_such_table' : $query;
+	// Counted, so a reworded query that no longer matches fails here instead of passing untested.
+	$cs_broken = 0;
+	$cs_break  = function ( $query ) use ( $sql, &$cs_broken ) {
+		if ( false === strpos( $query, $sql ) ) {
+			return $query;
+		}
+		++$cs_broken;
+		return 'SELECT * FROM travel_steps_no_such_table';
+	};
 	$cs_in_use = $cs_cache_in_use();
 	add_filter( 'query', $cs_break );
 	$cs_errors = $wpdb->suppress_errors( true );
@@ -80,7 +88,7 @@ foreach ( $cs_failing as $what => $sql ) {
 	$wpdb->suppress_errors( $cs_errors );
 	remove_filter( 'query', $cs_break );
 	$cs_lost = array_keys( array_filter( $cs_in_use, fn( $file ) => true !== $cs_kept( $file ) ) );
-	check( "cache sweep: a database error in $what deletes no photo in use", [] === $cs_lost, $cs_lost );
+	check( "cache sweep: a database error in $what deletes no photo in use", $cs_broken > 0 && [] === $cs_lost, [ $cs_broken, $cs_lost ] );
 }
 
 // An age set by an administrator: photos in use cached longer ago than that go too.

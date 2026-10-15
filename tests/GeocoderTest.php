@@ -82,6 +82,29 @@ $r   = array_map( [ $geo, 'country_key' ], [ 'United States of America', 'United
 check( 'Immich’s and GeoNames’ names and the code, in any case, are all US', [ 'US', 'US', 'US', 'US' ] === $r, $r );
 $r = array_map( [ $geo, 'country_key' ], [ 'Ireland', '  ireland ', 'NEW ZEALAND', ' united states of america', "Côte d'Ivoire", 'CÔTE D’IVOIRE' ] );
 check( 'names and other spellings match in any case, with spaces around them', [ 'IE', 'IE', 'NZ', 'US', 'CI', 'CI' ] === $r, $r );
+$r = array_map( [ $geo, 'country_key' ], [ "People's Republic of China", 'China', 'CN' ] );
+check( 'Immich’s older name for China, the GeoNames name and the code are all CN', [ 'CN', 'CN', 'CN' ] === $r, $r );
+// The first English names in i18n-iso-countries 7.x, which Immich stored until it moved
+// to GeoNames, where they don't match a GeoNames name.
+$older = [
+	'CN' => "People's Republic of China",
+	'IR' => 'Islamic Republic of Iran',
+	'TW' => 'Taiwan, Province of China',
+	'MK' => 'The Republic of North Macedonia',
+	'PS' => 'State of Palestine',
+	'GM' => 'Republic of The Gambia',
+	'VA' => 'Holy See (Vatican City State)',
+	'FM' => 'Micronesia, Federated States of',
+	'MD' => 'Moldova, Republic of',
+	'FK' => 'Falkland Islands (Malvinas)',
+	'VG' => 'Virgin Islands, British',
+	'VI' => 'Virgin Islands, U.S.',
+	'BQ' => 'Bonaire, Sint Eustatius and Saba',
+	'MF' => 'Saint Martin (French part)',
+	'SX' => 'Sint Maarten (Dutch part)',
+];
+$r = array_map( [ $geo, 'country_key' ], $older );
+check( 'every older Immich name that GeoNames spells differently gives its code', array_keys( $older ) === array_values( $r ), $r );
 $r = array_map( [ $geo, 'country_key' ], [ 'Atlantis', 'ATLANTIS ', '', '  ' ] );
 check( 'an unknown name is kept, case-folded, and an empty one is nothing', [ 'atlantis', 'atlantis', '', '' ] === $r, $r );
 // A broken deploy, without the data files, still counts sensibly.

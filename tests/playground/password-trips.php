@@ -84,6 +84,15 @@ $pw_enter( null );
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'no password: visitors see the whole trip', false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 200 === $seen['step'] );
 check( 'no password: its photos and REST stay in shared caches', 'public' === $seen['photo'] && 'public' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
+// Editors' photo URLs carry their nonce, so their photos stay out of shared caches, as their REST does.
+$pw_access = function ( int $user ) use ( $pw_a, $pw_photo, $pw_cover ) {
+	wp_set_current_user( $user );
+	$seen = [ RestController::access( $pw_a, $pw_photo ), RestController::access( $pw_a, $pw_cover ) ];
+	wp_set_current_user( 0 );
+	return $seen;
+};
+check( 'no password: an administrator’s and the author’s photos are private', [ 'private', 'private' ] === $pw_access( 1 ) && [ 'private', 'private' ] === $pw_access( $alice ), [ $pw_access( 1 ), $pw_access( $alice ) ] );
+check( '…another author’s, who can’t edit it, public as a visitor’s', [ 'public', 'public' ] === $pw_access( $bob ), $pw_access( $bob ) );
 check( 'no password: listed on the landing page', false !== strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and served and listed by core REST', 'open' === $seen['core'], $seen['core'] );
 check( '…and left to page caches', ! $pw_nocache( $pw_a ) );

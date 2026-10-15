@@ -314,6 +314,11 @@ $r = $countries_trip(
 	[ row( 31, '2025-05-01', '09:30', 42.0, -8.6, 'Valença', true ) ]
 );
 check( 'two countries named the same way by both still count two', is_array( $r ) && [ 'PT', 'ES' ] === $r[0] && '2' === ( $r[1]['countries'] ?? null ), $r );
+$r = $countries_trip(
+	[ [ 42.0, -8.6, $t0, 'Valença', '0' ], [ 42.05, -8.64, $t0 + 3600, 'Valença', '0' ] ],
+	[ row( 32, '2025-05-01', '09:30', 42.0, -8.6, 'Valença', true ) ]
+);
+check( 'an unknown country named “0” still counts once', is_array( $r ) && [ '0', 'PT' ] === $r[0], $r );
 
 // REST: publish the steps, keep the trip a draft.
 wp_publish_post( $d1->ID );

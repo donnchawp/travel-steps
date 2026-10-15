@@ -15,7 +15,8 @@ class CacheFill {
 	const HOOK = 'travel_steps_fill_cache';
 	// How long a run fetches for when PHP has a time limit, before leaving the rest to another.
 	const BUDGET_S = 20;
-	// Fetches failing in a row that stop a run: a revoked key, or Immich down.
+	// Fetches failing in a row that stop a run: a revoked key, or Immich down. The photos
+	// are fetched in a random order, so ones that always fail rarely line up.
 	const MAX_FAILURES = 3;
 
 	/**
@@ -37,7 +38,11 @@ class CacheFill {
 		$visible  = array_keys( Trips::visible_photo_ids( $trip_id, Trips::steps( $trip_id, true ) ) );
 		// A photo uploaded to the trip, left over from before it switched to Immich, is
 		// served from the upload, so it isn't asked of Immich.
-		$left       = array_values( array_filter( $visible, fn( $asset ) => ! RestController::cached( $asset, 'preview' ) && ! Uploads::attachment( $trip_id, $asset ) ) );
+		$left = array_values( array_filter( $visible, fn( $asset ) => ! RestController::cached( $asset, 'preview' ) && ! Uploads::attachment( $trip_id, $asset ) ) );
+		// In a new order each run, so photos that always fail (deleted in Immich since the
+		// sync, or with no preview made), or one that always fetches slowly, can't stop
+		// every run at the same place.
+		shuffle( $left );
 		$failures   = 0;
 		$cached_any = false;
 		foreach ( $left as $i => $asset ) {

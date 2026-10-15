@@ -71,26 +71,39 @@ $cf_reset();
 $cf_failing = [ $cf_id( 1801 ) ];
 CacheFill::run( $cf_trip, 0 );
 check( 'cache fill: a photo that fails to fetch is skipped, and the rest are cached', array_map( $cf_id, [ 1802, 1803, 1805 ] ) === $cf_has( $cf_all ) );
+// Immich unreachable, or the key wrong: every fetch fails.
 $cf_reset();
-$cf_failing = array_map( $cf_id, [ 1801, 1802, 1803 ] );
+$cf_failing = $cf_want;
 $cf_fetched = [];
 CacheFill::run( $cf_trip, 300 );
-check( '…three failures in a row stop the run', 3 === count( $cf_fetched ) && ! $cf_cached( $cf_id( 1805 ) ), $cf_fetched );
+check( '…three failures in a row stop the run', 3 === count( $cf_fetched ) && [] === $cf_has( $cf_want ), $cf_fetched );
 check( '…with nothing rescheduled', false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
+// Photos that always fail (deleted in Immich since the sync, or with no preview made)
+// can't stop every run at the same place: a later run gets past them. Seeded, so the
+// order the runs take is the same every time.
+$cf_reset();
+$cf_failing = array_map( $cf_id, [ 1801, 1802, 1803 ] );
+mt_srand( 75 );
+for ( $cf_runs = 0; $cf_runs < 10 && ! $cf_cached( $cf_id( 1805 ) ); ++$cf_runs ) {
+	CacheFill::run( $cf_trip, 300 );
+}
+mt_srand();
+check( 'cache fill: three photos that always fail at the front of the list don’t stop later photos being cached', $cf_cached( $cf_id( 1805 ) ), $cf_runs );
 // A fetch slower than the budget (Immich unreachable, the connection hanging) leaves a
 // run with nothing cached by its deadline: rescheduling would retry it forever.
 $cf_reset();
-$cf_failing = [ $cf_id( 1801 ) ];
+$cf_failing = $cf_want;
+$cf_fetched = [];
 CacheFill::run( $cf_trip, 300, 0 );
-check( 'cache fill: a run that hits its budget having cached nothing schedules nothing', [] === $cf_has( $cf_want ) && false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
+check( 'cache fill: a run that hits its budget having cached nothing schedules nothing', 1 === count( $cf_fetched ) && false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ), $cf_fetched );
 $cf_failing = [];
 // A photo fetched but not cached (a full disk, an unwritable cache) is a failure too.
 $cf_reset();
-$cf_blocked = array_map( fn( $n ) => $cache_path( $cf_id( $n ), 'preview' ) . '.type', [ 1801, 1802, 1803 ] );
+$cf_blocked = array_map( fn( $asset ) => $cache_path( $asset, 'preview' ) . '.type', $cf_want );
 array_map( 'wp_mkdir_p', $cf_blocked );
 $cf_fetched = [];
 CacheFill::run( $cf_trip, 0 );
-check( 'cache fill: three photos in a row that can’t be cached stop the run', 3 === count( $cf_fetched ) && ! $cf_cached( $cf_id( 1805 ) ), $cf_fetched );
+check( 'cache fill: three photos in a row that can’t be cached stop the run', 3 === count( $cf_fetched ), $cf_fetched );
 array_map( 'rmdir', $cf_blocked );
 // A photo uploaded to the trip, left in its photos after it switched to Immich, is
 // served from the upload: it's never asked of Immich.

@@ -30,6 +30,16 @@ CacheSweep::run();
 check( 'cache sweep: a photo no trip or upload uses, cached more than a day ago, is deleted with its type', false === $cs_kept( $cs_unused_old ) );
 check( '…one cached less than a day ago is kept', true === $cs_kept( $cs_unused_new ) );
 
+// Until the cache layout upgrade (#62) has run, which another request may be running, files
+// under their old names look unused: they'd be deleted, and fetched from Immich again.
+delete_option( RestController::CACHE_LAYOUT );
+$cs_waiting = $cs_cache( $cs_id( 14 ), 'preview', 2 );
+CacheSweep::run();
+check( 'cache sweep: waits until the cache layout upgrade has run', true === $cs_kept( $cs_waiting ) );
+update_option( RestController::CACHE_LAYOUT, RestController::CACHE_LAYOUT_VERSION );
+CacheSweep::run();
+check( '…and sweeps once it has', false === $cs_kept( $cs_waiting ) );
+
 // Photos in use: in a trip's photos, whatever its status, or uploaded and not synced yet.
 $cs_trip = function ( string $status, array $assets ) use ( $alice ) {
 	$trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Swept', 'post_status' => $status, 'post_author' => $alice ] );
@@ -80,6 +90,8 @@ check( '…and the .htaccess and every index.html stay', file_exists( RestContro
 // Scheduling: one daily event, from the first request after the plugin loads.
 $cs_events = fn() => count( array_filter( _get_cron_array(), fn( $hooks ) => isset( $hooks[ CacheSweep::HOOK ] ) ) );
 check( 'cache sweep: WP-Cron runs it once a day', 'daily' === wp_get_schedule( CacheSweep::HOOK ) && false !== has_action( CacheSweep::HOOK, [ CacheSweep::class, 'run' ] ), wp_get_schedule( CacheSweep::HOOK ) );
+// Activated, then loaded on every request since: still the one event.
+check( '…from a single event after activation and the plugin\'s init', 1 === $cs_events(), $cs_events() );
 CacheSweep::schedule();
 check( '…scheduling it again leaves a single event', 1 === $cs_events(), $cs_events() );
 $cs_plugin = plugin_basename( TRAVEL_STEPS_PLUGIN_FILE );
@@ -100,7 +112,7 @@ check( 'cache sweep setting: never, until an administrator chooses an age', 0 ==
 check( '…an administrator saves it in days', 30 === $cs_save( '30' ) );
 check( '…negative or non-numeric, it’s saved as never', [ 0, 0, 0 ] === [ $cs_save( '-3' ), $cs_save( 'soon' ), $cs_save( '' ) ] );
 $cs_page = $render( 'settings.php', '' );
-check( '…it’s in the Site form, which says expired photos are fetched from Immich again', 1 === preg_match( '/name="cache_days"[^>]*value="0"/', $cs_page ) && false !== strpos( $cs_page, 'fetched from Immich again' ) );
+check( '…it’s in the Site form, which says expired photos that aren’t uploads are fetched from Immich again', 1 === preg_match( '/name="cache_days"[^>]*value="0"/', $cs_page ) && false !== strpos( $cs_page, 'others from Immich' ) );
 wp_set_current_user( $alice );
 check( '…which authors don’t see', false === strpos( $render( 'settings.php', '' ), 'name="cache_days"' ) );
 wp_set_current_user( 1 );

@@ -102,7 +102,8 @@ class Trips {
 			]
 		);
 
-		// Exposed over REST so the step can be repositioned programmatically.
+		// Exposed over REST so the step can be repositioned programmatically. The next sync
+		// overwrites the position when it finds one and clears it when it doesn't.
 		foreach ( [ self::META_LAT => 'number', self::META_LON => 'number' ] as $key => $type ) {
 			register_post_meta(
 				self::STEP,
@@ -448,7 +449,7 @@ class Trips {
 	}
 
 	/**
-	 * Steps shown on the trip page: published ones, plus drafts for editors. A step with
+	 * Steps shown on the trip page: published ones, plus unpublished steps for editors. A step with
 	 * no position is shown too, with no marker on the map.
 	 *
 	 * @return \WP_Post[]

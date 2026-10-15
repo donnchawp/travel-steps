@@ -76,6 +76,18 @@ check( '250 lookups across Ireland find towns', $named > 200, $named );
 check( '…and use under 8 MB', $used < 8 * 1024 * 1024, $used );
 printf( "     (%.2f s, %.1f MB)\n", microtime( true ) - $start, $used / 1048576 );
 
+// Countries are counted by ISO code, however a source names them.
+$geo = new Geocoder();
+$r   = array_map( [ $geo, 'country_key' ], [ 'United States of America', 'United States', 'US', 'us' ] );
+check( 'Immich’s and GeoNames’ names and the code, in any case, are all US', [ 'US', 'US', 'US', 'US' ] === $r, $r );
+$r = array_map( [ $geo, 'country_key' ], [ 'Ireland', '  ireland ', 'NEW ZEALAND', ' united states of america', "Côte d'Ivoire", 'CÔTE D’IVOIRE' ] );
+check( 'names and other spellings match in any case, with spaces around them', [ 'IE', 'IE', 'NZ', 'US', 'CI', 'CI' ] === $r, $r );
+$r = array_map( [ $geo, 'country_key' ], [ 'Atlantis', 'ATLANTIS ', '', '  ' ] );
+check( 'an unknown name is kept, case-folded, and an empty one is nothing', [ 'atlantis', 'atlantis', '', '' ] === $r, $r );
+// A broken deploy, without the data files, still counts sensibly.
+$r = array_map( [ new Geocoder( __DIR__ . '/no-such-dir' ), 'country_key' ], [ 'us', 'United States of America', 'UK', 'Ireland', ' IRELAND', '' ] );
+check( 'without the data, codes and other spellings still resolve and names are case-folded', [ 'US', 'US', 'GB', 'ireland', 'ireland', '' ] === $r, $r );
+
 check( 'the bundled data is available', ( new Geocoder() )->available() );
 check( 'missing data is reported, not mistaken for open sea', ! ( new Geocoder( __DIR__ . '/no-such-dir' ) )->available() );
 

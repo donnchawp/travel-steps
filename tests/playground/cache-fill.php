@@ -5,7 +5,7 @@
  * row(), FakeDawarich, FakeSource, $alice (who has an Immich key), $jpeg, $cache_path
  * and $rest_post.
  */
-use TravelSteps\{CacheFill, RestController, TripSync, Trips};
+use TravelSteps\{CacheFill, RestController, TripSync, Trips, Uploads};
 
 // Every request to Immich for a photo, as "<asset> <size>"; the assets in $cf_failing fail.
 $cf_fetched = [];
@@ -77,7 +77,30 @@ $cf_fetched = [];
 CacheFill::run( $cf_trip, 300 );
 check( '…three failures in a row stop the run', 3 === count( $cf_fetched ) && ! $cf_cached( $cf_id( 1805 ) ), $cf_fetched );
 check( '…with nothing rescheduled', false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
+// A fetch slower than the budget (Immich unreachable, the connection hanging) leaves a
+// run with nothing cached by its deadline: rescheduling would retry it forever.
+$cf_reset();
+$cf_failing = [ $cf_id( 1801 ) ];
+CacheFill::run( $cf_trip, 300, 0 );
+check( 'cache fill: a run that hits its budget having cached nothing schedules nothing', [] === $cf_has( $cf_want ) && false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
 $cf_failing = [];
+// A photo fetched but not cached (a full disk, an unwritable cache) is a failure too.
+$cf_reset();
+$cf_blocked = array_map( fn( $n ) => $cache_path( $cf_id( $n ), 'preview' ) . '.type', [ 1801, 1802, 1803 ] );
+array_map( 'wp_mkdir_p', $cf_blocked );
+$cf_fetched = [];
+CacheFill::run( $cf_trip, 0 );
+check( 'cache fill: three photos in a row that can’t be cached stop the run', 3 === count( $cf_fetched ) && ! $cf_cached( $cf_id( 1805 ) ), $cf_fetched );
+array_map( 'rmdir', $cf_blocked );
+// A photo uploaded to the trip, left in its photos after it switched to Immich, is
+// served from the upload: it's never asked of Immich.
+$cf_reset();
+$cf_upload = wp_insert_post( [ 'post_type' => 'attachment', 'post_status' => 'private', 'post_parent' => $cf_trip, 'post_title' => 'upload' ] );
+update_post_meta( $cf_upload, Uploads::META_PHOTO_ID, $cf_id( 1802 ) );
+$cf_fetched = [];
+CacheFill::run( $cf_trip, 0 );
+check( 'cache fill: a photo uploaded to the trip isn’t fetched from Immich', ! in_array( $cf_id( 1802 ) . ' preview', $cf_fetched, true ) && 3 === count( $cf_fetched ), $cf_fetched );
+wp_delete_post( $cf_upload, true );
 
 // Under a PHP time limit, a run stops after its budget and leaves the rest to another.
 $cf_reset();

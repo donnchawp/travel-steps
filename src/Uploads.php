@@ -160,6 +160,17 @@ class Uploads {
 		return $dir;
 	}
 
+	/**
+	 * Remove a folder protect() made once nothing but its index.html is left in it.
+	 */
+	public static function remove_empty( string $dir ): void {
+		$left = is_dir( $dir ) ? scandir( $dir ) : false;
+		if ( false !== $left && [] === array_diff( $left, [ '.', '..', 'index.html' ] ) ) {
+			wp_delete_file( $dir . '/index.html' );
+			rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+		}
+	}
+
 	private static function unlisted( string $dir ): void {
 		if ( ! file_exists( $dir . '/index.html' ) ) {
 			wp_mkdir_p( $dir );
@@ -554,11 +565,7 @@ class Uploads {
 		foreach ( self::trip_photos( $post_id, [ 'private', 'inherit', 'trash' ] ) as $attachment_id ) {
 			wp_delete_attachment( $attachment_id, true );
 		}
-		$dir = wp_get_upload_dir()['basedir'] . self::subdir( $post_id );
-		if ( is_dir( $dir ) && [ $dir . '/index.html' ] === glob( $dir . '/*' ) ) {
-			wp_delete_file( $dir . '/index.html' );
-			rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
-		}
+		self::remove_empty( wp_get_upload_dir()['basedir'] . self::subdir( $post_id ) );
 	}
 
 	public static function forget_cached( int $attachment_id ): void {

@@ -6,7 +6,7 @@
  */
 require '/wordpress/wp-load.php';
 
-use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, ImmichSource, PhotoSource, Days, Settings};
+use TravelSteps\{TripSync, Trips, View, DawarichClient, ImmichClient, ImmichSource, PhotoSource, Days, Settings, Geocoder};
 
 $out = [];
 // Write results even if a fatal error ends the run, with the error as a failure.
@@ -252,6 +252,12 @@ $named_rows         = array_column( Trips::photos( $named_trip ), null, 'id' );
 $named_place        = fn( int $n ) => [ $named_rows[ sprintf( '00000000-0000-4000-8000-%012d', $n ) ]['city'] ?? null, $named_rows[ sprintf( '00000000-0000-4000-8000-%012d', $n ) ]['country'] ?? null ];
 check( 'an Immich photo Dawarich placed gets the geocoder’s city and country', [ 'Baixa', 'Portugal' ] === $named_place( 61 ), [ is_wp_error( $r ) ? $r->get_error_message() : $r, $named_rows ] );
 check( '…while one Immich named keeps its own', [ 'Lisbon', 'Portugal' ] === $named_place( 62 ), $named_rows );
+$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $named_source, new Geocoder( '/nowhere' ) ) )->sync( $named_trip );
+check( 'missing geocoder data is reported for an Immich photo that needed a name', true === ( $r['no_places'] ?? null ), $r );
+check( '…with no left-out, at-home or unlocated counts', is_array( $r ) && [] === array_intersect_key( $r, array_flip( [ 'left_out', 'at_home', 'unlocated' ] ) ), $r );
+$named_source->rows = [ $named_source->rows[1] ];
+$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $named_source, new Geocoder( '/nowhere' ) ) )->sync( $named_trip );
+check( '…but not when Immich named them all', false === ( $r['no_places'] ?? null ), $r );
 foreach ( Trips::steps( $named_trip, true ) as $named_step ) {
 	wp_delete_post( $named_step->ID, true );
 }

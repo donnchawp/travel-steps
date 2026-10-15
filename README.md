@@ -105,7 +105,7 @@ Needs WordPress 6.7 or later, which converts iPhones' HEIC photos, and PHP's `ex
 composer install --no-dev
 ```
 
-Then activate the plugin and open `/travel-steps/settings`. An administrator sets the server URLs under "Site"; everyone who makes trips adds their own keys and home under "Your accounts":
+Then activate the plugin and open `/travel-steps/settings`. An administrator sets the server URLs under "Site"; everyone who makes trips adds their own keys and home under "Personal settings":
 
 - Dawarich (optional): the URL as reachable *from the WordPress server* (e.g. `http://dawarich_app:3000` on a shared Docker network), and your API key from Dawarich → Settings → Account. Without a key, trips are mapped from photo locations. The route joins the places photos were taken with straight lines, dashed where they're over 20 km apart, and the distance is measured along those lines, so a winding drive comes out short and a flight counts. Photos without GPS stay unplaced, and a day without any located photo has no marker.
 - Immich (optional): the URL falls back to the one from *Media Picker for Immich* when that's configured; its key is never used. Your key needs `asset.read`, `asset.view` and `album.read`.

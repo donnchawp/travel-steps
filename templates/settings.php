@@ -27,7 +27,7 @@ include __DIR__ . '/_header.php';
 	<form class="ts-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="travel_steps_account">
 		<?php wp_nonce_field( 'travel_steps_account' ); ?>
-		<h2><?php esc_html_e( 'Your accounts', 'travel-steps' ); ?></h2>
+		<h2><?php esc_html_e( 'Personal settings', 'travel-steps' ); ?></h2>
 		<p class="ts-muted"><?php esc_html_e( 'Your trips use your own keys and home, also when visitors look at them. Nobody else can see or change them, administrators included.', 'travel-steps' ); ?></p>
 
 		<fieldset>
@@ -96,7 +96,7 @@ include __DIR__ . '/_header.php';
 		</fieldset>
 
 		<div class="ts-form-actions">
-			<button type="submit" class="ts-button"><?php esc_html_e( 'Save your accounts', 'travel-steps' ); ?></button>
+			<button type="submit" class="ts-button"><?php esc_html_e( 'Save', 'travel-steps' ); ?></button>
 		</div>
 	</form>
 

@@ -21,7 +21,7 @@ Photos come from an Immich server reachable from your WordPress server, or are u
 == Installation ==
 
 1. Upload the plugin with its `vendor/` directory (or run `composer install --no-dev` in it) and activate it.
-2. Open `/travel-steps/settings`. As an administrator, optionally enter the Immich and Dawarich URLs under Site. Everyone who makes trips enters their own Immich API key if they use Immich, and optionally their Dawarich key and home location, under Your accounts.
+2. Open `/travel-steps/settings`. As an administrator, optionally enter the Immich and Dawarich URLs under Site. Everyone who makes trips enters their own Immich API key if they use Immich, and optionally their Dawarich key and home location, under Personal settings.
 3. Create a trip at `/travel-steps/new`. For all your Immich photos, set its dates and press Sync; for an Immich album the dates are optional. For uploads, choose "Photos uploaded to this trip", press Save and add photos, and close the media window when they're in: that syncs the trip if anything changed.
 
 == External services ==

@@ -42,7 +42,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 					rmdir( $dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
 				}
 			};
-			$inside = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
+			// A folder that can't be read is skipped, with whatever is in it, and so kept.
+			$inside = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST, RecursiveIteratorIterator::CATCH_GET_CHILD );
 			foreach ( $inside as $file ) {
 				if ( $file->isDir() && ! $file->isLink() ) {
 					$rmdir_empty( $file->getPathname() );

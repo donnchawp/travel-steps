@@ -145,7 +145,24 @@ $cs_cache( $cs_id( 13 ) );
 CacheSweep::schedule();
 wp_schedule_single_event( time(), CacheFill::HOOK, [ $cs_shared[0] ] );
 $cs_options = Settings::all();
+// A folder it can't read (one a CLI cron made as another user, say) is skipped, and the rest deleted.
+$cs_locked = RestController::cache_root() . '/preview/locked';
+wp_mkdir_p( $cs_locked );
+file_put_contents( "$cs_locked/photo", 'LOCKED' );
+chmod( $cs_locked, 0 );
 define( 'WP_UNINSTALL_PLUGIN', $cs_plugin );
+try {
+	require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+} finally {
+	// Or Playground can't remove its site when it's done.
+	chmod( $cs_locked, 0755 );
+}
+$cs_left = [];
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( RestController::cache_root(), FilesystemIterator::SKIP_DOTS ) ) as $cs_file ) {
+	$cs_left[] = substr( $cs_file->getPathname(), strlen( RestController::cache_root() ) + 1 );
+}
+check( 'uninstall: a cache folder it can’t read is skipped, and the rest of the cache deleted', [ 'preview/locked/photo' ] === $cs_left, $cs_left );
+// Readable again, the next uninstall gets it.
 require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
 check( 'uninstall: the photo cache is deleted', ! file_exists( RestController::cache_root() ) );
 check( '…and the sweep and the cache fill unscheduled', 0 === $cs_events() && false === wp_next_scheduled( CacheFill::HOOK, [ $cs_shared[0] ] ) );

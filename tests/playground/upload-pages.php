@@ -42,9 +42,9 @@ $up_edit = function ( int $user, string $slug = '' ) use ( $up_with_servers, $re
 // A photo taken in Dingle at $taken (EXIF format).
 $up_photo = fn( int $trip_id, string $taken ) => $ut_photo( $trip_id, [ 'taken' => $taken, 'offset' => '+01:00' ] + $ut_dingle + $ut_iphone );
 // Syncs a trip through the form handler; where it redirects to.
-$up_sync = function ( int $trip_id ) use ( $ut_location ): string {
+$up_sync = function ( int $trip_id, ?Trips $trips = null ) use ( $ut_location ): string {
 	$_POST = $_REQUEST = [ 'trip_id' => $trip_id, '_wpnonce' => wp_create_nonce( 'travel_steps_sync' ) ];
-	$to    = $ut_location( [ new Trips(), 'handle_sync' ] );
+	$to    = $ut_location( [ $trips ?? new Trips(), 'handle_sync' ] );
 	$_POST = $_REQUEST = [];
 	return $to;
 };
@@ -160,10 +160,7 @@ check( '…nor missing place names, when no photo needed one', false === strpos(
 $up_immich       = $trip_by( $alice );
 $up_source       = new FakeSource();
 $up_source->rows = [ row( 71, '2025-05-01', '10:00', null, null, '', true ) ];
-$up_trips        = new Trips( new TravelSteps\TripSync( new FakeDawarich( 'http://x', 'k' ), $up_source, new TravelSteps\Geocoder( '/nowhere' ) ) );
-$_POST           = $_REQUEST = [ 'trip_id' => $up_immich, '_wpnonce' => wp_create_nonce( 'travel_steps_sync' ) ];
-$up_to           = $ut_location( [ $up_trips, 'handle_sync' ] );
-$_POST           = $_REQUEST = [];
+$up_to           = $up_sync( $up_immich, new Trips( new TravelSteps\TripSync( new FakeDawarich( 'http://x', 'k' ), $up_source, new TravelSteps\Geocoder( '/nowhere' ) ) ) );
 parse_str( (string) wp_parse_url( $up_to, PHP_URL_QUERY ), $up_args );
 check( 'an Immich trip’s sync passes missing place names on its own', '1' === ( $up_args['no_places'] ?? null ) && [] === array_intersect_key( $up_args, array_flip( [ 'outside', 'untimed', 'at_home', 'unlocated' ] ) ), $up_to );
 $_GET    = $up_args;

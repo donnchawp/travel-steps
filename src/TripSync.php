@@ -123,14 +123,15 @@ class TripSync {
 		// Uploads carry no place names, and photos with a position only from Dawarich have
 		// none either: name them here. Immich's own names stay. Missing data only matters
 		// when a photo needed a name.
-		$no_places = false;
+		$needed = false;
 		foreach ( $photos as &$photo ) {
 			if ( null !== $photo['lat'] && '' === $photo['city'] ) {
-				$no_places = $no_places || ! $geocoder->available();
-				$photo     = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
+				$needed = true;
+				$photo  = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
 			}
 		}
 		unset( $photo );
+		$no_places = $needed && ! $geocoder->available();
 
 		// No location history for these dates? Fall back to the photos' own positions.
 		$track = $points;

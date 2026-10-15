@@ -160,6 +160,26 @@ $ut_route = array_merge( ...( $ut_map['route'] ?: [ [] ] ) );
 check( 'a day of only home photos still gets a step, with no marker', 2 === $ut_result['new_steps'] && isset( $ut_steps['2025-08-02'] ) && ! in_array( $ut_steps['2025-08-02'], array_column( $ut_map['markers'], 'step' ), true ), [ $ut_steps, $ut_map['markers'] ] );
 check( '…nor is home anywhere on the map: no marker, no route point', 1 === count( $ut_map['markers'] ) && $ut_off_home( array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $ut_map['markers'] ) ) && $ut_off_home( $ut_route ), $ut_map );
 check( '…or in the trip’s countries', [ 'France' ] === ( get_post_meta( $ut_local, Trips::META_STATS, true )['countries'] ?? null ), get_post_meta( $ut_local, Trips::META_STATS, true ) );
+// Home set after a sync placed a step there: the next sync takes the step off the map.
+$ut_nomad  = $person( 'nomad', 'author' );
+$ut_later  = $ut_trip( 'Home later', $ut_nomad, '2025-08-10', '2025-08-11' );
+$ut_dublin = [ 'taken' => '2025:08:10 09:00:00', 'offset' => '+01:00', 'lat' => 53.3498, 'lon' => -6.2603 ] + $ut_iphone;
+$ut_photo( $ut_later, $ut_dublin );
+$ut_photo( $ut_later, [ 'taken' => '2025:08:11 18:00:00', 'offset' => '+02:00' ] + $ut_paris + $ut_iphone );
+( new TripSync() )->sync( $ut_later );
+$ut_lsteps = array_column( array_map( fn( $st ) => [ Trips::day( $st ), $st->ID ], Trips::steps( $ut_later, true ) ), 1, 0 );
+$ut_lday1  = $ut_lsteps['2025-08-10'] ?? 0;
+check( 'with no home set, a step is placed at a photo taken there', '53.3498' === (string) get_post_meta( $ut_lday1, Trips::META_LAT, true ), [ $ut_lsteps, get_post_meta( $ut_lday1, Trips::META_LAT, true ) ] );
+Settings::update_account( $ut_nomad, [ 'home_lat' => '53.3498', 'home_lon' => '-6.2603', 'home_radius_km' => 1 ] + Settings::ACCOUNT_DEFAULTS );
+( new TripSync() )->sync( $ut_later );
+$ut_lmap  = $get( "/travel-steps/v1/trips/$ut_later" )->get_data();
+$ut_lmark = array_map( fn( $m ) => [ (float) $m['lat'], (float) $m['lon'] ], $ut_lmap['markers'] ?? [] );
+check( '…and once home is set around it, the next sync clears its position', 0 !== $ut_lday1 && ! metadata_exists( 'post', $ut_lday1, Trips::META_LAT ) && ! metadata_exists( 'post', $ut_lday1, Trips::META_LON ), get_post_meta( $ut_lday1 ) );
+check( '…so no marker on the trip map is at home', 1 === count( $ut_lmark ) && TravelSteps\Geo::exclude_near( $ut_lmark, Settings::home( $ut_nomad ) ) === $ut_lmark, $ut_lmap );
+foreach ( Trips::steps( $ut_later, true ) as $ut_step ) {
+	wp_delete_post( $ut_step->ID, true );
+}
+wp_delete_post( $ut_later, true );
 // Without GPS, it can't be placed at home by Dawarich either: sync drops Dawarich's points
 // at home before it looks one up, so the photo is kept as one with no location.
 $ut_homebody = $ut_trip( 'Home, by Dawarich', $ut_author, '2025-08-05', '2025-08-05' );

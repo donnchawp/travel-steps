@@ -463,6 +463,15 @@ class RestController {
 	}
 
 	/**
+	 * Every folder photos are cached in, one for each size and cache_folder().
+	 *
+	 * @return string[]
+	 */
+	public static function cache_folders(): array {
+		return glob( self::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [];
+	}
+
+	/**
 	 * cache_file(), its folders made and protected first, ready to be written.
 	 */
 	private static function cache_target( string $asset, string $size ): string {
@@ -488,7 +497,7 @@ class RestController {
 		Lock::run(
 			self::CACHE_LAYOUT . '_lock',
 			function () {
-				foreach ( glob( self::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
+				foreach ( self::cache_folders() as $dir ) {
 					self::migrate_cache_folder( $dir );
 				}
 				update_option( self::CACHE_LAYOUT, self::CACHE_LAYOUT_VERSION );
@@ -521,9 +530,15 @@ class RestController {
 	 */
 	public static function delete_cached( string $asset ): void {
 		foreach ( self::SIZES as $size ) {
-			$file = self::cache_file( $asset, $size );
-			wp_delete_file( $file );
-			wp_delete_file( $file . '.type' );
+			self::delete_cached_file( self::cache_file( $asset, $size ) );
 		}
+	}
+
+	/**
+	 * Remove a cached photo and the type store_cached() wrote beside it.
+	 */
+	public static function delete_cached_file( string $file ): void {
+		wp_delete_file( $file );
+		wp_delete_file( $file . '.type' );
 	}
 }

@@ -24,10 +24,19 @@ class CacheSweep {
 		foreach ( glob( RestController::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
 			foreach ( scandir( $dir ) ?: [] as $name ) {
 				$file = "$dir/$name";
-				if ( in_array( $name, [ '.', '..', 'index.html' ], true ) || ! is_file( $file ) || str_ends_with( $name, '.type' ) ) {
+				// Dot files and index.html are what keeps the cache private.
+				if ( '.' === $name[0] || 'index.html' === $name || ! is_file( $file ) ) {
 					continue;
 				}
 				$age = $now - (int) filemtime( $file );
+				// A type goes with its photo, or on its own if the photo was never written.
+				if ( str_ends_with( $name, '.type' ) ) {
+					if ( $age > self::GRACE_S && ! file_exists( substr( $file, 0, -5 ) ) ) {
+						wp_delete_file( $file );
+					}
+					continue;
+				}
+				// A half-written file (.tmp) is never in use.
 				if ( ( ! isset( $files[ $file ] ) && $age > self::GRACE_S ) || ( $max_age && $age > $max_age ) ) {
 					wp_delete_file( $file );
 					wp_delete_file( "$file.type" );

@@ -36,37 +36,35 @@ class View {
 	}
 
 	/**
-	 * Step statuses that hide a step from visitors on a published trip and need a warning.
-	 * A scheduled step publishes itself, so it isn't one.
-	 */
-	private const NOT_PUBLIC = [ 'draft', 'pending', 'private' ];
-
-	/**
 	 * A warning for editors when visitors can't see some of a trip's steps, else ''.
 	 *
 	 * On a published trip (with or without a password), it counts the steps that aren't
 	 * published. On a trip that isn't public, it counts the published steps, which
 	 * visitors can't see either. A private trip is hidden on purpose, and a scheduled one
 	 * goes public by itself, so neither gets a warning.
+	 *
+	 * @param \WP_Post[] $steps The editor's timeline: published, draft, pending and
+	 *                          private steps (Trips::steps() leaves scheduled ones out).
 	 */
 	public static function unseen_notice( \WP_Post $trip, array $steps ): string {
+		$shown = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
 		if ( 'publish' === $trip->post_status ) {
-			return self::hidden_steps_notice( $steps );
+			return self::hidden_steps_notice( $shown, count( $steps ) - $shown );
 		}
-		$unseen = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
-		if ( ! $unseen || in_array( $trip->post_status, [ 'private', 'future' ], true ) ) {
+		if ( ! $shown || in_array( $trip->post_status, [ 'private', 'future' ], true ) ) {
 			return '';
 		}
 		return sprintf(
 			/* translators: %s: number of published steps */
-			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $unseen, 'travel-steps' ),
-			number_format_i18n( $unseen )
+			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $shown, 'travel-steps' ),
+			number_format_i18n( $shown )
 		);
 	}
 
 	/**
 	 * The status badge for a step on a trip's timeline or step list, or null for a
-	 * published step. On a published trip, a step visitors can't see gets a warning.
+	 * published step. On a published trip, every other step is hidden from visitors
+	 * and gets a warning.
 	 *
 	 * @return array{class: string, text: string}|null
 	 */
@@ -75,7 +73,7 @@ class View {
 			return null;
 		}
 		$label = get_post_status_object( $step->post_status )->label ?? $step->post_status;
-		if ( 'publish' !== $trip->post_status || ! in_array( $step->post_status, self::NOT_PUBLIC, true ) ) {
+		if ( 'publish' !== $trip->post_status ) {
 			return [ 'class' => 'ts-badge', 'text' => $label ];
 		}
 		return [
@@ -91,9 +89,7 @@ class View {
 	/**
 	 * The warning for a published trip with steps that aren't published, else ''.
 	 */
-	private static function hidden_steps_notice( array $steps ): string {
-		$shown  = count( array_filter( $steps, fn( $step ) => 'publish' === $step->post_status ) );
-		$hidden = count( array_filter( $steps, fn( $step ) => in_array( $step->post_status, self::NOT_PUBLIC, true ) ) );
+	private static function hidden_steps_notice( int $shown, int $hidden ): string {
 		if ( ! $hidden ) {
 			return '';
 		}

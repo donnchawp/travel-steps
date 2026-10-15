@@ -32,7 +32,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 		wp_unschedule_hook( TravelSteps\CacheSweep::HOOK );
 		wp_unschedule_hook( TravelSteps\CacheFill::HOOK );
 		$root = TravelSteps\RestController::cache_root();
-		if ( is_dir( $root ) && ! is_link( $root ) ) {
+		// A cache folder that can't be read is kept, as a folder inside it is below.
+		if ( is_dir( $root ) && ! is_link( $root ) && is_readable( $root ) ) {
 			// A folder is removed only once it's empty: a file that couldn't be deleted (one a
 			// CLI cron wrote as another user, say) keeps its folders, without a warning that
 			// would break the JSON reply of the request deleting the plugin.

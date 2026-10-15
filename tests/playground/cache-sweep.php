@@ -48,3 +48,14 @@ CacheSweep::run();
 foreach ( $cs_in_use as $why => $file ) {
 	check( "cache sweep: keeps a photo $why", true === $cs_kept( $file ) );
 }
+
+// An age set by an administrator: photos in use cached longer ago than that go too.
+$cs_trip( 'publish', [ $cs_id( 7 ), $cs_id( 8 ) ] );
+$cs_aged = function ( int $days ) use ( $cs_cache, $cs_id, $cs_kept ) {
+	update_option( TravelSteps\Settings::OPTION, [ 'cache_days' => $days ] + TravelSteps\Settings::all() );
+	$files = [ $cs_cache( $cs_id( 7 ), 'preview', 4 ), $cs_cache( $cs_id( 8 ), 'medium', 2 ) ];
+	CacheSweep::run();
+	return array_map( $cs_kept, $files );
+};
+check( 'cache sweep: deleting after 3 days, a photo in use cached 4 days ago goes, and one cached 2 days ago stays', [ false, true ] === $cs_aged( 3 ) );
+check( '…and never deleting, both stay', [ true, true ] === $cs_aged( 0 ) );

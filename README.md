@@ -62,7 +62,7 @@ When WP-Cron runs from page loads, under a PHP time limit, each run fetches for 
 
 Once a day, another WP-Cron event sweeps the cache. It deletes cached photos that no trip uses any more, if they were cached more than a day ago. Those are photos a sync dropped, and the photos of trips deleted permanently. A photo in any trip stays, even if the trip is in the bin. So does a photo uploaded to a trip that hasn't synced yet.
 
-An administrator can also set **Delete cached photos after (days)** in the Site settings. The sweep then deletes cached photos older than that, whether a trip uses them or not. The proxy fetches each one from Immich again the next time someone views it. That's also how an edit made in Immich, such as a rotation, eventually shows up, because the cache doesn't notice edits.
+An administrator can also set **Delete cached photos after (days)** in the Site settings. The sweep then deletes cached photos older than that, whether a trip uses them or not. The proxy fetches each one from Immich again the next time someone views it. The cache doesn't notice edits made in Immich, such as a rotation, and expiry only partly helps: the site gets the edited photo, but browsers and CDNs that already have a copy keep the old one. Only visitors without a copy see the edit.
 
 Expiry undoes some of the background caching, though. If Immich is down, or the author's key stops working, an expired photo is a broken image (a 502) until they're back. The default is 0, which keeps cached photos for as long as a trip uses them.
 

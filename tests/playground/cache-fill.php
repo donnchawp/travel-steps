@@ -87,15 +87,19 @@ check( '…three failures in a row stop the run', 3 === count( $cf_fetched ) && 
 check( '…with nothing rescheduled', false === wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
 // Photos that always fail (deleted in Immich since the sync, or with no preview made)
 // can't stop every run at the same place: a later run gets past them. Seeded, so the
-// order the runs take is the same every time.
+// order the runs take is the same every time. 1804 is shown for this, so two photos
+// come after the failing three.
 $cf_reset();
+update_post_meta( $cf_trip, Trips::META_HIDDEN, [] );
 $cf_failing = array_map( $cf_id, [ 1801, 1802, 1803 ] );
+$cf_later   = array_map( $cf_id, [ 1804, 1805 ] );
 mt_srand( 75 );
-for ( $cf_runs = 0; $cf_runs < 10 && ! $cf_cached( $cf_id( 1805 ) ); ++$cf_runs ) {
+for ( $cf_runs = 0; $cf_runs < 10 && $cf_later !== $cf_has( $cf_all ); ++$cf_runs ) {
 	CacheFill::run( $cf_trip, 300 );
 }
 mt_srand();
-check( 'cache fill: three photos that always fail at the front of the list don’t stop later photos being cached', $cf_cached( $cf_id( 1805 ) ), $cf_runs );
+update_post_meta( $cf_trip, Trips::META_HIDDEN, [ $cf_id( 1804 ) ] );
+check( 'cache fill: three photos that always fail at the front of the list don’t stop every later photo being cached', $cf_later === $cf_has( $cf_all ), [ $cf_has( $cf_all ), $cf_runs ] );
 // A fetch slower than the budget (Immich unreachable, the connection hanging) leaves a
 // run with nothing cached by its deadline: rescheduling would retry it forever.
 $cf_reset();

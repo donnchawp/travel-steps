@@ -159,7 +159,7 @@ check( '…nor missing place names, when no photo needed one', false === strpos(
 // An Immich photo only Dawarich could place, with the geocoder's data missing.
 $up_immich       = $trip_by( $alice );
 $up_source       = new FakeSource();
-$up_source->rows = [ row( 71, '2025-05-01', '10:00', null, null, '', true ) ];
+$up_source->rows = [ array_merge( row( 71, '2025-05-01', '10:00', null, null, '', true ), [ 'country' => '' ] ) ]; // Immich names only from GPS.
 $up_to           = $up_sync( $up_immich, new Trips( new TravelSteps\TripSync( new FakeDawarich( 'http://x', 'k' ), $up_source, new TravelSteps\Geocoder( '/nowhere' ) ) ) );
 parse_str( (string) wp_parse_url( $up_to, PHP_URL_QUERY ), $up_args );
 check( 'an Immich trip’s sync passes missing place names on its own', '1' === ( $up_args['no_places'] ?? null ) && [] === array_intersect_key( $up_args, array_flip( [ 'outside', 'untimed', 'at_home', 'unlocated' ] ) ), $up_to );

@@ -247,19 +247,24 @@ $named_source            = new FakeSource();
 $named_placed            = row( 61, '2025-05-01', '10:00', null, null, '', true );
 $named_placed['country'] = '';
 $named_lisbon            = row( 62, '2025-05-01', '11:00', 38.7139, -9.1394, 'Lisbon', true );
-$named_source->rows      = [ $named_placed, $named_lisbon ];
+// Far from any town, Immich names only the country: the geocoder has nothing to add.
+$named_remote            = row( 63, '2025-05-01', '12:00', 64.75, -18.0, '', true );
+$named_remote['country'] = 'Iceland';
+$named_source->rows      = [ $named_placed, $named_lisbon, $named_remote ];
 $r                       = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $named_source ) )->sync( $named_trip );
 $named_rows              = array_column( Trips::photos( $named_trip ), null, 'id' );
 $named_place             = fn( array $row ) => [ $named_rows[ $row['id'] ]['city'] ?? null, $named_rows[ $row['id'] ]['country'] ?? null ];
 check( 'an Immich photo Dawarich placed gets the geocoder’s city and country', [ 'Baixa', 'Portugal' ] === $named_place( $named_placed ), [ is_wp_error( $r ) ? $r->get_error_message() : $r, $named_rows ] );
 check( '…while one Immich named keeps its own', [ 'Lisbon', 'Portugal' ] === $named_place( $named_lisbon ), $named_rows );
+check( '…and one Immich gave only a country keeps it', [ '', 'Iceland' ] === $named_place( $named_remote ), $named_rows );
+check( '…which the trip still counts', in_array( 'IS', get_post_meta( $named_trip, Trips::META_STATS, true )['countries'] ?? [], true ), get_post_meta( $named_trip, Trips::META_STATS, true ) );
 $named_blind = new TripSync( new FakeDawarich( 'http://x', 'k' ), $named_source, new Geocoder( '/nowhere' ) );
 $r           = $named_blind->sync( $named_trip );
 check( 'missing geocoder data is reported for an Immich photo that needed a name', true === ( $r['no_places'] ?? null ), $r );
 check( '…with no left-out, at-home or unlocated counts', is_array( $r ) && [] === array_intersect_key( $r, array_flip( [ 'left_out', 'at_home', 'unlocated' ] ) ), $r );
-$named_source->rows = [ $named_lisbon ];
+$named_source->rows = [ $named_lisbon, $named_remote ];
 $r                  = $named_blind->sync( $named_trip );
-check( '…but not when Immich named them all', false === ( $r['no_places'] ?? null ), $r );
+check( '…but not when Immich named them all, if only by country', false === ( $r['no_places'] ?? null ), $r );
 foreach ( Trips::steps( $named_trip, true ) as $named_step ) {
 	wp_delete_post( $named_step->ID, true );
 }

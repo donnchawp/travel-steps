@@ -160,6 +160,8 @@ $stale_source->rows = [ row( 51, '2025-06-01', '10:00', null, null, '', true ), 
 $stale_no_track->sync( $stale_trip );
 check( 'a step sync finds no position for loses the one an earlier sync stored', 0 !== $stale_d1 && $unplaced( $stale_d1 ), $stale_at( $stale_d1 ) );
 check( '…while one placed from a photo follows it', [ '37.1', '-7.9' ] === $stale_at( $stale_d2 ), $stale_at( $stale_d2 ) );
+// Day 1's photo goes, so only the track can place its step.
+$stale_source->rows = [ $stale_source->rows[1] ];
 ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $stale_source ) )->sync( $stale_trip );
 check( '…and one with a track point near its day is placed from the track again', [ '38.7139', '-9.1394' ] === $stale_at( $stale_d1 ), $stale_at( $stale_d1 ) );
 foreach ( Trips::steps( $stale_trip, true ) as $stale_step ) {

@@ -275,10 +275,43 @@ $solo_stats = get_post_meta( $solo_id, Trips::META_STATS, true );
 check( 'distance counts the gaps between photos',( $solo_stats['distance_km'] ?? 0 ) >= 200, $solo_stats );
 $solo_steps = Trips::steps( $solo_id, true );
 check( 'steps placed from photo GPS', '38.7139' === (string) get_post_meta( $solo_steps[0]->ID ?? 0, Trips::META_LAT, true ) );
-check( 'countries come from photos', [ 'Portugal' ] === ( $solo_stats['countries'] ?? null ) );
+check( 'countries come from photos', [ 'PT' ] === ( $solo_stats['countries'] ?? null ), $solo_stats );
 foreach ( array_merge( $solo_steps, [ get_post( $solo_id ) ] ) as $post ) {
 	wp_delete_post( $post->ID, true );
 }
+
+// Countries are counted once each, however the track and the photos name them.
+$countries_trip = function ( array $track, array $photos ) {
+	$id                 = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Countries', 'post_status' => 'draft' ] );
+	$dawarich           = new class( 'http://x', 'k' ) extends DawarichClient {
+		public array $pts = [];
+		public function points( int $start, int $end ) {
+			return $this->pts;
+		}
+	};
+	$dawarich->pts      = $track;
+	$photo_source       = new FakeSource();
+	$photo_source->rows = $photos;
+	update_post_meta( $id, Trips::META_START, '2025-05-01' );
+	update_post_meta( $id, Trips::META_END, '2025-05-01' );
+	$r     = ( new TripSync( $dawarich, $photo_source ) )->sync( $id );
+	$stats = [ get_post_meta( $id, Trips::META_STATS, true )['countries'] ?? null, View::stats( $id ) ];
+	foreach ( array_merge( Trips::steps( $id, true ), [ get_post( $id ) ] ) as $post ) {
+		wp_delete_post( $post->ID, true );
+	}
+	return is_wp_error( $r ) ? $r->get_error_message() : $stats;
+};
+$t0 = strtotime( '2025-05-01 09:00 UTC' );
+$r  = $countries_trip(
+	[ [ 40.7128, -74.0060, $t0, 'New York', 'United States' ], [ 40.7306, -73.9352, $t0 + 3600, 'New York', 'United States' ] ],
+	[ array_merge( row( 30, '2025-05-01', '09:30', 40.7128, -74.0060, 'New York', true ), [ 'country' => 'United States of America' ] ) ]
+);
+check( 'a country named two ways counts once, and the trip says “1 country”', is_array( $r ) && [ 'US' ] === $r[0] && '1' === ( $r[1]['country'] ?? null ), $r );
+$r = $countries_trip(
+	[ [ 42.0, -8.6, $t0, 'Valença', 'Portugal' ], [ 42.05, -8.64, $t0 + 3600, 'Tui', 'Spain' ] ],
+	[ row( 31, '2025-05-01', '09:30', 42.0, -8.6, 'Valença', true ) ]
+);
+check( 'two countries named the same way by both still count two', is_array( $r ) && [ 'PT', 'ES' ] === $r[0] && '2' === ( $r[1]['countries'] ?? null ), $r );
 
 // REST: publish the steps, keep the trip a draft.
 wp_publish_post( $d1->ID );
@@ -537,7 +570,7 @@ update_post_meta( $away_id, Trips::META_START, '2025-05-01' );
 update_post_meta( $away_id, Trips::META_END, '2025-05-01' );
 $r          = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $source ) )->sync( $away_id );
 $away_stats = get_post_meta( $away_id, Trips::META_STATS, true );
-check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'Portugal' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
+check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'PT' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
 check( 'sync cuts out the trip author’s home, not the home of whoever syncs', ! is_wp_error( $r ) && $r['points'] <= 12, is_wp_error( $r ) ? $r->get_error_message() : $r );
 $away_ids = array_column( Trips::photos( $away_id ), 'id' );
 check( 'an Immich trip still leaves out the photos taken at home, and doesn’t count them', [ row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'], row( 4, '2025-05-01', '14:20', 0, 0, '', 1 )['id'] ] === $away_ids && ! isset( $r['at_home'] ), [ $away_ids, $r ] );

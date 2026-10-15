@@ -63,6 +63,13 @@ class HomeDawarich extends DawarichClient {
 		return $pts;
 	}
 }
+// Returns whatever track it's given.
+class TrackDawarich extends DawarichClient {
+	public array $pts = [];
+	public function points( int $start, int $end ) {
+		return $this->pts;
+	}
+}
 class FakeSource implements PhotoSource {
 	public array $rows = [];
 	public ?array $asked = [];
@@ -283,12 +290,7 @@ foreach ( array_merge( $solo_steps, [ get_post( $solo_id ) ] ) as $post ) {
 // Countries are counted once each, however the track and the photos name them.
 $countries_trip = function ( array $track, array $photos ) {
 	$id                 = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Countries', 'post_status' => 'draft' ] );
-	$dawarich           = new class( 'http://x', 'k' ) extends DawarichClient {
-		public array $pts = [];
-		public function points( int $start, int $end ) {
-			return $this->pts;
-		}
-	};
+	$dawarich           = new TrackDawarich( 'http://x', 'k' );
 	$dawarich->pts      = $track;
 	$photo_source       = new FakeSource();
 	$photo_source->rows = $photos;

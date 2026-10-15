@@ -150,7 +150,7 @@ class TripSync {
 
 		// Counted by ISO code: Immich, GeoNames and Dawarich don't all spell a country alike.
 		$names     = array_merge( array_column( $track, 4 ), array_column( $photos, 'country' ) );
-		$countries = array_values( array_unique( array_filter( array_map( [ $geocoder, 'country_key' ], $names ) ) ) );
+		$countries = array_values( array_unique( array_filter( array_map( [ $geocoder, 'country_key' ], array_unique( $names ) ) ) ) );
 		update_post_meta(
 			$trip_id,
 			Trips::META_STATS,

@@ -156,8 +156,9 @@ include __DIR__ . '/_header.php';
 								<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps' ), $day ) ); ?></span>
 							<?php endif; ?>
 							<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
-							<?php if ( 'publish' !== $step->post_status ) : ?>
-								<span class="ts-badge"><?php echo esc_html( get_post_status_object( $step->post_status )->label ?? $step->post_status ); ?></span>
+							<?php $badge = View::step_badge( $trip, $step ); ?>
+							<?php if ( $badge ) : ?>
+								<span class="<?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['text'] ); ?></span>
 							<?php endif; ?>
 						</p>
 						<h2><?php echo esc_html( get_the_title( $step ) ); ?></h2>

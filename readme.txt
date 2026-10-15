@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,15 @@ Syncing a trip makes your WordPress server ask your Immich server for the photos
 Place names come from [GeoNames](https://www.geonames.org) (towns of 500 people or more, and country names), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), trimmed to names, countries and positions and filtered (most neighbourhoods and historical places left out, and Paris's and Marseille's arrondissements named after their city). They ship with the plugin, so naming a place sends nothing anywhere.
 
 == Changelog ==
+
+= 0.4.0 =
+* A published trip can have a password. Visitors enter it on the trip page; logged-in users on its viewer lists, and anyone who can edit it, see it without one. Core REST follows the same rule.
+* In a trip of uploads, photos taken at home stay on their day, without a place: they add no marker, place name or country. The notice after a sync counts them on a line of their own.
+* Visitors now see published steps that have no position, such as a day at home, on the timeline without a marker on the map.
+* Sync clears a step's position when it can no longer find one, so a step placed before you set or widened your home no longer shows there.
+* A country named differently by Immich, Dawarich or the place names counts once in a trip's stats.
+* On the settings page, your own section is now "Personal settings", saved with Save, and its radius is "Home radius".
+* Fixes: core REST no longer returns or counts (in X-WP-Total) trips and steps a visitor can't see, however the query names them; password-protected trip pages are kept out of page caches.
 
 = 0.3.0 =
 * Trips can use photos uploaded to the trip instead of Immich, which is now optional. Uploads are stored privately, served without their GPS data, and their file names are kept out of every listing. HEIC needs WordPress 6.7.

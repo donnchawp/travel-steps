@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Travel Steps
  * Description: Document trips: photos from Immich or uploaded to the trip, your route from Dawarich or the photos themselves, and the story in WordPress posts.
- * Version: 0.3.0
+ * Version: 0.4.0
  * Requires at least: 6.7
  * Requires PHP: 8.0
  * Author: Donncha
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TRAVEL_STEPS_VERSION', '0.3.0' );
+define( 'TRAVEL_STEPS_VERSION', '0.4.0' );
 define( 'TRAVEL_STEPS_PLUGIN_FILE', __FILE__ );
 define( 'TRAVEL_STEPS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TRAVEL_STEPS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

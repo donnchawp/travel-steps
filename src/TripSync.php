@@ -29,9 +29,9 @@ class TripSync {
 	 *
 	 * @param DawarichClient|null $dawarich Location history for every trip.
 	 * @param PhotoSource|null    $source   Photos for every trip, and whether its dates follow
-	 *                                      them. Left-out counts, place names and the empty-trip
-	 *                                      message still follow the trip's own source setting.
-	 * @param Geocoder|null       $geocoder Place names for uploads.
+	 *                                      them. Left-out counts and the empty-trip message
+	 *                                      still follow the trip's own source setting.
+	 * @param Geocoder|null       $geocoder Place names for photos that have a position but none.
 	 */
 	public function __construct( ?DawarichClient $dawarich = null, ?PhotoSource $source = null, ?Geocoder $geocoder = null ) {
 		$this->dawarich = $dawarich;
@@ -40,9 +40,10 @@ class TripSync {
 	}
 
 	/**
-	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, left_out?: array{outside: int, untimed: int}, at_home?: int, unlocated?: int, no_places?: bool}|\WP_Error
-	 *         left_out, at_home, unlocated and no_places only for a trip of uploads. at_home counts
-	 *         the photos taken at home, kept without a position; unlocated, the others without one.
+	 * @return array{new_steps: int, skipped_days: int, points: int, photos: int, no_places: bool, left_out?: array{outside: int, untimed: int}, at_home?: int, unlocated?: int}|\WP_Error
+	 *         no_places: a photo needed a place name and the geocoder's data is missing.
+	 *         left_out, at_home and unlocated only for a trip of uploads. at_home counts the
+	 *         photos taken at home, kept without a position; unlocated, the others without one.
 	 */
 	public function sync( int $trip_id ) {
 		// add_option() is an atomic insert, so a double-clicked sync can't create a day twice.
@@ -121,10 +122,12 @@ class TripSync {
 		$geocoder = $this->geocoder ?? new Geocoder(); // One for the sync.
 		// Uploads carry no place names, and photos with a position only from Dawarich have
 		// none either: name them here. Immich's own names stay.
-		$no_places = ! $geocoder->available();
+		// Missing data only matters when a photo needed a name.
+		$no_places = false;
 		foreach ( $photos as &$photo ) {
 			if ( null !== $photo['lat'] && '' === $photo['city'] ) {
-				$photo = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
+				$no_places = $no_places || ! $geocoder->available();
+				$photo     = array_merge( $photo, $geocoder->nearest( $photo['lat'], $photo['lon'] ) );
 			}
 		}
 		unset( $photo );
@@ -166,6 +169,7 @@ class TripSync {
 			'skipped_days' => $skipped_days,
 			'points'       => count( $points ),
 			'photos'       => count( $photos ),
+			'no_places'    => $no_places,
 		];
 		// Uploads are all meant to be shown, so say which weren't, and why, and which are
 		// shown without a place.
@@ -176,7 +180,6 @@ class TripSync {
 			];
 			$result['at_home']   = $at_home;
 			$result['unlocated'] = $unlocated;
-			$result['no_places'] = $no_places;
 		}
 		return $result;
 	}

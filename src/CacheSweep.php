@@ -34,7 +34,7 @@ class CacheSweep {
 		foreach ( glob( RestController::cache_root() . '/*/*', GLOB_ONLYDIR ) ?: [] as $dir ) {
 			foreach ( scandir( $dir ) ?: [] as $name ) {
 				$file = "$dir/$name";
-				// Dot files and index.html are what keeps the cache private.
+				// Not ., .., or the .htaccess and index.html files that keep the cache private.
 				if ( '.' === $name[0] || 'index.html' === $name || ! is_file( $file ) ) {
 					continue;
 				}

@@ -65,6 +65,30 @@ class View {
 	}
 
 	/**
+	 * The status badge for a step on a trip's timeline or step list, or null for a
+	 * published step. On a published trip, a step visitors can't see gets a warning.
+	 *
+	 * @return array{class: string, text: string}|null
+	 */
+	public static function step_badge( \WP_Post $trip, \WP_Post $step ): ?array {
+		if ( 'publish' === $step->post_status ) {
+			return null;
+		}
+		$label = get_post_status_object( $step->post_status )->label ?? $step->post_status;
+		if ( 'publish' !== $trip->post_status || ! in_array( $step->post_status, self::NOT_PUBLIC, true ) ) {
+			return [ 'class' => 'ts-badge', 'text' => $label ];
+		}
+		return [
+			'class' => 'ts-badge is-warning',
+			// "Private, not public" would say it twice.
+			'text'  => 'private' === $step->post_status
+				? $label
+				/* translators: %s: a step's status, such as Draft or Pending */
+				: sprintf( __( '%s, not public', 'travel-steps' ), $label ),
+		];
+	}
+
+	/**
 	 * The warning for a published trip with steps that aren't published, else ''.
 	 */
 	private static function hidden_steps_notice( array $steps ): string {

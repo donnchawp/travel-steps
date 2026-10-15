@@ -157,6 +157,7 @@ class TripSync {
 			]
 		);
 		update_post_meta( $trip_id, Trips::META_SYNCED, time() );
+		CacheFill::schedule( $trip_id );
 
 		$result = [
 			'new_steps'    => $new_steps,

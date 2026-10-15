@@ -28,6 +28,9 @@ class CacheFill {
 	 * @param float    $budget     Seconds a run fetches for under a time limit.
 	 */
 	public static function run( int $trip_id, ?int $time_limit = null, float $budget = self::BUDGET_S ): void {
+		if ( ! self::fills( $trip_id ) ) {
+			return;
+		}
 		$time_limit ??= (int) ini_get( 'max_execution_time' );
 		$budget       = min( $budget, $time_limit / 2 );
 		$start        = microtime( true );
@@ -49,9 +52,17 @@ class CacheFill {
 	 * Fill a trip's cache in the background, unless that's already due.
 	 */
 	public static function schedule( int $trip_id ): void {
-		if ( ! wp_next_scheduled( self::HOOK, [ $trip_id ] ) ) {
+		if ( self::fills( $trip_id ) && ! wp_next_scheduled( self::HOOK, [ $trip_id ] ) ) {
 			wp_schedule_single_event( time(), self::HOOK, [ $trip_id ] );
 		}
+	}
+
+	/**
+	 * Whether a trip's photos are cached ahead: those of an Immich trip. A trip of
+	 * uploads has its copies here already.
+	 */
+	private static function fills( int $trip_id ): bool {
+		return Trips::TRIP === get_post_type( $trip_id ) && ! Trips::uses_uploads( $trip_id );
 	}
 
 	/**

@@ -2,7 +2,8 @@
 /**
  * Filling the photo cache in the background after a trip syncs, so a published trip keeps
  * working without Immich. Required at the end of smoke.php, in its scope: uses check(),
- * row(), FakeDawarich, FakeSource, $alice (who has an Immich key), $jpeg and $cache_path.
+ * row(), FakeDawarich, FakeSource, $alice (who has an Immich key), $jpeg, $cache_path
+ * and $rest_post.
  */
 use TravelSteps\{CacheFill, RestController, TripSync, Trips};
 
@@ -100,5 +101,30 @@ CacheFill::run( $cf_trip, 1 );
 remove_filter( 'pre_http_request', $cf_slow, 5 );
 check( 'cache fill: a run stops at half a PHP time limit lower than its budget', 1 === count( array_filter( $cf_want, $cf_cached ) ) && wp_next_scheduled( CacheFill::HOOK, [ $cf_trip ] ) );
 $cf_reset();
+
+// When a run is scheduled: one event per trip, after a sync or a change to what it shows.
+$cf_events = fn( int $trip_id ) => count( array_filter( _get_cron_array(), fn( $hooks ) => isset( $hooks[ CacheFill::HOOK ][ md5( serialize( [ $trip_id ] ) ) ] ) ) );
+check( 'cache fill: WP-Cron runs it', false !== has_action( CacheFill::HOOK, [ CacheFill::class, 'run' ] ) );
+CacheFill::schedule( $cf_trip );
+CacheFill::schedule( $cf_trip );
+check( 'cache fill: scheduling twice for a trip leaves a single event', 1 === $cf_events( $cf_trip ), $cf_events( $cf_trip ) );
+$cf_reset();
+( new TripSync( new FakeDawarich( 'http://x', 'k' ), $cf_source ) )->sync( $cf_trip );
+check( 'cache fill: a sync schedules a run', 1 === $cf_events( $cf_trip ) );
+$cf_reset();
+check( '…changing a photo’s state too', 200 === $rest_post( "/travel-steps/v1/trips/$cf_trip/photo-state", [ 'asset' => $cf_id( 1804 ), 'state' => 'default' ] )->get_status() && 1 === $cf_events( $cf_trip ) );
+$cf_reset();
+check( '…and choosing the cover', 200 === $rest_post( "/travel-steps/v1/trips/$cf_trip/cover", [ 'asset' => $cf_id( 1801 ) ] )->get_status() && 1 === $cf_events( $cf_trip ) );
+$cf_reset();
+$cf_uploads = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Uploaded', 'post_status' => 'publish', 'post_author' => $alice ] );
+update_post_meta( $cf_uploads, Trips::META_SOURCE, Trips::SOURCE_UPLOADS );
+update_post_meta( $cf_uploads, Trips::META_START, '2025-07-01' );
+update_post_meta( $cf_uploads, Trips::META_END, '2025-07-03' );
+$r = ( new TripSync( new FakeDawarich( 'http://x', 'k' ), $cf_source ) )->sync( $cf_uploads );
+check( 'cache fill: syncing a trip of uploads schedules nothing', ! is_wp_error( $r ) && 0 === $cf_events( $cf_uploads ), $r );
+foreach ( Trips::steps( $cf_uploads, true ) as $cf_step ) {
+	wp_delete_post( $cf_step->ID, true );
+}
+wp_delete_post( $cf_uploads, true );
 
 remove_filter( 'pre_http_request', $cf_immich, 10 );

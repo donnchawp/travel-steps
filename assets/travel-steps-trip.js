@@ -202,6 +202,17 @@
 		} );
 	} );
 
+	/* ---------- Photo tools on touch screens (editors) ---------- */
+
+	const editPhotos = root.querySelector( '.ts-edit-photos' );
+	if ( editPhotos ) {
+		editPhotos.addEventListener( 'click', () => {
+			const on = 'true' !== editPhotos.getAttribute( 'aria-pressed' );
+			editPhotos.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+			root.classList.toggle( 'is-editing-photos', on );
+		} );
+	}
+
 	/* ---------- Cover photo (editors) ---------- */
 
 	function setHero( url ) {

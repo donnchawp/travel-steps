@@ -145,13 +145,16 @@
 		}
 		current = ( index + openers.length ) % openers.length;
 		const btn = openers[ current ];
-		// A new img, not a new src: the old one would show the last photo until this one loads.
-		const img = document.createElement( 'img' );
-		img.src = btn.dataset.full;
-		img.alt = btn.dataset.caption || '';
 		const old = dialog.querySelector( 'img' );
-		old.removeAttribute( 'src' ); // Or a photo skipped past keeps downloading.
-		old.replaceWith( img );
+		// The same photo again is already showing, or still loading: leave it.
+		if ( old.getAttribute( 'src' ) !== btn.dataset.full ) {
+			// A new img, not a new src: the old one would show the last photo until this one loads.
+			const img = document.createElement( 'img' );
+			img.src = btn.dataset.full;
+			img.alt = btn.dataset.caption || '';
+			old.removeAttribute( 'src' ); // Or a photo skipped past keeps downloading.
+			old.replaceWith( img );
+		}
 		dialog.querySelector( 'figcaption' ).textContent = btn.dataset.caption || '';
 		if ( ! dialog.open ) {
 			dialog.showModal();

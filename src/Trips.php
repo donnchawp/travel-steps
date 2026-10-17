@@ -721,28 +721,27 @@ class Trips {
 			$status = 'draft';
 		}
 		$current = $trip_id ? get_post( $trip_id ) : null;
-		$title   = sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' );
-		// Free text is slashed as wp_insert_post() expects, so a backslash typed in it is kept.
 		$postarr = [
 			'ID'          => $trip_id,
 			'post_type'   => self::TRIP,
-			'post_title'  => wp_slash( $title ),
+			'post_title'  => sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' ),
 			'post_status' => $status,
 		];
 		// An intro with more than paragraphs has no field on the form; only the block editor changes it.
 		if ( isset( $input['intro'] ) && ( ! $current || null !== self::intro_text( $current->post_content ) ) ) {
-			$postarr['post_content'] = wp_slash( self::intro_content( (string) $input['intro'] ) );
+			$postarr['post_content'] = self::intro_content( (string) $input['intro'] );
 		}
-		// Trimmed, so a stray space doesn't lock visitors out, but otherwise kept as typed, and
-		// slashed as wp_insert_post() expects, so it matches what visitors type into the password form.
-		// The column holds 255 characters.
+		// Trimmed, so a stray space doesn't lock visitors out, but otherwise kept as typed, so it
+		// matches what visitors type into the password form. The column holds 255 characters.
 		if ( isset( $input['password'] ) ) {
-			$postarr['post_password'] = wp_slash( mb_substr( trim( (string) $input['password'] ), 0, 255 ) );
+			$postarr['post_password'] = mb_substr( trim( (string) $input['password'] ), 0, 255 );
 		}
 		// WordPress leaves drafts without a slug; give the trip one so its URL is stable.
 		if ( ! $current || ! $current->post_name ) {
-			$postarr['post_name'] = wp_unique_post_slug( sanitize_title( $title ), $trip_id, 'publish', self::TRIP, 0 );
+			$postarr['post_name'] = wp_unique_post_slug( sanitize_title( $postarr['post_title'] ), $trip_id, 'publish', self::TRIP, 0 );
 		}
+		// Slashed as wp_insert_post() expects, so a backslash typed in the title, intro or password is kept.
+		$postarr = wp_slash( $postarr );
 		$result  = $trip_id ? wp_update_post( $postarr, true ) : wp_insert_post( $postarr, true );
 		if ( is_wp_error( $result ) ) {
 			wp_die( esc_html( $result->get_error_message() ) );

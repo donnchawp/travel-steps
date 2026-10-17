@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,16 @@ Syncing a trip makes your WordPress server ask your Immich server for the photos
 Place names come from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The plugin ships towns of 500 people or more, and country names, trimmed to names, countries and positions. Most neighbourhoods and historical places are left out, and Paris's and Marseille's arrondissements are named after their city. Because the names ship with the plugin, naming a place sends nothing anywhere.
 
 == Changelog ==
+
+= 0.5.0 =
+* After an Immich trip syncs, or you pin, hide or show a photo or change the cover, WordPress caches every photo visitors can see on the trip in the background. The trip keeps working when Immich is down or the author's key stops working, at the cost of disk space for the whole trip. A few photos that always fail no longer hold up the rest.
+* A daily sweep deletes cached photos that no trip or upload uses any more. The new site setting "Delete cached photos after (days)" also deletes photos cached longer ago than that; 0, the default, keeps them. Deleting the plugin deletes the photo cache.
+* Cached photos are named after a keyed hash of their id instead of the id in their proxy URL, so on nginx without the deny rule nobody can fetch a hidden photo from the cache folder by its id. Photos cached by 0.4.0 or earlier are renamed on the first request after the update.
+* On a phone, press Edit photos on the trip page to pin, hide or choose a cover. Until then the photo tools are hidden and can't be pressed by accident.
+* On touch screens you swipe between photos in the lightbox, which fills the screen; elsewhere it keeps its arrows. It no longer shows the previous photo while the next one loads, and it stops downloading photos you've moved past.
+* Editors of a published trip get a warning when some of its steps aren't published, and those steps' badges say "Draft, not public".
+* Immich photos without GPS that Dawarich placed get a town and country from the bundled place names, instead of joining the place around them or heading a day "Somewhere new".
+* Fixes: photo URLs are never marked for shared caches when the viewer can edit the trip or the URL carries a nonce; a cached photo deleted during a request is fetched again instead of sent empty.
 
 = 0.4.0 =
 * A published trip can have a password. Visitors enter it on the trip page; logged-in users on its viewer lists, and anyone who can edit it, see it without one. Core REST follows the same rule.

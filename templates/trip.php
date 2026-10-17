@@ -112,7 +112,7 @@ include __DIR__ . '/_header.php';
 				<?php endforeach; ?>
 			</ul>
 			<?php if ( $can_curate ) : ?>
-				<p class="ts-hero-actions">
+				<p class="ts-form-actions">
 					<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a>
 					<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
 					<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps' ); ?></button>

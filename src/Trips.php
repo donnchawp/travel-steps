@@ -658,7 +658,7 @@ class Trips {
 	 */
 	public static function intro_text( string $content ): ?string {
 		$paragraphs = [];
-		foreach ( parse_blocks( $content ) as $block ) {
+		foreach ( parse_blocks( str_replace( "\r\n", "\n", $content ) ) as $block ) {
 			$html = trim( $block['innerHTML'] );
 			if ( null === $block['blockName'] ) {
 				// Classic content: paragraphs as <p>, or plain text with blank lines between them.
@@ -668,10 +668,12 @@ class Trips {
 			} else {
 				return null;
 			}
-			if ( strip_tags( $html, self::INTRO_TAGS ) !== $html ) {
+			// Two line breaks in a row would read back as a blank line, splitting the paragraph.
+			if ( strip_tags( $html, self::INTRO_TAGS ) !== $html || preg_match( '#<br\s*/?>\s*<br#i', $html ) ) {
 				return null;
 			}
-			$html = preg_replace( '#<br\s*/?>\n?#i', "\n", $html );
+			// An ampersand shows as typed; kses encodes it again on save.
+			$html = preg_replace( [ '#<br\s*/?>\n?#i', '/&amp;(?![a-z0-9#]+;)/i' ], [ "\n", '&' ], $html );
 			foreach ( preg_split( '/\n\s*\n/', $html ) as $paragraph ) {
 				$paragraph = trim( $paragraph );
 				if ( '' !== $paragraph ) {
@@ -691,7 +693,8 @@ class Trips {
 		$allowed = array_intersect_key( wp_kses_allowed_html( 'post' ), array_flip( self::INTRO_TAGS ) );
 		$blocks  = [];
 		foreach ( preg_split( '/\n\s*\n/', str_replace( "\r\n", "\n", $text ) ) as $paragraph ) {
-			$paragraph = trim( wp_kses( $paragraph, $allowed ) );
+			// Balanced, so a tag left open doesn't run past its paragraph block.
+			$paragraph = trim( force_balance_tags( wp_kses( $paragraph, $allowed ) ) );
 			if ( '' !== $paragraph ) {
 				$blocks[] = "<!-- wp:paragraph -->\n<p>" . str_replace( "\n", '<br>', $paragraph ) . "</p>\n<!-- /wp:paragraph -->";
 			}

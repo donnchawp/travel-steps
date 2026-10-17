@@ -234,7 +234,12 @@ include __DIR__ . '/_header.php';
 		<label>
 			<span><?php esc_html_e( 'Introduction', 'travel-steps' ); ?></span>
 			<textarea name="intro" rows="4"><?php echo esc_textarea( $intro ); ?></textarea>
-			<small class="ts-muted"><?php esc_html_e( 'Leave a blank line between paragraphs.', 'travel-steps' ); ?></small>
+			<small class="ts-muted">
+				<?php esc_html_e( 'Leave a blank line between paragraphs. Links and bold or italic text are kept; for images, headings or lists, use the block editor.', 'travel-steps' ); ?>
+				<?php if ( $trip ) : ?>
+					<a href="<?php echo esc_url( get_edit_post_link( $trip->ID, 'raw' ) ); ?>"><?php esc_html_e( 'Edit the introduction', 'travel-steps' ); ?></a>
+				<?php endif; ?>
+			</small>
 		</label>
 		<?php endif; ?>
 

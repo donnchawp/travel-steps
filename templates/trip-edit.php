@@ -224,10 +224,22 @@ include __DIR__ . '/_header.php';
 		</label>
 		<?php endif; ?>
 
+		<?php $intro = $trip ? Trips::intro_text( $trip->post_content ) : ''; ?>
+		<?php if ( null === $intro ) : ?>
+			<div class="ts-field">
+				<span><?php esc_html_e( 'Introduction', 'travel-steps' ); ?></span>
+				<p class="ts-muted">
+					<?php esc_html_e( 'The introduction has more than paragraphs of text, so it’s edited in the block editor.', 'travel-steps' ); ?>
+					<a href="<?php echo esc_url( get_edit_post_link( $trip->ID, 'raw' ) ); ?>"><?php esc_html_e( 'Edit the introduction', 'travel-steps' ); ?></a>
+				</p>
+			</div>
+		<?php else : ?>
 		<label>
 			<span><?php esc_html_e( 'Introduction', 'travel-steps' ); ?></span>
-			<textarea name="intro" rows="4"><?php echo esc_textarea( $trip ? $trip->post_content : '' ); ?></textarea>
+			<textarea name="intro" rows="4"><?php echo esc_textarea( $intro ); ?></textarea>
+			<small class="ts-muted"><?php esc_html_e( 'Leave a blank line between paragraphs.', 'travel-steps' ); ?></small>
 		</label>
+		<?php endif; ?>
 
 		<label>
 			<span><?php esc_html_e( 'Visibility', 'travel-steps' ); ?></span>

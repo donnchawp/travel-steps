@@ -649,6 +649,52 @@ class Trips {
 		return $trip;
 	}
 
+	/**
+	 * A trip's intro as the edit form's plain text: its paragraphs, a blank line apart, with
+	 * their inline HTML kept. Null when it has anything else (an image, a heading, a list, a
+	 * paragraph with settings of its own), which only the block editor can change safely.
+	 */
+	public static function intro_text( string $content ): ?string {
+		$inline     = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
+		$paragraphs = [];
+		foreach ( parse_blocks( $content ) as $block ) {
+			$html = trim( $block['innerHTML'] );
+			if ( null === $block['blockName'] ) {
+				// Classic content: paragraphs as <p>, or plain text with blank lines between them.
+				$html = preg_replace( [ '#<p>#i', '#</p>#i' ], [ '', "\n\n" ], $html );
+			} elseif ( 'core/paragraph' === $block['blockName'] && ! $block['attrs'] && preg_match( '#^<p>(.*)</p>$#is', $html, $m ) ) {
+				$html = $m[1];
+			} else {
+				return null;
+			}
+			if ( strip_tags( $html, $inline ) !== $html ) {
+				return null;
+			}
+			$html = preg_replace( '#<br\s*/?>\n?#i', "\n", $html );
+			foreach ( preg_split( '/\n\s*\n/', $html ) as $paragraph ) {
+				if ( '' !== trim( $paragraph ) ) {
+					$paragraphs[] = trim( $paragraph );
+				}
+			}
+		}
+		return implode( "\n\n", $paragraphs );
+	}
+
+	/**
+	 * The edit form's plain text as the intro: a paragraph block for each paragraph, so the
+	 * block editor opens it as paragraphs. A single newline is a line break.
+	 */
+	public static function intro_content( string $text ): string {
+		$blocks = [];
+		foreach ( preg_split( '/\n\s*\n/', str_replace( "\r\n", "\n", $text ) ) as $paragraph ) {
+			$paragraph = trim( wp_kses_post( $paragraph ) );
+			if ( '' !== $paragraph ) {
+				$blocks[] = "<!-- wp:paragraph -->\n<p>" . str_replace( "\n", '<br>', $paragraph ) . "</p>\n<!-- /wp:paragraph -->";
+			}
+		}
+		return implode( "\n\n", $blocks );
+	}
+
 	public function handle_save_trip(): void {
 		check_admin_referer( 'travel_steps_save_trip' );
 		$input   = wp_unslash( $_POST );
@@ -667,13 +713,17 @@ class Trips {
 		if ( 'publish' === $status && ! current_user_can( 'publish_posts' ) ) {
 			$status = 'draft';
 		}
+		$current = $trip_id ? get_post( $trip_id ) : null;
 		$postarr = [
-			'ID'           => $trip_id,
-			'post_type'    => self::TRIP,
-			'post_title'   => sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' ),
-			'post_content' => wp_kses_post( $input['intro'] ?? '' ),
-			'post_status'  => $status,
+			'ID'          => $trip_id,
+			'post_type'   => self::TRIP,
+			'post_title'  => sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' ),
+			'post_status' => $status,
 		];
+		// An intro with more than paragraphs has no field on the form; only the block editor changes it.
+		if ( isset( $input['intro'] ) && ( ! $current || null !== self::intro_text( $current->post_content ) ) ) {
+			$postarr['post_content'] = wp_slash( self::intro_content( (string) $input['intro'] ) );
+		}
 		// Trimmed, so a stray space doesn't lock visitors out, but otherwise kept as typed, and
 		// slashed as wp_insert_post() expects, so it matches what visitors type into the password form.
 		// The column holds 255 characters.
@@ -681,7 +731,6 @@ class Trips {
 			$postarr['post_password'] = wp_slash( mb_substr( trim( (string) $input['password'] ), 0, 255 ) );
 		}
 		// WordPress leaves drafts without a slug; give the trip one so its URL is stable.
-		$current = $trip_id ? get_post( $trip_id ) : null;
 		if ( ! $current || ! $current->post_name ) {
 			$postarr['post_name'] = wp_unique_post_slug( sanitize_title( $postarr['post_title'] ), $trip_id, 'publish', self::TRIP, 0 );
 		}

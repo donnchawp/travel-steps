@@ -566,6 +566,8 @@ wp_set_current_user( 0 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );
 check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) && false === strpos( $html, 'ts-edit-photos' ) );
+// The script fills the strip with a slide per photo when the lightbox opens, so swiping is the browser's own scrolling.
+check( 'the lightbox is an empty swipe strip, not one figure', 1 === preg_match( '/<dialog class="ts-lightbox"(?:(?!<\/dialog>).)*class="ts-lightbox-strip"><\/div>/s', $html ) && 0 === preg_match( '/<dialog class="ts-lightbox"(?:(?!<\/dialog>).)*<figure/s', $html ) );
 ob_start();
 do_action( wp_app_get_scoped_hook_name( 'wp_app_head_styles', 'travel-steps' ) );
 $styles  = ob_get_clean();

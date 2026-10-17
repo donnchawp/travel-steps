@@ -131,7 +131,7 @@
 	/* ---------- Lightbox ---------- */
 
 	const dialog = root.querySelector( '.ts-lightbox' );
-	let openers = [];
+	const strip = dialog.querySelector( '.ts-lightbox-strip' );
 	let current = -1;
 
 	// Only photos on screen: the ones inside a closed "Show more" don't count.
@@ -139,48 +139,79 @@
 		return Array.from( root.querySelectorAll( '.ts-photo-open' ) ).filter( ( b ) => null !== b.offsetParent );
 	}
 
-	function show( index ) {
-		if ( ! openers.length ) {
-			return;
-		}
-		current = ( index + openers.length ) % openers.length;
-		const btn = openers[ current ];
-		const old = dialog.querySelector( 'img' );
-		// The same photo again is already showing, or still loading: leave it.
-		if ( old.getAttribute( 'src' ) !== btn.dataset.full ) {
-			// A new img, not a new src: the old one would show the last photo until this one loads.
-			const img = document.createElement( 'img' );
-			img.src = btn.dataset.full;
-			img.alt = btn.dataset.caption || '';
-			old.removeAttribute( 'src' ); // Or a photo skipped past keeps downloading.
-			old.replaceWith( img );
-		}
-		dialog.querySelector( 'figcaption' ).textContent = btn.dataset.caption || '';
-		if ( ! dialog.open ) {
-			dialog.showModal();
-		}
+	function slide( btn ) {
+		const figure = document.createElement( 'figure' );
+		figure.className = 'ts-lightbox-slide';
+		const img = document.createElement( 'img' );
+		img.dataset.src = btn.dataset.full;
+		img.alt = btn.dataset.caption || '';
+		const caption = document.createElement( 'figcaption' );
+		caption.textContent = btn.dataset.caption || '';
+		figure.append( img, caption );
+		return figure;
 	}
+
+	// The photo on screen and its neighbours load, so a swipe never shows a blank one.
+	// One further away that's still loading stops, so a fast swipe doesn't fetch them all.
+	function load() {
+		Array.from( strip.querySelectorAll( 'img' ) ).forEach( ( img, i ) => {
+			if ( Math.abs( i - current ) <= 1 ) {
+				if ( ! img.getAttribute( 'src' ) ) {
+					img.src = img.dataset.src;
+				}
+			} else if ( ! img.complete ) {
+				img.removeAttribute( 'src' );
+			}
+		} );
+	}
+
+	// Arrows and keys go round from the last photo to the first; a swipe stops at the ends.
+	function show( index ) {
+		const count = strip.children.length;
+		const next = ( index + count ) % count;
+		const wrapped = 1 < Math.abs( next - current );
+		strip.scrollTo( { left: next * strip.clientWidth, behavior: wrapped ? 'instant' : 'smooth' } );
+	}
+
+	strip.addEventListener( 'scroll', () => {
+		const index = Math.round( strip.scrollLeft / strip.clientWidth );
+		if ( index !== current ) {
+			current = index;
+			load();
+		}
+	} );
 
 	root.addEventListener( 'click', ( e ) => {
 		const btn = e.target.closest( '.ts-photo-open' );
-		if ( btn ) {
-			openers = visibleOpeners();
-			show( openers.indexOf( btn ) );
+		if ( ! btn ) {
+			return;
 		}
+		const openers = visibleOpeners();
+		strip.replaceChildren( ...openers.map( slide ) );
+		dialog.showModal();
+		current = openers.indexOf( btn );
+		strip.scrollTo( { left: current * strip.clientWidth, behavior: 'instant' } );
+		load();
+	} );
+	// A removed img keeps downloading, so each one stops first.
+	dialog.addEventListener( 'close', () => {
+		strip.querySelectorAll( 'img' ).forEach( ( img ) => img.removeAttribute( 'src' ) );
+		strip.replaceChildren();
+		current = -1;
 	} );
 	dialog.querySelector( '.ts-lightbox-close' ).addEventListener( 'click', () => dialog.close() );
 	dialog.querySelector( '.ts-lightbox-prev' ).addEventListener( 'click', () => show( current - 1 ) );
 	dialog.querySelector( '.ts-lightbox-next' ).addEventListener( 'click', () => show( current + 1 ) );
+	// Outside the photo: the dark around it, which is the dialog or a slide.
 	dialog.addEventListener( 'click', ( e ) => {
-		if ( e.target === dialog ) {
+		if ( e.target === dialog || e.target.classList.contains( 'ts-lightbox-slide' ) ) {
 			dialog.close();
 		}
 	} );
 	dialog.addEventListener( 'keydown', ( e ) => {
-		if ( 'ArrowLeft' === e.key ) {
-			show( current - 1 );
-		} else if ( 'ArrowRight' === e.key ) {
-			show( current + 1 );
+		if ( 'ArrowLeft' === e.key || 'ArrowRight' === e.key ) {
+			e.preventDefault(); // A focused strip would scroll itself as well.
+			show( current + ( 'ArrowLeft' === e.key ? -1 : 1 ) );
 		}
 	} );
 

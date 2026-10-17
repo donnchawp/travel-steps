@@ -145,9 +145,11 @@
 		}
 		current = ( index + openers.length ) % openers.length;
 		const btn = openers[ current ];
-		const img = dialog.querySelector( 'img' );
+		// A new img, not a new src: the old one would show the last photo until this one loads.
+		const img = document.createElement( 'img' );
 		img.src = btn.dataset.full;
 		img.alt = btn.dataset.caption || '';
+		dialog.querySelector( 'img' ).replaceWith( img );
 		dialog.querySelector( 'figcaption' ).textContent = btn.dataset.caption || '';
 		if ( ! dialog.open ) {
 			dialog.showModal();

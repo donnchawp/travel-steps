@@ -1,8 +1,8 @@
 <?php
 /**
  * The trip edit form's Introduction field: plain text for an intro of paragraphs, a link to the
- * block editor for anything else. Required at the end of smoke.php, in its scope: uses check(),
- * $render and $stopped.
+ * block editor for anything else. Also that the form keeps backslashes typed in it. Required at
+ * the end of smoke.php, in its scope: uses check(), $render and $stopped.
  */
 use TravelSteps\Trips;
 
@@ -59,6 +59,9 @@ check( '…and a form without the field leaves the intro alone', 'redirect' === 
 $save_intro( [ 'intro' => wp_slash( 'C:\\Users\\me' ) ] ); // Requests arrive slashed.
 $text = Trips::intro_text( get_post_field( 'post_content', $intro_trip ) );
 check( '…and a backslash typed in it is kept', 'C:\\Users\\me' === $text, $text );
+$save_intro( [ 'title' => wp_slash( 'C:\\Trips' ) ] );
+$title = get_post_field( 'post_title', $intro_trip );
+check( '…as is one typed in the trip’s title', 'C:\\Trips' === $title, $title );
 $_POST = $_REQUEST = [ 'trip_id' => 0, 'title' => 'New intro', 'status' => 'draft', 'intro' => "First.\n\nSecond.", '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
 $stopped( [ new Trips(), 'handle_save_trip' ] );
 $_POST = $_REQUEST = [];

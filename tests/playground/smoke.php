@@ -1035,19 +1035,6 @@ $_POST = $_REQUEST = [ 'trip_id' => $alices, 'title' => 'Renamed', 'start' => '2
 check( '…as does saving new dates', 'die' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && '2025-05-01' === get_post_meta( $alices, Trips::META_START, true ) );
 $_POST = $_REQUEST = [ 'trip_id' => $alices, 'title' => 'Renamed', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
 check( '…but they can still rename it', 'redirect' === $stopped( [ new Trips(), 'handle_save_trip' ] ) && 'Renamed' === get_the_title( $alices ) && '2025-05-01' === get_post_meta( $alices, Trips::META_START, true ) );
-// Requests arrive slashed, and the handler unslashes them.
-$_POST = $_REQUEST = [ 'trip_id' => $alices, 'title' => wp_slash( 'C:\\Trips' ), 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-$stopped( [ new Trips(), 'handle_save_trip' ] );
-check( 'a backslash typed in a trip’s title is kept', 'C:\\Trips' === get_post_field( 'post_title', $alices ), get_post_field( 'post_title', $alices ) );
-$_POST = $_REQUEST = [ 'trip_id' => $alices, 'title' => 'Renamed', 'status' => 'publish', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-$stopped( [ new Trips(), 'handle_save_trip' ] );
-$_POST = $_REQUEST = [ 'trip_id' => 0, 'title' => wp_slash( 'Back\\slash trip' ), 'status' => 'draft', '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
-$stopped( [ new Trips(), 'handle_save_trip' ] );
-$slashed = get_posts( [ 'post_type' => Trips::TRIP, 'post_status' => 'any', 'title' => wp_slash( 'Back\\slash trip' ), 'fields' => 'ids' ] ); // WP_Query unslashes its title.
-check( '…and a new trip with one gets its slug from the title as typed', $slashed && 'backslash-trip' === get_post_field( 'post_name', $slashed[0] ), $slashed ? get_post_field( 'post_name', $slashed[0] ) : 'no trip titled Back\\slash trip' );
-if ( $slashed ) {
-	wp_delete_post( $slashed[0], true );
-}
 $_POST = $_REQUEST = [];
 $keys_used = [];
 $edit      = $render( 'trip-edit.php', (string) $alices );

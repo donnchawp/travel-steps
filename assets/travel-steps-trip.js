@@ -144,23 +144,21 @@
 		figure.className = 'ts-lightbox-slide';
 		const img = document.createElement( 'img' );
 		img.dataset.src = btn.dataset.full;
-		img.alt = btn.dataset.caption || '';
+		img.alt = btn.dataset.caption;
 		const caption = document.createElement( 'figcaption' );
-		caption.textContent = btn.dataset.caption || '';
+		caption.textContent = btn.dataset.caption;
 		figure.append( img, caption );
 		return figure;
 	}
 
 	// The photo on screen and its neighbours load, so a swipe never shows a blank one.
-	// One further away that's still loading stops, so a fast swipe doesn't fetch them all.
+	// The rest have none: a fast swipe doesn't fetch them all, nor a long one keep them all.
 	function load() {
-		Array.from( strip.querySelectorAll( 'img' ) ).forEach( ( img, i ) => {
-			if ( Math.abs( i - current ) <= 1 ) {
-				if ( ! img.getAttribute( 'src' ) ) {
-					img.src = img.dataset.src;
-				}
-			} else if ( ! img.complete ) {
+		strip.querySelectorAll( 'img' ).forEach( ( img, i ) => {
+			if ( 1 < Math.abs( i - current ) ) {
 				img.removeAttribute( 'src' );
+			} else if ( ! img.getAttribute( 'src' ) ) {
+				img.src = img.dataset.src;
 			}
 		} );
 	}
@@ -197,7 +195,6 @@
 	dialog.addEventListener( 'close', () => {
 		strip.querySelectorAll( 'img' ).forEach( ( img ) => img.removeAttribute( 'src' ) );
 		strip.replaceChildren();
-		current = -1;
 	} );
 	dialog.querySelector( '.ts-lightbox-close' ).addEventListener( 'click', () => dialog.close() );
 	dialog.querySelector( '.ts-lightbox-prev' ).addEventListener( 'click', () => show( current - 1 ) );

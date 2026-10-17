@@ -149,7 +149,9 @@
 		const img = document.createElement( 'img' );
 		img.src = btn.dataset.full;
 		img.alt = btn.dataset.caption || '';
-		dialog.querySelector( 'img' ).replaceWith( img );
+		const old = dialog.querySelector( 'img' );
+		old.removeAttribute( 'src' ); // Or a photo skipped past keeps downloading.
+		old.replaceWith( img );
 		dialog.querySelector( 'figcaption' ).textContent = btn.dataset.caption || '';
 		if ( ! dialog.open ) {
 			dialog.showModal();

@@ -45,6 +45,7 @@ A step shows photos from its date. Favourites in Immich decide which:
 - A step without favourites (one you added by hand) gets an automatic pick of 8 photos by default, spread across the day. A burst of shots taken seconds apart counts as one.
 - On the trip page, **Pin** a photo to always show it, or **Hide** it to never show it. Press the button again to undo.
 - **Cover** makes a photo the trip's header image. Press it again to go back to the automatic choice, which is the first landscape favourite on a published step. A chosen cover is public with the trip, even if its step isn't.
+- On a phone or tablet these buttons only appear after you press **Edit photos** at the top of the trip page, so a long press while you scroll can't change anything.
 - Everything else stays behind a collapsed "Show N more photos".
 - Days without a step show no photos at all.
 - Sync skips screenshots and other images with no camera make or model in their EXIF, unless they're favourites.

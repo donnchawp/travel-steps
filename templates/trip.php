@@ -218,8 +218,8 @@ include __DIR__ . '/_header.php';
 	<dialog class="ts-lightbox">
 		<button type="button" class="ts-lightbox-close" aria-label="<?php esc_attr_e( 'Close', 'travel-steps' ); ?>">×</button>
 		<button type="button" class="ts-lightbox-prev" aria-label="<?php esc_attr_e( 'Previous photo', 'travel-steps' ); ?>">‹</button>
-		<?php // A slide per photo on screen, added when it opens: swiping scrolls it. ?>
-		<div class="ts-lightbox-strip"></div>
+		<?php // A slide per photo on screen, added when it opens: swiping scrolls it. Left to right on any page, so the script's scroll maths holds. ?>
+		<div class="ts-lightbox-strip" dir="ltr"></div>
 		<button type="button" class="ts-lightbox-next" aria-label="<?php esc_attr_e( 'Next photo', 'travel-steps' ); ?>">›</button>
 	</dialog>
 </article>

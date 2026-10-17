@@ -133,6 +133,7 @@
 	const dialog = root.querySelector( '.ts-lightbox' );
 	const strip = dialog.querySelector( '.ts-lightbox-strip' );
 	let current = -1;
+	let target = null; // Where an arrow is scrolling to, so a second press goes one further.
 
 	// Only photos on screen: the ones inside a closed "Show more" don't count.
 	function visibleOpeners() {
@@ -146,6 +147,7 @@
 		img.dataset.src = btn.dataset.full;
 		img.alt = btn.dataset.caption;
 		const caption = document.createElement( 'figcaption' );
+		caption.dir = 'auto'; // The strip is left to right whatever the page is.
 		caption.textContent = btn.dataset.caption;
 		figure.append( img, caption );
 		return figure;
@@ -153,30 +155,41 @@
 
 	// The photo on screen and its neighbours load, so a swipe never shows a blank one.
 	// The rest have none: a fast swipe doesn't fetch them all, nor a long one keep them all.
+	// Only the photo on screen is read out, not every slide in the strip.
 	function load() {
-		strip.querySelectorAll( 'img' ).forEach( ( img, i ) => {
+		strip.querySelectorAll( '.ts-lightbox-slide' ).forEach( ( figure, i ) => {
+			const img = figure.querySelector( 'img' );
 			if ( 1 < Math.abs( i - current ) ) {
 				img.removeAttribute( 'src' );
 			} else if ( ! img.getAttribute( 'src' ) ) {
 				img.src = img.dataset.src;
 			}
+			figure.setAttribute( 'aria-hidden', i === current ? 'false' : 'true' );
 		} );
 	}
 
 	// Arrows and keys go round from the last photo to the first; a swipe stops at the ends.
-	function show( index ) {
+	function step( by ) {
 		const count = strip.children.length;
-		const next = ( index + count ) % count;
-		const wrapped = 1 < Math.abs( next - current );
-		strip.scrollTo( { left: next * strip.clientWidth, behavior: wrapped ? 'instant' : 'smooth' } );
+		const from = target ?? current;
+		target = ( from + by + count ) % count;
+		const wrapped = 1 < Math.abs( target - from );
+		strip.scrollTo( { left: target * strip.clientWidth, behavior: wrapped ? 'auto' : 'smooth' } );
 	}
 
 	strip.addEventListener( 'scroll', () => {
 		const index = Math.round( strip.scrollLeft / strip.clientWidth );
+		if ( index === target ) {
+			target = null;
+		}
 		if ( index !== current ) {
 			current = index;
 			load();
 		}
+	} );
+	// A swipe that interrupts an arrow's scroll ends somewhere else.
+	strip.addEventListener( 'scrollend', () => {
+		target = null;
 	} );
 
 	root.addEventListener( 'click', ( e ) => {
@@ -188,7 +201,8 @@
 		strip.replaceChildren( ...openers.map( slide ) );
 		dialog.showModal();
 		current = openers.indexOf( btn );
-		strip.scrollTo( { left: current * strip.clientWidth, behavior: 'instant' } );
+		target = null;
+		strip.scrollTo( { left: current * strip.clientWidth, behavior: 'auto' } );
 		load();
 	} );
 	// A removed img keeps downloading, so each one stops first.
@@ -197,8 +211,8 @@
 		strip.replaceChildren();
 	} );
 	dialog.querySelector( '.ts-lightbox-close' ).addEventListener( 'click', () => dialog.close() );
-	dialog.querySelector( '.ts-lightbox-prev' ).addEventListener( 'click', () => show( current - 1 ) );
-	dialog.querySelector( '.ts-lightbox-next' ).addEventListener( 'click', () => show( current + 1 ) );
+	dialog.querySelector( '.ts-lightbox-prev' ).addEventListener( 'click', () => step( -1 ) );
+	dialog.querySelector( '.ts-lightbox-next' ).addEventListener( 'click', () => step( 1 ) );
 	// Outside the photo: the dark around it, which is the dialog or a slide.
 	dialog.addEventListener( 'click', ( e ) => {
 		if ( e.target === dialog || e.target.classList.contains( 'ts-lightbox-slide' ) ) {
@@ -208,7 +222,7 @@
 	dialog.addEventListener( 'keydown', ( e ) => {
 		if ( 'ArrowLeft' === e.key || 'ArrowRight' === e.key ) {
 			e.preventDefault(); // A focused strip would scroll itself as well.
-			show( current + ( 'ArrowLeft' === e.key ? -1 : 1 ) );
+			step( 'ArrowLeft' === e.key ? -1 : 1 );
 		}
 	} );
 

@@ -567,7 +567,9 @@ $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );
 check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) && false === strpos( $html, 'ts-edit-photos' ) );
 // The script fills the strip with a slide per photo when the lightbox opens, so swiping is the browser's own scrolling.
-check( 'the lightbox is an empty swipe strip, not one figure', 1 === preg_match( '/<dialog class="ts-lightbox"(?:(?!<\/dialog>).)*class="ts-lightbox-strip"><\/div>/s', $html ) && 0 === preg_match( '/<dialog class="ts-lightbox"(?:(?!<\/dialog>).)*<figure/s', $html ) );
+check( 'the lightbox is an empty swipe strip, not one figure', 1 === preg_match( '/<dialog class="ts-lightbox"(?:(?!<\/dialog>).)*class="ts-lightbox-strip"[^>]*><\/div>/s', $html ) && 0 === preg_match( '/<dialog class="ts-lightbox"(?:(?!<\/dialog>).)*<figure/s', $html ) );
+// On a right-to-left page the strip's scrollLeft would run negative, and the script's index maths with it.
+check( 'the swipe strip runs left to right on any page', 1 === preg_match( '/class="ts-lightbox-strip" dir="ltr"/', $html ) );
 ob_start();
 do_action( wp_app_get_scoped_hook_name( 'wp_app_head_styles', 'travel-steps' ) );
 $styles  = ob_get_clean();

@@ -416,6 +416,8 @@ check( 'cover: visitors can load the chosen cover', isset( Trips::shown_photo_id
 wp_set_current_user( 1 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'cover: its button is pressed on the trip page', 1 === preg_match( '/data-asset="' . $faro . '"[^>]*>(?:(?!<\/figure>).)*ts-photo-cover[^>]*aria-pressed="true"/s', $html ) );
+// On a touch screen the photo tools stay off until this is pressed, so a long press can't use them.
+check( 'an editor gets the Edit photos toggle, off', 1 === preg_match( '/<button[^>]*class="[^"]*ts-edit-photos[^"]*"[^>]*aria-pressed="false"/', $html ) );
 $res = $cover( '' );
 check( 'cover: pressing again goes back to automatic', 200 === $res->get_status() && false !== strpos( View::cover_url( $trip_id ), $lis ) );
 wp_set_current_user( 0 );
@@ -563,7 +565,7 @@ wp_publish_post( $d2->ID );
 wp_set_current_user( 0 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );
-check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) );
+check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) && false === strpos( $html, 'ts-edit-photos' ) );
 ob_start();
 do_action( wp_app_get_scoped_hook_name( 'wp_app_head_styles', 'travel-steps' ) );
 $styles  = ob_get_clean();

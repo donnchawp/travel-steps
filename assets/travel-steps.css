@@ -117,6 +117,7 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-hero-dates { margin: 0; font-weight: 600; opacity: .9; }
 .ts-stats { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; margin: 0; padding: 0; list-style: none; }
 .ts-stats strong { font-size: 1.25rem; }
+.ts-hero-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 
 .ts-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .ts-map-wrap { position: sticky; top: 32px; height: calc(100vh - 32px); }
@@ -179,6 +180,17 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 	transition: opacity .15s;
 }
 .ts-photo:hover .ts-photo-tools, .ts-photo-tools:focus-within, .ts-photo.is-pinned .ts-photo-tools, .ts-photo.is-hidden .ts-photo-tools { opacity: 1; }
+/* Only tools that show take clicks. Pointer events, not visibility, so Tab still reaches them. */
+.ts-photo:hover .ts-photo-tools > *, .ts-photo-tools:focus-within > *, .ts-photo.is-pinned .ts-photo-tools > *, .ts-photo.is-hidden .ts-photo-tools > * { pointer-events: auto; }
+/* A touch screen has no hover: the tools are off until "Edit photos" turns them on, so a long press while scrolling can't change the trip. */
+.ts-edit-photos { display: none; }
+@media (hover: none) {
+	.ts-edit-photos { display: inline-block; }
+	.ts-edit-photos[aria-pressed="true"] { background: var(--ts-accent); color: var(--ts-accent-ink) !important; }
+	.ts-trip:not(.is-editing-photos) .ts-photo-tools { display: none; }
+	.ts-trip.is-editing-photos .ts-photo-tools { opacity: 1; }
+	.ts-trip.is-editing-photos .ts-photo-tools > * { pointer-events: auto; }
+}
 .ts-photo-state, .ts-photo-cover, .ts-photo-fav {
 	padding: .15rem .5rem;
 	border: 0;
@@ -190,7 +202,6 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 	line-height: 1.4;
 }
 .ts-photo-state, .ts-photo-cover { cursor: pointer; }
-.ts-photo-tools > * { pointer-events: auto; }
 .ts-photo-state[aria-pressed="true"], .ts-photo-cover[aria-pressed="true"] { background: var(--ts-accent); }
 .ts-photo-fav { color: #ff7a9c; }
 

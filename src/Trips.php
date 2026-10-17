@@ -34,6 +34,8 @@ class Trips {
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
 	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.
+	// The inline tags a trip's intro can have and still be edited as text on its edit page.
+	const INTRO_TAGS = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
 
 	// Step meta. A step is a day: the date part of its post date.
 	const META_LAT  = '_ts_lat';
@@ -655,25 +657,25 @@ class Trips {
 	 * paragraph with settings of its own), which only the block editor can change safely.
 	 */
 	public static function intro_text( string $content ): ?string {
-		$inline     = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
 		$paragraphs = [];
 		foreach ( parse_blocks( $content ) as $block ) {
 			$html = trim( $block['innerHTML'] );
 			if ( null === $block['blockName'] ) {
 				// Classic content: paragraphs as <p>, or plain text with blank lines between them.
-				$html = preg_replace( [ '#<p>#i', '#</p>#i' ], [ '', "\n\n" ], $html );
+				$html = str_ireplace( [ '<p>', '</p>' ], [ '', "\n\n" ], $html );
 			} elseif ( 'core/paragraph' === $block['blockName'] && ! $block['attrs'] && preg_match( '#^<p>(.*)</p>$#is', $html, $m ) ) {
 				$html = $m[1];
 			} else {
 				return null;
 			}
-			if ( strip_tags( $html, $inline ) !== $html ) {
+			if ( strip_tags( $html, self::INTRO_TAGS ) !== $html ) {
 				return null;
 			}
 			$html = preg_replace( '#<br\s*/?>\n?#i', "\n", $html );
 			foreach ( preg_split( '/\n\s*\n/', $html ) as $paragraph ) {
-				if ( '' !== trim( $paragraph ) ) {
-					$paragraphs[] = trim( $paragraph );
+				$paragraph = trim( $paragraph );
+				if ( '' !== $paragraph ) {
+					$paragraphs[] = $paragraph;
 				}
 			}
 		}
@@ -682,12 +684,14 @@ class Trips {
 
 	/**
 	 * The edit form's plain text as the intro: a paragraph block for each paragraph, so the
-	 * block editor opens it as paragraphs. A single newline is a line break.
+	 * block editor opens it as paragraphs. A single newline is a line break. Only the tags
+	 * intro_text() shows are kept, so whatever is saved can be edited as text again.
 	 */
 	public static function intro_content( string $text ): string {
-		$blocks = [];
+		$allowed = array_intersect_key( wp_kses_allowed_html( 'post' ), array_flip( self::INTRO_TAGS ) );
+		$blocks  = [];
 		foreach ( preg_split( '/\n\s*\n/', str_replace( "\r\n", "\n", $text ) ) as $paragraph ) {
-			$paragraph = trim( wp_kses_post( $paragraph ) );
+			$paragraph = trim( wp_kses( $paragraph, $allowed ) );
 			if ( '' !== $paragraph ) {
 				$blocks[] = "<!-- wp:paragraph -->\n<p>" . str_replace( "\n", '<br>', $paragraph ) . "</p>\n<!-- /wp:paragraph -->";
 			}

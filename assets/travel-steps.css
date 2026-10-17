@@ -243,8 +243,8 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 /* ---------- Forms ---------- */
 
 .ts-form { display: grid; gap: 1rem; margin: 1.5rem 0; }
-.ts-form label, .ts-form .ts-field { display: grid; gap: .3rem; }
-.ts-form label > span, .ts-form .ts-field > span { font-weight: 600; font-size: .9rem; }
+.ts-form label { display: grid; gap: .3rem; }
+.ts-form label > span { font-weight: 600; font-size: .9rem; }
 .ts-form label.ts-check { display: flex; align-items: center; gap: .5rem; }
 .ts-form label.ts-check > span { font-weight: normal; }
 .ts-form label.ts-check input { width: auto; }
@@ -260,7 +260,7 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 }
 .ts-form fieldset { display: grid; gap: 1rem; margin: 0; padding: 1rem 1.1rem 1.2rem; border: 1px solid var(--ts-line); border-radius: var(--ts-radius); background: var(--ts-surface); }
 .ts-form legend { padding: 0 .4rem; font-weight: 700; }
-.ts-form fieldset p, .ts-form .ts-field p { margin: 0; }
+.ts-form fieldset p { margin: 0; }
 .ts-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
 .ts-form-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
 /* .ts-button's display would otherwise win over the hidden attribute. */

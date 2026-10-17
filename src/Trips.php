@@ -721,10 +721,12 @@ class Trips {
 			$status = 'draft';
 		}
 		$current = $trip_id ? get_post( $trip_id ) : null;
+		$title   = sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' );
+		// Free text is slashed as wp_insert_post() expects, so a backslash typed in it is kept.
 		$postarr = [
 			'ID'          => $trip_id,
 			'post_type'   => self::TRIP,
-			'post_title'  => sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' ),
+			'post_title'  => wp_slash( $title ),
 			'post_status' => $status,
 		];
 		// An intro with more than paragraphs has no field on the form; only the block editor changes it.
@@ -739,7 +741,7 @@ class Trips {
 		}
 		// WordPress leaves drafts without a slug; give the trip one so its URL is stable.
 		if ( ! $current || ! $current->post_name ) {
-			$postarr['post_name'] = wp_unique_post_slug( sanitize_title( $postarr['post_title'] ), $trip_id, 'publish', self::TRIP, 0 );
+			$postarr['post_name'] = wp_unique_post_slug( sanitize_title( $title ), $trip_id, 'publish', self::TRIP, 0 );
 		}
 		$result  = $trip_id ? wp_update_post( $postarr, true ) : wp_insert_post( $postarr, true );
 		if ( is_wp_error( $result ) ) {

@@ -18,10 +18,15 @@ $text = Trips::intro_text( "One.\n\nTwo." );
 check( '…and plain text', "One.\n\nTwo." === $text, $text );
 check( '…and a line break inside a paragraph is a single newline', "One\ntwo." === Trips::intro_text( "<!-- wp:paragraph -->\n<p>One<br>two.</p>\n<!-- /wp:paragraph -->" ) );
 check( '…and an empty intro is empty', '' === Trips::intro_text( '' ) );
+$text = Trips::intro_text( "<p>Line<br />\r\nNext</p>\r\n<p>Two</p>" );
+check( '…and classic HTML saved with CRLF keeps its line break inside the paragraph', "Line\nNext\n\nTwo" === $text, $text );
+$text = Trips::intro_text( "<!-- wp:paragraph -->\n<p>B&amp;B in Dingle &amp;amp; &lt;b&gt;</p>\n<!-- /wp:paragraph -->" );
+check( '…and an ampersand shows as typed, other entities as stored', 'B&B in Dingle &amp;amp; &lt;b&gt;' === $text, $text );
 $intro_image = $intro_blocks . "\n\n<!-- wp:image -->\n<figure class=\"wp-block-image\"><img src=\"https://example.com/a.jpg\" alt=\"\"/></figure>\n<!-- /wp:image -->";
 check( 'intro: an image block means it isn’t plain text', null === Trips::intro_text( $intro_image ) );
 check( '…as does a heading', null === Trips::intro_text( "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">West</h2>\n<!-- /wp:heading -->" ) );
 check( '…or a classic list', null === Trips::intro_text( "<p>One.</p>\n<ul><li>Two</li></ul>" ) );
+check( '…or a paragraph with a blank line made of line breaks, which the field would split in two', null === Trips::intro_text( "<!-- wp:paragraph -->\n<p>One<br><br>Two</p>\n<!-- /wp:paragraph -->" ) );
 check( '…or a paragraph with settings of its own', null === Trips::intro_text( "<!-- wp:paragraph {\"align\":\"center\"} -->\n<p class=\"has-text-align-center\">One.</p>\n<!-- /wp:paragraph -->" ) );
 
 $saved = Trips::intro_content( "A week <a href=\"https://example.com/\">round the west</a>.\r\n\r\nThen\nhome." );
@@ -32,6 +37,10 @@ check( '…without a script', false === strpos( Trips::intro_content( 'Hi <scrip
 $saved = Trips::intro_content( '<h2>West</h2> of <strong>Ireland</strong>' );
 check( '…or a tag the field can’t show again, so a heading typed in stays editable as text', 'West of <strong>Ireland</strong>' === Trips::intro_text( $saved ), $saved );
 check( '…and empty text saves an empty intro', '' === Trips::intro_content( " \n\n " ) );
+$saved = Trips::intro_content( "<strong>Bold\n\nstill</strong>" );
+check( '…and a tag left open is closed within its paragraph', "<strong>Bold</strong>\n\nstill" === Trips::intro_text( $saved ), $saved );
+$text = Trips::intro_text( Trips::intro_content( 'B&B' ) );
+check( '…and an ampersand typed reads back as typed', 'B&B' === $text, $text );
 
 // The form and its handler.
 $intro_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Intro', 'post_status' => 'draft', 'post_content' => $intro_blocks ] );
@@ -47,6 +56,18 @@ check( '…and saving it as shown works', 'redirect' === $save_intro( [ 'intro' 
 $content = get_post_field( 'post_content', $intro_trip );
 check( '…and keeps it as paragraph blocks of the same text', $intro_plain === Trips::intro_text( $content ) && false !== strpos( $content, '<!-- wp:paragraph -->' ), $content );
 check( '…and a form without the field leaves the intro alone', 'redirect' === $save_intro( [] ) && $content === get_post_field( 'post_content', $intro_trip ) );
+$save_intro( [ 'intro' => wp_slash( 'C:\\Users\\me' ) ] ); // Requests arrive slashed.
+$text = Trips::intro_text( get_post_field( 'post_content', $intro_trip ) );
+check( '…and a backslash typed in it is kept', 'C:\\Users\\me' === $text, $text );
+$_POST = $_REQUEST = [ 'trip_id' => 0, 'title' => 'New intro', 'status' => 'draft', 'intro' => "First.\n\nSecond.", '_wpnonce' => wp_create_nonce( 'travel_steps_save_trip' ) ];
+$stopped( [ new Trips(), 'handle_save_trip' ] );
+$_POST = $_REQUEST = [];
+$new_trip = get_posts( [ 'post_type' => Trips::TRIP, 'post_status' => 'any', 'title' => 'New intro', 'fields' => 'ids' ] );
+$text     = $new_trip ? Trips::intro_text( get_post_field( 'post_content', $new_trip[0] ) ) : null;
+check( 'a new trip saves its introduction as paragraphs', "First.\n\nSecond." === $text, $text );
+if ( $new_trip ) {
+	wp_delete_post( $new_trip[0], true );
+}
 
 wp_update_post( [ 'ID' => $intro_trip, 'post_content' => wp_slash( $intro_image ) ] );
 $before = get_post_field( 'post_content', $intro_trip );

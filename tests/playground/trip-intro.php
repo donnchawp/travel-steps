@@ -41,6 +41,16 @@ $saved = Trips::intro_content( "<strong>Bold\n\nstill</strong>" );
 check( '…and a tag left open is closed within its paragraph', "<strong>Bold</strong>\n\nstill" === Trips::intro_text( $saved ), $saved );
 $text = Trips::intro_text( Trips::intro_content( 'B&B' ) );
 check( '…and an ampersand typed reads back as typed', 'B&B' === $text, $text );
+// A < or > that isn't part of a tag is text: kses would cut "<3 Kerry…" off as a broken tag.
+foreach ( [ 'I <3 Kerry and Clare', 'a < b > c', 'x > y, 1 <= 2 << 3' ] as $intro_typed ) {
+	$saved = Trips::intro_content( $intro_typed );
+	$text  = Trips::intro_text( $saved );
+	check( "intro: “{$intro_typed}” is kept, and reads back as typed", $intro_typed === $text, [ $saved, $text ] );
+	check( '…and saving it again stores it byte for byte', Trips::intro_content( (string) $text ) === $saved, $saved );
+}
+check( '…shown on the trip page as typed', false !== strpos( Trips::intro_content( 'I <3 Kerry' ), 'I &lt;3 Kerry' ) );
+$saved = "<!-- wp:paragraph -->\n<p>Type &lt;b&gt; for bold</p>\n<!-- /wp:paragraph -->";
+check( '…and a tag written out as text in the block editor stays text through the form', 'Type &lt;b&gt; for bold' === Trips::intro_text( $saved ) && $saved === Trips::intro_content( (string) Trips::intro_text( $saved ) ), Trips::intro_text( $saved ) );
 
 // The form and its handler.
 $intro_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Intro', 'post_status' => 'draft', 'post_content' => $intro_blocks ] );
@@ -59,6 +69,9 @@ check( '…and a form without the field leaves the intro alone', 'redirect' === 
 $save_intro( [ 'intro' => wp_slash( 'C:\\Users\\me' ) ] ); // Requests arrive slashed.
 $text = Trips::intro_text( get_post_field( 'post_content', $intro_trip ) );
 check( '…and a backslash typed in it is kept', 'C:\\Users\\me' === $text, $text );
+$save_intro( [ 'intro' => wp_slash( 'I <3 Kerry and Clare' ) ] );
+$text = Trips::intro_text( get_post_field( 'post_content', $intro_trip ) );
+check( '…as is a < that starts no tag', 'I <3 Kerry and Clare' === $text, $text );
 $saved = $save_intro( [ 'title' => wp_slash( 'C:\\Trips' ) ] );
 $title = get_post_field( 'post_title', $intro_trip );
 check( '…as is one typed in the trip’s title', 'redirect' === $saved && 'C:\\Trips' === $title, $title );

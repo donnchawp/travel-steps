@@ -731,6 +731,13 @@ class Trips {
 			}
 			// An ampersand shows as typed; kses encodes it again on save.
 			$html = preg_replace( [ '#<br\s*/?>\n?#i', '/&amp;(?![a-z0-9#]+;)/i' ], [ "\n", '&' ], $html );
+			// So does a < or > that starts no tag, as intro_content() stores it. One written out
+			// round a tag's name, such as &lt;b&gt;, stays as it is: typed, it would be a tag.
+			$html = preg_replace_callback(
+				'#&lt;[a-z/!?][^&<>]*&gt;|&lt;(?![a-z/!?])|&gt;#i',
+				fn( $m ) => [ '&lt;' => '<', '&gt;' => '>' ][ strtolower( $m[0] ) ] ?? $m[0],
+				$html
+			);
 			foreach ( preg_split( '/\n\s*\n/', $html ) as $paragraph ) {
 				$paragraph = trim( $paragraph );
 				if ( '' !== $paragraph ) {
@@ -750,6 +757,8 @@ class Trips {
 		$allowed = array_intersect_key( wp_kses_allowed_html( 'post' ), array_flip( self::INTRO_TAGS ) );
 		$blocks  = [];
 		foreach ( preg_split( '/\n\s*\n/', str_replace( "\r\n", "\n", $text ) ) as $paragraph ) {
+			// A < that can't start a tag is text, or kses reads "a < b >" as <b>.
+			$paragraph = preg_replace( '#<(?![a-z/!?])#i', '&lt;', $paragraph );
 			// Balanced, so a tag left open doesn't run past its paragraph block.
 			$paragraph = trim( force_balance_tags( wp_kses( $paragraph, $allowed ) ) );
 			if ( '' !== $paragraph ) {

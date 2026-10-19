@@ -51,6 +51,11 @@ foreach ( [ 'I <3 Kerry and Clare', 'a < b > c', 'x > y, 1 <= 2 << 3' ] as $intr
 check( '…shown on the trip page as typed', false !== strpos( Trips::intro_content( 'I <3 Kerry' ), 'I &lt;3 Kerry' ) );
 $saved = "<!-- wp:paragraph -->\n<p>Type &lt;b&gt; for bold</p>\n<!-- /wp:paragraph -->";
 check( '…and a tag written out as text in the block editor stays text through the form', 'Type &lt;b&gt; for bold' === Trips::intro_text( $saved ) && $saved === Trips::intro_content( (string) Trips::intro_text( $saved ) ), Trips::intro_text( $saved ) );
+foreach ( [ 'more &gt; less', 'x &lt; y' ] as $intro_title ) {
+	$saved = "<!-- wp:paragraph -->\n<p>A <abbr title=\"{$intro_title}\">tag</abbr> here</p>\n<!-- /wp:paragraph -->";
+	$text  = Trips::intro_text( $saved );
+	check( "…and an attribute holding “{$intro_title}” is left as stored, so the tag survives a save", $saved === Trips::intro_content( (string) $text ), [ $text, Trips::intro_content( (string) $text ) ] );
+}
 
 // The form and its handler.
 $intro_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Intro', 'post_status' => 'draft', 'post_content' => $intro_blocks ] );

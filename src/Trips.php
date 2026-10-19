@@ -733,10 +733,11 @@ class Trips {
 			}
 			// An ampersand shows as typed; kses encodes it again on save.
 			$html = preg_replace( [ '#<br\s*/?>\n?#i', '/&amp;(?![a-z0-9#]+;)/i' ], [ "\n", '&' ], $html );
-			// So does a < or > that starts no tag, as intro_content() stores it. A tag's name
-			// written out, such as &lt;b&gt;, stays as it is: typed, it would be a tag.
+			// So does a < or > that starts no tag, as intro_content() stores it, outside tags only:
+			// a > typed in an attribute would end its tag. A tag's name written out, such as
+			// &lt;b&gt;, stays as it is: typed, it would be a tag.
 			$html = preg_replace_callback(
-				'#(&lt;' . self::TAG_START . '[^&<>]*&gt;)|&lt;(?!' . self::TAG_START . ')|&gt;#i',
+				'#(<[^>]*>|&lt;' . self::TAG_START . '[^&<>]*&gt;)|&lt;(?!' . self::TAG_START . ')|&gt;#i',
 				fn( $m ) => $m[1] ?? ( '&gt;' === strtolower( $m[0] ) ? '>' : '<' ),
 				$html,
 				flags: PREG_UNMATCHED_AS_NULL

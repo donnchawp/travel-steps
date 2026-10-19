@@ -101,9 +101,20 @@ class RestController {
 	 * query, template_redirect and the app's router, which a photo needs none of.
 	 */
 	public static function maybe_serve_photo( \WP $wp ): void {
-		if ( preg_match( '#^' . App::URL_PATH . '/photo/(\d+)/([^/]+)/([^/]+)$#', $wp->request, $m ) ) {
-			self::serve_photo( (int) $m[1], $m[2], $m[3] );
+		$photo = self::photo_request( $wp->request );
+		if ( $photo ) {
+			self::serve_photo( ...$photo );
 		}
+	}
+
+	/**
+	 * The trip, asset and size a request path (relative to home, as WP::$request has it)
+	 * asks for, if it's photo_url()'s; photo_answer() checks them.
+	 *
+	 * @return array{0: int, 1: string, 2: string}|null
+	 */
+	public static function photo_request( string $path ): ?array {
+		return preg_match( '#^' . App::URL_PATH . '/photo/(\d+)/([^/]+)/([^/]+)$#', trim( $path, '/' ), $m ) ? [ (int) $m[1], $m[2], $m[3] ] : null;
 	}
 
 	/**
@@ -116,7 +127,7 @@ class RestController {
 			301,
 			[
 				'Location'      => self::photo_url( (int) $request['id'], (string) $request['asset'], (string) $request['size'] ),
-				'Cache-Control' => 'public, max-age=86400',
+				'Cache-Control' => 'public, max-age=3600',
 			]
 		);
 	}
@@ -238,6 +249,10 @@ class RestController {
 		status_header( $answer['status'] );
 		header( 'Cache-Control: ' . $answer['cache'] );
 		header( 'X-Content-Type-Options: nosniff' );
+		// Another site's page can't load one only some may see, so whether it loads tells it nothing.
+		if ( 0 !== strpos( $answer['cache'], 'public' ) ) {
+			header( 'Cross-Origin-Resource-Policy: same-site' );
+		}
 		if ( isset( $answer['etag'] ) ) {
 			header( 'ETag: ' . $answer['etag'] );
 		}

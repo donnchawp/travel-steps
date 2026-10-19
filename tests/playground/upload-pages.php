@@ -200,6 +200,15 @@ $up_html = $render( 'trip-edit.php', (string) $up_times );
 $up_list = $up_rows( $up_html );
 check( 'the Photos panel lists the uploads with no time taken, open while one has none', 1 === preg_match( '/<details[^>]*id="ts-untimed"[^>]*\sopen/', $up_html ) && false !== strpos( $up_html, '4 with no time taken' ) && [] === array_diff( [ $up_wa, $up_shot, $up_set, $up_plain ], array_keys( $up_list ) ) && 4 === count( $up_list ), array_keys( $up_list ) );
 check( '…each with its thumbnail and the name it was uploaded with', false !== strpos( $up_list[ $up_wa ] ?? '', 'IMG-20250318-WA0001' ) && false !== strpos( $up_list[ $up_wa ] ?? '', esc_url( TravelSteps\RestController::photo_url( $up_times, $up_wa, 'thumbnail' ) ) ), $up_list[ $up_wa ] ?? '' );
+$up_got = TravelSteps\RestController::photo_answer( $up_times, $up_wa, 'thumbnail', '' );
+check( 'the author gets an upload’s thumbnail, kept out of shared caches', [ 200, 'private, max-age=3600' ] === [ $up_got['status'], $up_got['cache'] ] && 'image/jpeg' === ( $up_got['image']['type'] ?? '' ), [ $up_got['status'], $up_got['cache'] ] );
+if ( isset( $up_got['image']['handle'] ) ) {
+	fclose( $up_got['image']['handle'] );
+}
+wp_set_current_user( 0 );
+$up_got = TravelSteps\RestController::photo_answer( $up_times, $up_wa, 'thumbnail', '' );
+check( '…and a visitor, as the trip’s a draft, the uncacheable 404', [ 404, 'no-store' ] === [ $up_got['status'], $up_got['cache'] ], $up_got );
+wp_set_current_user( $ut_author );
 check( '…a WhatsApp name fills in the date only, and says so', [ '2025-03-18', '' ] === [ $up_value( $up_list[ $up_wa ] ?? '', 'date' ), $up_value( $up_list[ $up_wa ] ?? '', 'time' ) ] && false !== strpos( $up_list[ $up_wa ] ?? '', 'From the file name' ), $up_list[ $up_wa ] ?? '' );
 check( '…a screenshot’s name, its date and time', [ '2025-03-18', '17:42' ] === [ $up_value( $up_list[ $up_shot ] ?? '', 'date' ), $up_value( $up_list[ $up_shot ] ?? '', 'time' ) ] );
 check( '…a saved time wins over the name, and isn’t marked as from it', [ '2025-03-19', '09:05' ] === [ $up_value( $up_list[ $up_set ] ?? '', 'date' ), $up_value( $up_list[ $up_set ] ?? '', 'time' ) ] && false === strpos( $up_list[ $up_set ] ?? '', 'From the file name' ), $up_list[ $up_set ] ?? '' );

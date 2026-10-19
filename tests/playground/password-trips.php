@@ -124,6 +124,10 @@ check( '…no wrong-password message on a first visit', false === strpos( $seen[
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && [ 404, 'no-store' ] === [ $seen['proxy']['status'], $seen['proxy']['cache'] ] && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']['status'], $seen['photo'], $seen['cover'], $seen['step'] ] );
 $pw_moved = $get( '/travel-steps/v1/trips/' . $pw_a . '/photo/' . $pw_photo, [ 'size' => 'medium' ] );
 check( '…and a photo URL from when REST served photos sends them to where it is now, which refuses them', 301 === $pw_moved->get_status() && RestController::photo_url( $pw_a, $pw_photo, 'medium' ) === ( $pw_moved->get_headers()['Location'] ?? '' ), [ $pw_moved->get_status(), $pw_moved->get_headers() ] );
+$pw_path  = fn( string $url ) => substr( (string) wp_parse_url( $url, PHP_URL_PATH ), strlen( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ) ) );
+$pw_uuid  = wp_generate_uuid4();
+check( 'a photo URL’s path is the request the photo is served for', [ $pw_a, $pw_photo, 'medium' ] === RestController::photo_request( $pw_path( RestController::photo_url( $pw_a, $pw_photo, 'medium' ) ) ) );
+check( '…with a trailing slash too, but not with anything more or less', [ 7, $pw_uuid, 'medium' ] === RestController::photo_request( "travel-steps/photo/7/$pw_uuid/medium/" ) && null === RestController::photo_request( "travel-steps/photo/7/$pw_uuid/medium/x" ) && null === RestController::photo_request( "travel-steps/photo/7/$pw_uuid" ) && null === RestController::photo_request( "travel-steps/trip/7/$pw_uuid/medium" ) );
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and core REST neither serves nor lists it to them', 'shut' === $seen['core'], $seen['core'] );
 // Core's ?password= isn't a way in: the trip page's cookie is the only one.

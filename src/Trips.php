@@ -38,6 +38,8 @@ class Trips {
 	const SHARE_ARG = 'share';
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
 	const INTRO_TAGS = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
+	// What can follow a < that starts a tag or comment. Any other < in an intro is text.
+	const TAG_START = '[a-z/!?]';
 
 	// Step meta. A step is a day: the date part of its post date.
 	const META_LAT  = '_ts_lat';
@@ -731,12 +733,13 @@ class Trips {
 			}
 			// An ampersand shows as typed; kses encodes it again on save.
 			$html = preg_replace( [ '#<br\s*/?>\n?#i', '/&amp;(?![a-z0-9#]+;)/i' ], [ "\n", '&' ], $html );
-			// So does a < or > that starts no tag, as intro_content() stores it. One written out
-			// round a tag's name, such as &lt;b&gt;, stays as it is: typed, it would be a tag.
+			// So does a < or > that starts no tag, as intro_content() stores it. A tag's name
+			// written out, such as &lt;b&gt;, stays as it is: typed, it would be a tag.
 			$html = preg_replace_callback(
-				'#&lt;[a-z/!?][^&<>]*&gt;|&lt;(?![a-z/!?])|&gt;#i',
-				fn( $m ) => [ '&lt;' => '<', '&gt;' => '>' ][ strtolower( $m[0] ) ] ?? $m[0],
-				$html
+				'#(&lt;' . self::TAG_START . '[^&<>]*&gt;)|&lt;(?!' . self::TAG_START . ')|&gt;#i',
+				fn( $m ) => $m[1] ?? ( '&gt;' === strtolower( $m[0] ) ? '>' : '<' ),
+				$html,
+				flags: PREG_UNMATCHED_AS_NULL
 			);
 			foreach ( preg_split( '/\n\s*\n/', $html ) as $paragraph ) {
 				$paragraph = trim( $paragraph );
@@ -758,7 +761,7 @@ class Trips {
 		$blocks  = [];
 		foreach ( preg_split( '/\n\s*\n/', str_replace( "\r\n", "\n", $text ) ) as $paragraph ) {
 			// A < that can't start a tag is text, or kses reads "a < b >" as <b>.
-			$paragraph = preg_replace( '#<(?![a-z/!?])#i', '&lt;', $paragraph );
+			$paragraph = preg_replace( '#<(?!' . self::TAG_START . ')#i', '&lt;', $paragraph );
 			// Balanced, so a tag left open doesn't run past its paragraph block.
 			$paragraph = trim( force_balance_tags( wp_kses( $paragraph, $allowed ) ) );
 			if ( '' !== $paragraph ) {

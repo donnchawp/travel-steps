@@ -53,6 +53,8 @@ dist: ## Build dist/ from HEAD: the plugin zip (runtime deps only) and the demo'
 	git archive HEAD | tar -x -C dist/travel-steps
 	composer install --no-dev --no-interaction --quiet --working-dir=dist/travel-steps
 	find dist/travel-steps -mindepth 1 -name '.*' -prune -exec rm -rf {} +
+	# Only Composer and GitHub read these. composer.json stays: wp-app's settings page finds the plugin by it.
+	cd dist/travel-steps && rm -f composer.lock README.md vendor/akirk/wp-app/AGENTS.md vendor/akirk/wp-app/README.md vendor/akirk/wp-app/composer.json
 	cd dist && zip -qr travel-steps.zip travel-steps && rm -rf travel-steps
 	git show HEAD:demo/setup.php > dist/demo-setup.php
 	git show HEAD:demo/fake-services.php > dist/demo-fake-services.php

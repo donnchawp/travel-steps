@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,11 @@ Syncing a trip makes your WordPress server ask your Immich server for the photos
 Place names come from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The plugin ships towns of 500 people or more, and country names, trimmed to names, countries and positions. Most neighbourhoods and historical places are left out, and Paris's and Marseille's arrondissements are named after their city. Because the names ship with the plugin, naming a place sends nothing anywhere.
 
 == Changelog ==
+
+= 0.5.1 =
+* Photos are served from /travel-steps/photo/, outside REST, at the same URL for everyone: their URLs no longer carry a nonce. A photo that isn't there, or that you can't see, gets the same 404, which caches don't keep, and photos only some people may see can't be loaded by other sites. Old photo URLs redirect to the new ones. Like the trip pages, photos need pretty permalinks, and an authentication proxy that lets /travel-steps/* through now lets their photos through too.
+* The trip edit page shows an introduction of plain paragraphs as text, not block markup, and an ampersand as typed. An introduction with more than paragraphs, such as an image or a heading, links to the block editor instead, and saving the form leaves it as it was.
+* Fixes: a backslash typed in a trip's title is kept when the trip is saved.
 
 = 0.5.0 =
 * After an Immich trip syncs, or you pin, hide or show a photo or change the cover, WordPress caches every photo visitors can see on the trip in the background. The trip keeps working when Immich is down or the author's key stops working, at the cost of disk space for the whole trip. A few photos that always fail no longer hold up the rest.

@@ -283,7 +283,7 @@ $pw_enter( null );
 // Its editors see it without a password, and the landing page badges it for them.
 // Logged-in users who see it by their login get the photo URLs everyone gets, the cover's too:
 // the photo is served at a page, which knows them by their login cookie.
-$pw_plain = fn( string $html, string $asset ) => 1 === preg_match( '#/travel-steps/photo/\d+/' . $asset . '/[a-z]+/?"#', $html ) && false === strpos( $html, '_wpnonce' );
+$pw_plain = fn( string $html, string $asset ) => 1 === preg_match( '#/travel-steps/photo/\d+/' . $asset . '/[a-z]+"#', $html ) && false === strpos( $html, '_wpnonce' );
 foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	wp_set_current_user( $user );
 	$seen = $pw_reach( $pw_a, $pw_a_step );

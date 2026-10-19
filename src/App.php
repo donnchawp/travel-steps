@@ -53,6 +53,8 @@ class App extends BaseApp {
 		add_action( 'admin_post_travel_steps_account', [ Settings::class, 'handle_save_account' ] );
 		add_action( 'admin_post_travel_steps_settings', [ Settings::class, 'handle_save_site' ] );
 		add_action( 'rest_api_init', [ new RestController(), 'register_routes' ] );
+		// Under the app's path, so whatever lets visitors reach trips lets them reach their photos.
+		add_action( 'parse_request', [ RestController::class, 'maybe_serve_photo' ] );
 		add_action( CacheFill::HOOK, [ CacheFill::class, 'run' ] );
 		add_action( CacheSweep::HOOK, [ CacheSweep::class, 'run' ] );
 		CacheSweep::schedule();
@@ -95,8 +97,6 @@ class App extends BaseApp {
 		$this->app->route( 'settings', 'settings.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}', 'trip.php' );
-		// Under the app's path, so whatever lets visitors reach trips lets them reach their photos.
-		$this->app->route( 'photo/{trip_id}/{asset}/{size}', 'photo.php' );
 	}
 
 	protected function setup_menu(): void {

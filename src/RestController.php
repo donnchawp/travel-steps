@@ -93,8 +93,17 @@ class RestController {
 	 * A photo's URL, the same for everyone: serve_photo() works out who's asking.
 	 */
 	public static function photo_url( int $trip_id, string $asset_id, string $size ): string {
-		// As the permalinks end, or core's canonical redirect costs every photo a round trip.
-		return user_trailingslashit( App::url( 'photo/' . $trip_id . '/' . $asset_id . '/' . $size ) );
+		return App::url( 'photo/' . $trip_id . '/' . $asset_id . '/' . $size );
+	}
+
+	/**
+	 * Serve a request for photo_url() as soon as WordPress has parsed it, before the main
+	 * query, template_redirect and the app's router, which a photo needs none of.
+	 */
+	public static function maybe_serve_photo( \WP $wp ): void {
+		if ( preg_match( '#^' . App::URL_PATH . '/photo/(\d+)/([^/]+)/([^/]+)$#', $wp->request, $m ) ) {
+			self::serve_photo( (int) $m[1], $m[2], $m[3] );
+		}
 	}
 
 	/**
@@ -219,15 +228,13 @@ class RestController {
 	 * uploaded to it, and exit. Only assets that belong to the trip are served, so the
 	 * source (an Immich server and its API key) never has to be reachable from outside.
 	 *
-	 * It's served at an app page, not through REST: REST takes anyone without a nonce
-	 * for a visitor, and a nonce in an <img> URL would let anyone the URL reached, copied
-	 * from the media modal say, act as them all over REST. A page reads the login cookie,
-	 * and core's password cookie, as any page does.
+	 * Not through REST: REST takes anyone without a nonce for a visitor, and a nonce in an
+	 * <img> URL would let anyone the URL reached, copied from the media modal say, act as
+	 * them all over REST. Outside it, the login cookie and core's password cookie are read
+	 * as on any page.
 	 */
 	public static function serve_photo( int $trip_id, string $asset, string $size ): void {
 		$answer = self::photo_answer( $trip_id, $asset, $size, sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ) );
-		// Core sends no-cache headers to logged-in users, and with a 404; the photo's own replace them.
-		header_remove( 'Expires' );
 		status_header( $answer['status'] );
 		header( 'Cache-Control: ' . $answer['cache'] );
 		header( 'X-Content-Type-Options: nosniff' );
@@ -251,8 +258,8 @@ class RestController {
 	/**
 	 * What serve_photo() answers: its status and Cache-Control, and for a photo, its ETag
 	 * and, unless it's a 304, the image (its bytes, or a copy WordPress made of an upload,
-	 * opened). Every refusal is the same 404, kept out of caches: nothing in it tells
-	 * another site whether someone is logged in or which trips they see.
+	 * opened). Every refusal is the same 404, kept out of caches, so it tells another site
+	 * nothing about who's asking.
 	 *
 	 * @return array{status: int, cache: string, etag?: string, image?: array{body: string, type: string}|array{handle: resource, type: string}}
 	 */
@@ -276,19 +283,23 @@ class RestController {
 				'etag'   => $etag,
 			];
 		}
-		$image = self::fetch( $trip_id, $asset, $size, $upload );
-		if ( ! is_wp_error( $image ) && isset( $image['file'] ) ) {
+		$image       = self::fetch( $trip_id, $asset, $size, $upload );
+		$unavailable = [
+			'status' => 502,
+			'cache'  => 'no-store',
+		];
+		if ( is_wp_error( $image ) ) {
+			return $unavailable;
+		}
+		if ( isset( $image['file'] ) ) {
 			// Opened before any header is sent: a file deleted after that is still read whole.
 			$handle = @fopen( $image['file'], 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
-			$image  = $handle ? [
+			if ( ! $handle ) {
+				return $unavailable;
+			}
+			$image = [
 				'handle' => $handle,
 				'type'   => $image['type'],
-			] : self::unavailable();
-		}
-		if ( is_wp_error( $image ) ) {
-			return [
-				'status' => 502,
-				'cache'  => 'no-store',
 			];
 		}
 		return [
@@ -301,8 +312,7 @@ class RestController {
 
 	/**
 	 * The Cache-Control a photo and its 304 are sent with: shared caches may keep it only
-	 * if access() says "public". The URL is the same for everyone, so a photo only some
-	 * may see is never one a shared cache keeps.
+	 * if access() says "public".
 	 *
 	 * Unpublishing a step or hiding a photo has to reach shared caches (CDNs, proxies)
 	 * soon, so they keep a public photo 5 minutes; browsers, which already have it, an

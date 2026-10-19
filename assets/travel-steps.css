@@ -234,6 +234,8 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-lightbox figcaption { color: #ddd; padding: .5rem; }
 .ts-lightbox button { border: 0; background: none; color: #fff; font-size: 2.5rem; cursor: pointer; }
 .ts-lightbox-close { position: absolute; top: .5rem; right: 1rem; z-index: 1; }
+/* One photo has nowhere to go. Hidden, not removed, so the photo keeps its column in the middle. */
+.ts-lightbox.is-single .ts-lightbox-prev, .ts-lightbox.is-single .ts-lightbox-next { visibility: hidden; }
 /* A touch screen swipes instead, and gives the photo the whole width. */
 @media (hover: none) {
 	.ts-lightbox[open] { grid-template-columns: 1fr; }

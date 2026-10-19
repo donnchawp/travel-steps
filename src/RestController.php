@@ -70,8 +70,9 @@ class RestController {
 			'/trips/(?P<id>\d+)/photo/(?P<asset>' . self::ASSET_ID . ')',
 			[
 				'methods'             => 'GET',
-				'callback'            => [ $this, 'serve_photo' ],
-				'permission_callback' => [ $this, 'can_view_trip' ],
+				'callback'            => [ $this, 'moved_photo' ],
+				// It only says where the photo is now, which serve_photo() checks.
+				'permission_callback' => '__return_true',
 				'args'                => [
 					'size' => [
 						'type'    => 'string',
@@ -89,15 +90,26 @@ class RestController {
 	}
 
 	/**
-	 * @param bool $authed Add a REST nonce so <img> requests are cookie-authenticated
-	 *                     (needed for drafts and hidden photos).
+	 * A photo's URL, the same for everyone: serve_photo() works out who's asking.
 	 */
-	public static function photo_url( int $trip_id, string $asset_id, string $size, bool $authed = false ): string {
-		$args = [ 'size' => $size ];
-		if ( $authed ) {
-			$args['_wpnonce'] = wp_create_nonce( 'wp_rest' );
-		}
-		return add_query_arg( $args, rest_url( self::NS . '/trips/' . $trip_id . '/photo/' . $asset_id ) );
+	public static function photo_url( int $trip_id, string $asset_id, string $size ): string {
+		// As the permalinks end, or core's canonical redirect costs every photo a round trip.
+		return user_trailingslashit( App::url( 'photo/' . $trip_id . '/' . $asset_id . '/' . $size ) );
+	}
+
+	/**
+	 * Photos were served through REST before, at URLs that may still be in posts and
+	 * caches: send those to where photos are now.
+	 */
+	public function moved_photo( \WP_REST_Request $request ): \WP_REST_Response {
+		return new \WP_REST_Response(
+			null,
+			301,
+			[
+				'Location'      => self::photo_url( (int) $request['id'], (string) $request['asset'], (string) $request['size'] ),
+				'Cache-Control' => 'public, max-age=86400',
+			]
+		);
 	}
 
 	public function get_trip( \WP_REST_Request $request ): \WP_REST_Response {
@@ -181,7 +193,7 @@ class RestController {
 	/**
 	 * Who may fetch a photo through a trip: "public" for one anyone may see, fetched by
 	 * someone who can't edit the trip (see Trips::shared_cacheable()); "private" for one
-	 * only some may see, or fetched by anyone who can edit the trip, nonce or not (for
+	 * only some may see, or fetched by anyone who can edit the trip (for
 	 * those a protected trip lets in, its shown photos; for editors, any synced photo;
 	 * for the trip's managers, any photo uploaded to it, synced or not); "" if they may
 	 * not. Whether shared caches may keep it is photo_cache()'s call.
@@ -203,43 +215,94 @@ class RestController {
 	}
 
 	/**
-	 * Stream a photo from the trip's source, or from the copies WordPress made of one
-	 * uploaded to it. Only assets that belong to the trip are served, so the source (an
-	 * Immich server and its API key) never has to be reachable from outside.
+	 * Send a photo from the trip's source, or from the copies WordPress made of one
+	 * uploaded to it, and exit. Only assets that belong to the trip are served, so the
+	 * source (an Immich server and its API key) never has to be reachable from outside.
 	 *
-	 * @return \WP_Error|void
+	 * It's served at an app page, not through REST: REST takes anyone without a nonce
+	 * for a visitor, and a nonce in an <img> URL would let anyone the URL reached, copied
+	 * from the media modal say, act as them all over REST. A page reads the login cookie,
+	 * and core's password cookie, as any page does.
 	 */
-	public function serve_photo( \WP_REST_Request $request ) {
-		$trip_id = (int) $request['id'];
-		$asset   = (string) $request['asset'];
-		$size    = (string) $request['size'];
-
-		$access = self::access( $trip_id, $asset );
-		if ( '' === $access ) {
-			return new \WP_Error( 'travel_steps_not_found', 'Not found', [ 'status' => 404 ] );
+	public static function serve_photo( int $trip_id, string $asset, string $size ): void {
+		$answer = self::photo_answer( $trip_id, $asset, $size, sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ) );
+		// Core sends no-cache headers to logged-in users, and with a 404; the photo's own replace them.
+		header_remove( 'Expires' );
+		status_header( $answer['status'] );
+		header( 'Cache-Control: ' . $answer['cache'] );
+		header( 'X-Content-Type-Options: nosniff' );
+		if ( isset( $answer['etag'] ) ) {
+			header( 'ETag: ' . $answer['etag'] );
 		}
-		$cache  = self::photo_cache( $access, $request );
-		$upload = Uploads::attachment( $trip_id, $asset );
-		$etag   = self::etag( $asset, $size, $upload );
-		// Revalidation runs the access check above every time, but costs no image bytes.
-		if ( self::not_modified( $etag, (string) $request->get_header( 'if_none_match' ) ) ) {
-			self::send_cache_headers( $cache, $etag );
-			status_header( 304 );
-			exit;
+		$image = $answer['image'] ?? null;
+		if ( $image ) {
+			self::send_type( $image['type'] );
+			if ( isset( $image['handle'] ) ) {
+				header( 'Content-Length: ' . fstat( $image['handle'] )['size'] );
+				fpassthru( $image['handle'] );
+			} else {
+				header( 'Content-Length: ' . strlen( $image['body'] ) );
+				echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
 		}
-
-		$image = self::fetch( $trip_id, $asset, $size, $upload );
-		if ( is_wp_error( $image ) ) {
-			return $image;
-		}
-		return self::send_image( $cache, $etag, $image );
+		exit;
 	}
 
 	/**
-	 * The Cache-Control the proxy sends with a photo, and with its 304: shared caches may
-	 * keep it only if access() says "public" and the URL carries no nonce. A nonce is
-	 * whoever built the URL's, so a shared cache must never keep one, however the URL was
-	 * built and whoever sends it.
+	 * What serve_photo() answers: its status and Cache-Control, and for a photo, its ETag
+	 * and, unless it's a 304, the image (its bytes, or a copy WordPress made of an upload,
+	 * opened). Every refusal is the same 404, kept out of caches: nothing in it tells
+	 * another site whether someone is logged in or which trips they see.
+	 *
+	 * @return array{status: int, cache: string, etag?: string, image?: array{body: string, type: string}|array{handle: resource, type: string}}
+	 */
+	public static function photo_answer( int $trip_id, string $asset, string $size, string $if_none_match ): array {
+		$valid  = 1 === preg_match( '/^' . self::ASSET_ID . '$/', $asset ) && in_array( $size, self::SIZES, true );
+		$access = $valid ? self::access( $trip_id, $asset ) : '';
+		if ( '' === $access ) {
+			return [
+				'status' => 404,
+				'cache'  => 'no-store',
+			];
+		}
+		$cache  = self::photo_cache( $access );
+		$upload = Uploads::attachment( $trip_id, $asset );
+		$etag   = self::etag( $asset, $size, $upload );
+		// Revalidation runs the access check above every time, but costs no image bytes.
+		if ( self::not_modified( $etag, $if_none_match ) ) {
+			return [
+				'status' => 304,
+				'cache'  => $cache,
+				'etag'   => $etag,
+			];
+		}
+		$image = self::fetch( $trip_id, $asset, $size, $upload );
+		if ( ! is_wp_error( $image ) && isset( $image['file'] ) ) {
+			// Opened before any header is sent: a file deleted after that is still read whole.
+			$handle = @fopen( $image['file'], 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+			$image  = $handle ? [
+				'handle' => $handle,
+				'type'   => $image['type'],
+			] : self::unavailable();
+		}
+		if ( is_wp_error( $image ) ) {
+			return [
+				'status' => 502,
+				'cache'  => 'no-store',
+			];
+		}
+		return [
+			'status' => 200,
+			'cache'  => $cache,
+			'etag'   => $etag,
+			'image'  => $image,
+		];
+	}
+
+	/**
+	 * The Cache-Control a photo and its 304 are sent with: shared caches may keep it only
+	 * if access() says "public". The URL is the same for everyone, so a photo only some
+	 * may see is never one a shared cache keeps.
 	 *
 	 * Unpublishing a step or hiding a photo has to reach shared caches (CDNs, proxies)
 	 * soon, so they keep a public photo 5 minutes; browsers, which already have it, an
@@ -247,14 +310,13 @@ class RestController {
 	 *
 	 * @param string $access As access() gives it, for a photo the current user may fetch.
 	 */
-	public static function photo_cache( string $access, \WP_REST_Request $request ): string {
-		$nonced = isset( $request->get_query_params()['_wpnonce'] );
-		return 'public' === $access && ! $nonced ? 'public, max-age=3600, s-maxage=300' : 'private, max-age=3600';
+	public static function photo_cache( string $access ): string {
+		return 'public' === $access ? 'public, max-age=3600, s-maxage=300' : 'private, max-age=3600';
 	}
 
 	/**
 	 * A photo at a size, as the proxy sends it: its cached copy, else fetched from its
-	 * source, an Immich photo being cached on the way. Checks no access: serve_photo() does.
+	 * source, an Immich photo being cached on the way. Checks no access: photo_answer() does.
 	 * Only a copy WordPress made of an upload comes back as a file.
 	 *
 	 * @return array{body: string, type: string}|array{file: string, type: string}|\WP_Error
@@ -285,39 +347,9 @@ class RestController {
 		return '"' . md5( $asset . '/' . $size . ( '' !== $version ? '/' . $version : '' ) ) . '"';
 	}
 
-	/**
-	 * @param string $cache As photo_cache() gives it.
-	 * @param array{body: string, type: string}|array{file: string, type: string} $image As fetch() gives it.
-	 * @return \WP_Error|never A 502, sending nothing, if the file can't be opened.
-	 */
-	private static function send_image( string $cache, string $etag, array $image ) {
-		// Opened before any header is sent: a file deleted after that is still read whole.
-		$handle = isset( $image['file'] ) ? @fopen( $image['file'], 'rb' ) : null; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_fopen
-		if ( false === $handle ) {
-			return self::unavailable();
-		}
-		self::send_cache_headers( $cache, $etag );
-		self::send_type( $image['type'] );
-		if ( $handle ) {
-			header( 'Content-Length: ' . fstat( $handle )['size'] );
-			fpassthru( $handle );
-		} else {
-			header( 'Content-Length: ' . strlen( $image['body'] ) );
-			echo $image['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		}
-		exit;
-	}
-
 	// What the proxy answers when it can't get a photo.
 	private static function unavailable(): \WP_Error {
 		return new \WP_Error( 'travel_steps_unavailable', 'Unavailable', [ 'status' => 502 ] );
-	}
-
-	// Only for a photo actually served, so errors don't land in shared caches.
-	private static function send_cache_headers( string $cache, string $etag ): void {
-		header( 'Cache-Control: ' . $cache );
-		header( 'ETag: ' . $etag );
-		header( 'X-Content-Type-Options: nosniff' );
 	}
 
 	/**

@@ -323,7 +323,7 @@ include __DIR__ . '/_header.php';
 							$field    = 'taken[' . $photo_id . ']';
 							?>
 							<li class="ts-untimed-row">
-								<img src="<?php echo esc_url( RestController::photo_url( $trip_id, $photo_id, 'thumbnail', true ) ); ?>" alt="" width="64" height="64" loading="lazy">
+								<img src="<?php echo esc_url( RestController::photo_url( $trip_id, $photo_id, 'thumbnail' ) ); ?>" alt="" width="64" height="64" loading="lazy">
 								<span class="ts-untimed-name">
 									<?php echo esc_html( $name ); ?>
 									<?php if ( $named ) : ?>

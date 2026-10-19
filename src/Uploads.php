@@ -358,7 +358,7 @@ class Uploads {
 			return $response;
 		}
 		$trip_id         = (int) $attachment->post_parent;
-		$response['url'] = RestController::photo_url( $trip_id, $photo_id, 'preview', true );
+		$response['url'] = RestController::photo_url( $trip_id, $photo_id, 'preview' );
 		$response['link'] = '';
 		$response['filename'] = '';
 		unset( $response['originalImageURL'], $response['originalImageName'] );
@@ -368,7 +368,7 @@ class Uploads {
 		unset( $response['nonces']['update'], $response['nonces']['edit'] );
 		foreach ( array_keys( $response['sizes'] ?? [] ) as $size ) {
 			$proxy                              = in_array( $size, RestController::SIZES, true ) ? $size : 'preview';
-			$response['sizes'][ $size ]['url'] = RestController::photo_url( $trip_id, $photo_id, $proxy, true );
+			$response['sizes'][ $size ]['url'] = RestController::photo_url( $trip_id, $photo_id, $proxy );
 		}
 		return $response;
 	}

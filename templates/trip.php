@@ -41,14 +41,14 @@ $pinned     = array_flip( Trips::pinned( $trip->ID ) );
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
 $cover_id     = Trips::cover( $trip->ID );
 $uploads      = Trips::uses_uploads( $trip->ID ); // Every upload is a favourite: no heart.
-$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $authed, $can_curate, $cover_id, $uploads ) {
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $can_curate, $cover_id, $uploads ) {
 	?>
 	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
 		<button type="button" class="ts-photo-open"
-			data-full="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview', $authed ) ); ?>"
+			data-full="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
 			data-caption="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>"
 			aria-label="<?php esc_attr_e( 'Open photo', 'travel-steps' ); ?>">
-			<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], $size, $authed ) ); ?>"
+			<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], $size ) ); ?>"
 				alt="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>" loading="lazy"
 				<?php if ( ! empty( $photo['w'] ) && ! empty( $photo['h'] ) ) : ?>
 					width="<?php echo (int) $photo['w']; ?>" height="<?php echo (int) $photo['h']; ?>"

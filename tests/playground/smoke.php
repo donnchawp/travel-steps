@@ -424,10 +424,10 @@ wp_set_current_user( 0 );
 check( 'cover: an unchosen draft photo is private again', ! isset( Trips::shown_photo_ids( get_post( $trip_id ) )[ $faro ] ) );
 
 // Photo caching: shared caches must drop a photo soon after it's unpublished or hidden.
-$public = TravelSteps\RestController::photo_cache( 'public', new WP_REST_Request( 'GET', '/' ) );
+$public = TravelSteps\RestController::photo_cache( 'public' );
 check( 'public photos are not cached as immutable', false === strpos( $public, 'immutable' ), $public );
 check( 'shared caches keep public photos 5 minutes at most', 1 === preg_match( '/s-maxage=(\d+)/', $public, $m ) && (int) $m[1] <= 300, $public );
-check( 'draft photos stay out of shared caches', 0 === strpos( TravelSteps\RestController::photo_cache( 'private', new WP_REST_Request( 'GET', '/' ) ), 'private' ) );
+check( 'draft photos stay out of shared caches', 0 === strpos( TravelSteps\RestController::photo_cache( 'private' ), 'private' ) );
 check( 'revalidation matches the ETag', TravelSteps\RestController::not_modified( '"abc"', 'W/"abc", "def"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '"abd"' ) && ! TravelSteps\RestController::not_modified( '"abc"', '' ) );
 
 // Thumbnail cache: written whole or not at all.
@@ -806,7 +806,7 @@ $listed = wp_list_pluck( $get( '/wp/v2/media' )->get_data(), 'id' );
 check( 'REST media list: no trip photos, even for editors', ! in_array( $photo, $listed, true ) && in_array( $loose, $listed, true ) );
 $urls = wp_prepare_attachment_for_js( $photo );
 $js   = wp_json_encode( $urls, JSON_UNESCAPED_SLASHES );
-check( 'trip photo: the modal loads it through the photo proxy', false !== strpos( $urls['url'], "/travel-steps/v1/trips/$photos_trip/photo/$photo_id" ) && false !== strpos( $urls['sizes']['thumbnail']['url'] ?? '', "/photo/$photo_id" ) && false === strpos( $js, wp_get_upload_dir()['baseurl'] . '/travel-steps/' ) && false === strpos( $js, $name ), $js );
+check( 'trip photo: the modal loads it through the photo proxy', false !== strpos( $urls['url'], "/travel-steps/photo/$photos_trip/$photo_id/" ) && false !== strpos( $urls['sizes']['thumbnail']['url'] ?? '', "/travel-steps/photo/$photos_trip/$photo_id/thumbnail" ) && false === strpos( $js, wp_get_upload_dir()['baseurl'] . '/travel-steps/' ) && false === strpos( $js, $name ), $js );
 $xmlrpc = apply_filters( 'xmlrpc_prepare_media_item', [ 'link' => wp_get_attachment_url( $photo ), 'thumbnail' => wp_get_attachment_url( $photo ), 'metadata' => wp_get_attachment_metadata( $photo ) ], get_post( $photo ), 'thumbnail' );
 check( 'trip photo: XML-RPC gives no URL or file names for it', [ '', '', [] ] === [ $xmlrpc['link'], $xmlrpc['thumbnail'], $xmlrpc['metadata'] ], $xmlrpc );
 

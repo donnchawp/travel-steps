@@ -77,7 +77,7 @@ class PhotosBlock {
 		foreach ( $photos as $photo ) {
 			$html .= sprintf(
 				'<img src="%s" alt="%s" data-asset="%s" loading="lazy">',
-				esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'thumbnail', true ) ),
+				esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'thumbnail' ) ),
 				esc_attr( $photo['caption'] ?? '' ),
 				esc_attr( $photo['id'] )
 			);

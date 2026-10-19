@@ -57,7 +57,7 @@ $pw_reach = function ( int $trip, int $step ) use ( $render, $get, $pw_core, $pw
 	return [
 		'page'  => $render( 'trip.php', (string) $trip ),
 		'rest'  => $get( '/travel-steps/v1/trips/' . $trip ),
-		'proxy' => $get( '/travel-steps/v1/trips/' . $trip . '/photo/' . $pw_photo ),
+		'proxy' => RestController::photo_answer( $trip, $pw_photo, 'thumbnail', '' ),
 		'photo' => RestController::access( $trip, $pw_photo ),
 		'cover' => RestController::access( $trip, $pw_cover ),
 		'step'  => $get( '/wp/v2/ts_step/' . $step )->get_status(),
@@ -84,7 +84,7 @@ $pw_enter( null );
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'no password: visitors see the whole trip', false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 200 === $seen['step'] );
 check( 'no password: its photos and REST stay in shared caches', 'public' === $seen['photo'] && 'public' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
-// Anyone who can edit the trip gets its photos as private, nonce or not; the checks after these cover nonced URLs from users who can't edit it.
+// Anyone who can edit the trip gets its photos as private; those who can't get them as a visitor does.
 $pw_as     = function ( int $user, callable $fn ) {
 	wp_set_current_user( $user );
 	$result = $fn();
@@ -95,18 +95,11 @@ $pw_access = fn( int $user ) => $pw_as( $user, fn() => [ RestController::access(
 [ $pw_admin, $pw_author, $pw_other ] = array_map( $pw_access, [ 1, $alice, $bob ] );
 check( 'no password: an administrator’s and the author’s photos are private', [ 'private', 'private' ] === $pw_admin && [ 'private', 'private' ] === $pw_author, [ $pw_admin, $pw_author ] );
 check( '…another author’s, who can’t edit it, public as a visitor’s', [ 'public', 'public' ] === $pw_other, $pw_other );
-// The Cache-Control the proxy sends with a photo and its 304, for a URL as photo_url() builds it.
-$pw_photo_cache = fn( int $user, bool $nonced ) => $pw_as(
-	$user,
-	fn() => RestController::photo_cache(
-		RestController::access( $pw_a, $pw_photo ),
-		WP_REST_Request::from_url( RestController::photo_url( $pw_a, $pw_photo, 'thumbnail', $nonced ) )
-	)
-);
-$pw_nonced_cache = $pw_photo_cache( $bob, true );
-check( '…but with a nonce in the URL, theirs is private too', 'private, max-age=3600' === $pw_nonced_cache, $pw_nonced_cache );
-$pw_anon = $pw_photo_cache( 0, false );
-check( '…and a visitor’s, without one, still public', 'public, max-age=3600, s-maxage=300' === $pw_anon, $pw_anon );
+// The Cache-Control a photo and its 304 are sent with. Its URL is the same for everyone.
+$pw_photo_cache = fn( int $user ) => $pw_as( $user, fn() => RestController::photo_cache( RestController::access( $pw_a, $pw_photo ) ) );
+$pw_other_cache = $pw_photo_cache( $bob );
+check( '…so shared caches may keep it, as a visitor’s', 'public, max-age=3600, s-maxage=300' === $pw_other_cache && $pw_other_cache === $pw_photo_cache( 0 ), $pw_other_cache );
+check( '…but not the author’s', 'private, max-age=3600' === $pw_photo_cache( $alice ) );
 // The trip's REST response: editors get draft-step markers and can_edit, so theirs is never shared.
 $pw_rest_cache = fn( int $user ) => $pw_as( $user, fn() => $pw_cache( $get( '/travel-steps/v1/trips/' . $pw_a ) ) );
 [ $pw_rest_editor, $pw_rest_visitor ] = array_map( $pw_rest_cache, [ $alice, 0 ] );
@@ -128,7 +121,9 @@ check( '…posting to the trip page, never wp-login.php', 1 === preg_match( '#<f
 check( '…titled without “Protected:”', 1 === preg_match( '#<title>Hidden Lisbon\b#', $seen['page'] ) && false === strpos( $seen['page'], 'Protected:' ), substr( $seen['page'], 0, 400 ) );
 check( '…and nothing else of the trip', false === strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'Lisbon day' ) && false === strpos( $seen['page'], 'ts-map' ) && false === strpos( $seen['page'], $pw_photo ) && false === strpos( $seen['page'], $pw_cover ) && false === strpos( $seen['page'], 'ts-hero-img' ) && false === strpos( $seen['page'], 'ts-stats' ) );
 check( '…no wrong-password message on a first visit', false === strpos( $seen['page'], 'That password isn’t right' ) );
-check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && $refused( $seen['proxy']->get_status() ) && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']->get_status(), $seen['photo'], $seen['cover'], $seen['step'] ] );
+check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && [ 404, 'no-store' ] === [ $seen['proxy']['status'], $seen['proxy']['cache'] ] && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']['status'], $seen['photo'], $seen['cover'], $seen['step'] ] );
+$pw_moved = $get( '/travel-steps/v1/trips/' . $pw_a . '/photo/' . $pw_photo, [ 'size' => 'medium' ] );
+check( '…and a photo URL from when REST served photos sends them to where it is now, which refuses them', 301 === $pw_moved->get_status() && RestController::photo_url( $pw_a, $pw_photo, 'medium' ) === ( $pw_moved->get_headers()['Location'] ?? '' ), [ $pw_moved->get_status(), $pw_moved->get_headers() ] );
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and core REST neither serves nor lists it to them', 'shut' === $seen['core'], $seen['core'] );
 // Core's ?password= isn't a way in: the trip page's cookie is the only one.
@@ -286,8 +281,9 @@ check( 'a changed password locks out the old one', ! Trips::can_view( get_post( 
 $pw_enter( null );
 
 // Its editors see it without a password, and the landing page badges it for them.
-// Logged-in users REST knows only by a nonce, so their photo URLs carry one, the cover's too.
-$pw_nonced = fn( string $html, string $asset ) => 1 === preg_match( '#/photo/' . $asset . '\?[^"]*_wpnonce=#', $html );
+// Logged-in users who see it by their login get the photo URLs everyone gets, the cover's too:
+// the photo is served at a page, which knows them by their login cookie.
+$pw_plain = fn( string $html, string $asset ) => 1 === preg_match( '#/travel-steps/photo/\d+/' . $asset . '/[a-z]+/?"#', $html ) && false === strpos( $html, '_wpnonce' );
 foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	wp_set_current_user( $user );
 	$seen = $pw_reach( $pw_a, $pw_a_step );
@@ -295,7 +291,9 @@ foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	$edit = $get( '/wp/v2/ts_trip/' . $pw_a, [ 'context' => 'edit' ] );
 	check( "…core REST serves and lists it to them, for editing too", 'open' === $seen['core'] && 200 === $edit->get_status() && 'new sesame' === ( $edit->get_data()['password'] ?? null ), [ $seen['core'], $edit->get_status() ] );
 	check( "…listed to them with a “Password protected” badge", 1 === preg_match( '#<span class="ts-badge">Password protected</span>(?:(?!</a>).)*Hidden Lisbon#s', $seen['list'] ) );
-	check( "the {$role}’s cover and photo URLs carry a nonce", $pw_nonced( $seen['list'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_cover ) && $pw_nonced( $seen['page'], $pw_photo ) );
+	check( "the {$role}’s cover and photo URLs are everyone’s, with no nonce", $pw_plain( $seen['list'], $pw_cover ) && $pw_plain( $seen['page'], $pw_cover ) && $pw_plain( $seen['page'], $pw_photo ) );
+	$pw_got = RestController::photo_answer( $pw_a, $pw_photo, 'thumbnail', '' )['status'];
+	check( "…and the photo isn’t refused to them", 404 !== $pw_got, $pw_got );
 }
 
 // Viewer lists: the author's covers all their trips, a trip's only that trip.
@@ -319,7 +317,10 @@ check( 'on the author’s list: all their protected trips, without a password', 
 check( '…listed, without a badge', $pw_listed( $frank, 'Hidden Lisbon' ) && $pw_listed( $frank, 'Hidden Porto' ) && false === strpos( $render( 'index.php', '' ), 'Password protected' ) );
 wp_set_current_user( $frank );
 $page = $render( 'trip.php', (string) $pw_a );
-check( '…with nonces on its photos and REST', $pw_nonced( $page, $pw_photo ) && $pw_nonced( $page, $pw_cover ) && 1 === preg_match( '#data-nonce="[a-f0-9]+"#', $page ) && $pw_nonced( $render( 'index.php', '' ), $pw_cover ) );
+check( '…with everyone’s photo URLs, and a nonce for REST', $pw_plain( $page, $pw_photo ) && $pw_plain( $page, $pw_cover ) && 1 === preg_match( '#data-nonce="[a-f0-9]+"#', $page ) && $pw_plain( $render( 'index.php', '' ), $pw_cover ) );
+wp_set_current_user( $alice );
+$pw_odd = [ RestController::photo_answer( $pw_a, wp_generate_uuid4(), 'thumbnail', '' ), RestController::photo_answer( $pw_a, $pw_photo, '../../x', '' ), RestController::photo_answer( $pw_a, 'not-a-photo', 'thumbnail', '' ) ];
+check( 'the author asking for a photo the trip hasn’t, a size there isn’t or a malformed id: the same uncacheable 404 a visitor gets', [ 404, 404, 404 ] === array_column( $pw_odd, 'status' ) && [ 'no-store', 'no-store', 'no-store' ] === array_column( $pw_odd, 'cache' ), $pw_odd );
 check( 'on a trip’s list: that trip without a password', $pw_sees( $gina, $pw_a, $pw_a_step ) && $pw_listed( $gina, 'Hidden Lisbon' ) );
 check( '…but not the author’s other protected trips', ! $pw_sees( $gina, $pw_b, $pw_b_step ) && ! $pw_listed( $gina, 'Hidden Porto' ) );
 check( 'on neither list: the password form', ! $pw_sees( $hal, $pw_a, $pw_a_step ) && false !== strpos( $render( 'trip.php', (string) $pw_a ), 'name="post_password"' ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );

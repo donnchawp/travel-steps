@@ -95,6 +95,8 @@ class App extends BaseApp {
 		$this->app->route( 'settings', 'settings.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}', 'trip.php' );
+		// Under the app's path, so whatever lets visitors reach trips lets them reach their photos.
+		$this->app->route( 'photo/{trip_id}/{asset}/{size}', 'photo.php' );
 	}
 
 	protected function setup_menu(): void {

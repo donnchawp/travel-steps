@@ -139,10 +139,9 @@ class View {
 	 * a published step, else the first landscape photo shown there.
 	 */
 	public static function cover_url( int $trip_id, string $size = 'preview' ): string {
-		$authed = Trips::by_login( get_post( $trip_id ) );
 		$chosen = Trips::cover( $trip_id );
 		if ( '' !== $chosen ) {
-			return RestController::photo_url( $trip_id, $chosen, $size, $authed );
+			return RestController::photo_url( $trip_id, $chosen, $size );
 		}
 		$shown = [];
 		foreach ( Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) ) as $groups ) {
@@ -152,7 +151,7 @@ class View {
 		if ( ! $photo ) {
 			return '';
 		}
-		return RestController::photo_url( $trip_id, $photo['id'], $size, $authed );
+		return RestController::photo_url( $trip_id, $photo['id'], $size );
 	}
 
 	/**

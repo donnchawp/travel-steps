@@ -202,8 +202,8 @@ make deploy       # composer install --no-dev, then rsync --delete
 
 If an authentication proxy guards the whole site, trips aren't public until it lets these paths through:
 
-- `/travel-steps/*`, the trip pages. The new, edit and settings routes still need a WordPress login with the trips capability (`publish_posts` unless filtered, see Privacy).
-- `/wp-json/travel-steps/v1/*`, the map data and photos, each checked against the trip's visibility.
+- `/travel-steps/*`, the trip pages and their photos. The new, edit and settings routes still need a WordPress login with the trips capability (`publish_posts` unless filtered, see Privacy).
+- `/wp-json/travel-steps/v1/*`, the map data, checked against the trip's visibility.
 - `/wp-content/plugins/travel-steps/*`, the scripts, styles and Leaflet.
 
-Photos come from `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}`. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them for 5 minutes. Drafts and editor URLs are `private`. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users, or for visitors with a `wp-postpass_` cookie. Editors see drafts and editing tools, and a protected trip's page shows the whole trip once its password is entered.
+Photos come from `/travel-steps/photo/{trip id}/{asset}/{size}/`, the same URL for everyone. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them for 5 minutes. Photos only some people may see, and every photo an editor fetches, are `private`, and a refused photo is a `no-store` 404. So don't let a CDN cache these URLs whatever the origin says, such as with Cloudflare's "Cache Everything". The old `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}` URLs redirect there. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users, or for visitors with a `wp-postpass_` cookie. Editors see drafts and editing tools, and a protected trip's page shows the whole trip once its password is entered.

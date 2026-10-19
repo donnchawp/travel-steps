@@ -199,7 +199,6 @@
 		}
 		const openers = visibleOpeners();
 		strip.replaceChildren( ...openers.map( slide ) );
-		dialog.classList.toggle( 'is-single', openers.length < 2 );
 		dialog.showModal();
 		current = openers.indexOf( btn );
 		target = null;

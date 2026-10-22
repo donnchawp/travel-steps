@@ -25,7 +25,8 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
-	const FADE_MS = 400; // As the blur's transition on .ts-map::after.
+	const MOVE_MS = 400; // Each half of a long move, as .ts-map's transitions.
+	const SLIDE_PX = 120; // How far the map slides off and on.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
 	const padding = [ 30, 30 ];
@@ -107,16 +108,41 @@
 	}
 
 	const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' );
-	let move = 0; // The latest move: a fade still under way gives way to a newer one.
+	let move = 0; // The latest move: one still under way gives way to a newer one.
+	let streak = null; // The blur along the way a long move goes.
+
+	// A blur along one direction, as the map's streaks while it travels: a Gaussian blur
+	// is only along the axes, so a diagonal is the nearest mix of the two.
+	function streakFilter() {
+		if ( ! streak ) {
+			const ns = 'http://www.w3.org/2000/svg';
+			const svg = document.createElementNS( ns, 'svg' );
+			svg.setAttribute( 'aria-hidden', 'true' );
+			svg.setAttribute( 'width', '0' );
+			svg.setAttribute( 'height', '0' );
+			svg.style.position = 'absolute';
+			const filter = document.createElementNS( ns, 'filter' );
+			filter.id = 'ts-streak';
+			streak = document.createElementNS( ns, 'feGaussianBlur' );
+			filter.append( streak );
+			svg.append( filter );
+			document.body.append( svg );
+		}
+		return streak;
+	}
 
 	// A short move, to a place already in view at about the same zoom (another day in the
-	// same town), glides. A longer one blurs out of focus, jumps and comes back into focus:
-	// flying zooms out and back in, which is jarring over Cork to Málaga or even Málaga to
-	// Cómpeta.
+	// same town), glides. A longer one dims the map and streaks it along the way it goes
+	// as it slides off, then the new place slides in and clears: flying zooms out and
+	// back in, which is jarring over Cork to Málaga or even Málaga to Cómpeta.
 	function moveTo( bounds, maxZoom ) {
 		const mine = ++move;
 		const options = { padding, maxZoom };
-		mapEl.classList.remove( 'is-fading' );
+		const pane = map.getPane( 'mapPane' );
+		// Whatever a long move still under way left.
+		pane.style.filter = '';
+		pane.style.translate = '';
+		mapEl.classList.remove( 'is-moving' );
 		if ( reduced.matches ) {
 			map.fitBounds( bounds, { ...options, animate: false } );
 			return;
@@ -131,13 +157,36 @@
 			map.flyToBounds( bounds, { ...options, duration: 1 } );
 			return;
 		}
-		mapEl.classList.add( 'is-fading' );
+
+		// Which way the new place is, on screen: the map slides the other way.
+		const way = map.latLngToContainerPoint( bounds.getCenter() ).subtract( map.getSize().divideBy( 2 ) );
+		const length = Math.hypot( way.x, way.y );
+		const ux = length ? way.x / length : 0;
+		const uy = length ? way.y / length : 0;
+		const slide = ( by ) => `${ Math.round( -ux * by ) }px ${ Math.round( -uy * by ) }px`;
+		streakFilter().setAttribute( 'stdDeviation', `${ 2 + 18 * Math.abs( ux ) } ${ 2 + 18 * Math.abs( uy ) }` );
+
+		pane.style.filter = 'url(#ts-streak)';
+		pane.style.translate = slide( SLIDE_PX );
+		mapEl.classList.add( 'is-moving' );
 		setTimeout( () => {
-			if ( mine === move ) {
-				map.fitBounds( bounds, { ...options, animate: false } );
-				mapEl.classList.remove( 'is-fading' );
+			if ( mine !== move ) {
+				return;
 			}
-		}, FADE_MS );
+			map.fitBounds( bounds, { ...options, animate: false } );
+			// The new place comes in from ahead, as if the map carried on.
+			pane.style.transition = 'none';
+			pane.style.translate = slide( -SLIDE_PX );
+			pane.getBoundingClientRect();
+			pane.style.transition = '';
+			pane.style.translate = '';
+			mapEl.classList.remove( 'is-moving' );
+			setTimeout( () => {
+				if ( mine === move ) {
+					pane.style.filter = '';
+				}
+			}, MOVE_MS / 2 );
+		}, MOVE_MS );
 	}
 
 	function showWhole( animate ) {

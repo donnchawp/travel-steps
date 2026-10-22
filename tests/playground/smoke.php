@@ -694,6 +694,17 @@ check( 'no favourites: edit page explains why there are no steps', false !== str
 update_post_meta( $plain_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 1, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', false ) ] ) ) );
 check( 'no favourites, one photo: reads naturally', false !== strpos( $render( 'trip-edit.php', (string) $plain_id ), 'only photo isn’t a favourite' ) );
 check( 'favourites present: no warning about them', false === strpos( $edit, 'a favourite in Immich' ) && false === strpos( $edit, 'isn’t a favourite' ) );
+// Days with photos but no favourite, so no step, are named; a day with a step isn't.
+update_post_meta( $plain_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( [ row( 1, '2025-05-01', '09:00', 38.7, -9.1, 'Lisbon', true ), row( 2, '2025-05-02', '10:00', 38.7, -9.1, 'Lisbon', false ), row( 3, '2025-05-02', '11:00', 38.7, -9.1, 'Lisbon', false ), row( 4, '2025-05-03', '10:00', 38.7, -9.1, 'Lisbon', false ), row( 5, '2025-05-04', '10:00', 38.7, -9.1, 'Lisbon', false ) ] ) ) );
+$plain_step = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $plain_id, 'post_title' => 'Lisbon', 'post_status' => 'draft', 'post_date' => '2025-05-01 12:00:00' ] );
+wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $plain_id, 'post_title' => 'Made by hand', 'post_status' => 'draft', 'post_date' => '2025-05-04 12:00:00' ] );
+$page  = $render( 'trip-edit.php', (string) $plain_id );
+$plain_day = fn( $day ) => wp_date( get_option( 'date_format' ), date_create_immutable( $day, wp_timezone() )->getTimestamp() );
+check( 'stepless days: the edit page names each day with photos but no favourite, so no step', false !== strpos( $page, $plain_day( '2025-05-02' ) . ' (2 photos)' ) && false !== strpos( $page, $plain_day( '2025-05-03' ) . ' (1 photo)' ), substr( $page, strpos( $page, '<h1' ) ?: 0, 1500 ) );
+check( '…but not a day with a step, even one made by hand', false === strpos( $page, $plain_day( '2025-05-01' ) . ' (' ) && false === strpos( $page, $plain_day( '2025-05-04' ) . ' (' ) );
+foreach ( Trips::steps( $plain_id, true ) as $post ) {
+	wp_delete_post( $post->ID, true );
+}
 wp_delete_post( $plain_id, true );
 
 $_GET = [ 'invalid' => 'home' ];

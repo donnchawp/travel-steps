@@ -169,6 +169,28 @@ include __DIR__ . '/_header.php';
 			}
 			?>
 		</p>
+	<?php elseif ( ! $uses_uploads && $synced ) : ?>
+		<?php
+		$stepless = View::stepless_days( $trip_id, $steps );
+		if ( $stepless ) :
+			$stepless_list = [];
+			foreach ( $stepless as $day => $count ) {
+				/* translators: 1: a date, 2: number of photos taken that day */
+				$stepless_list[] = sprintf( _n( '%1$s (%2$s photo)', '%1$s (%2$s photos)', $count, 'travel-steps' ), wp_date( get_option( 'date_format' ), date_create_immutable( $day, wp_timezone() )->getTimestamp() ), number_format_i18n( $count ) );
+			}
+			?>
+			<p class="ts-notice is-warning">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %s: a list of dates, each with its number of photos */
+						_n( 'This day has photos but no step, as none of them is a favourite: %s. Favourite the ones you want to show in Immich, then sync again.', 'These days have photos but no step, as none of their photos is a favourite: %s. Favourite the ones you want to show in Immich, then sync again.', count( $stepless ), 'travel-steps' ),
+						wp_sprintf( '%l', $stepless_list )
+					)
+				);
+				?>
+			</p>
+		<?php endif; ?>
 	<?php endif; ?>
 
 	<form class="ts-form ts-trip-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">

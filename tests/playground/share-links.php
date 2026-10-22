@@ -79,3 +79,12 @@ check( '…trimmed at a word to 200 characters', mb_strlen( $sh_long ) <= 200 &&
 $pw_set( $sh_other_published, '' );
 $page = $render( 'trip.php', (string) $sh_other_published );
 check( 'preview: a public trip’s og:url is its own URL, its image without a code', esc_attr( Trips::url( get_post( $sh_other_published ) ) ) === $sh_meta( $page, 'og:url' ) && false === strpos( (string) $sh_meta( $page, 'og:image' ), 'share=' ) && null !== $sh_meta( $page, 'og:image' ), [ $sh_meta( $page, 'og:url' ), $sh_meta( $page, 'og:image' ) ] );
+
+// The share link on the edit page.
+$sh_edit = function ( int $trip ) use ( $render ) {
+	wp_set_current_user( 1 );
+	return $render( 'trip-edit.php', (string) $trip );
+};
+$pw_set( $sh_trip, 'kerry and clare' );
+check( 'edit page: a protected trip shows its share link', false !== strpos( $sh_edit( $sh_trip ), 'value="' . esc_url( Trips::share_url( get_post( $sh_trip ) ) ) . '"' ) );
+check( 'edit page: a public trip has none', false === strpos( $sh_edit( $sh_other_published ), 'ts-share-url' ) );

@@ -28,6 +28,36 @@
 		} );
 	}
 
+	/* ---------- Share link ---------- */
+
+	const share = form && form.querySelector( '.ts-share' );
+	if ( share ) {
+		const url = share.querySelector( '.ts-share-url' );
+		const copy = share.querySelector( '.ts-share-copy' );
+		const label = copy.textContent;
+		// The link is for the saved password, on a published trip: until a change is saved, it's out of date.
+		const stale = () => {
+			const changed = form.elements.password.value !== share.dataset.password || 'publish' !== form.elements.status.value;
+			url.disabled = changed;
+			copy.disabled = changed;
+			share.querySelector( '.ts-share-stale' ).hidden = ! changed;
+		};
+		form.elements.password.addEventListener( 'input', stale );
+		form.elements.status.addEventListener( 'change', stale );
+		copy.addEventListener( 'click', () => {
+			const copied = () => {
+				copy.textContent = copy.dataset.copied;
+				setTimeout( () => {
+					copy.textContent = label;
+				}, 2000 );
+			};
+			url.select();
+			if ( navigator.clipboard ) {
+				navigator.clipboard.writeText( url.value ).then( copied, () => {} );
+			}
+		} );
+	}
+
 	/* ---------- Adding photos ---------- */
 
 	const panel = document.querySelector( '.ts-uploads' );

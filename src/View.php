@@ -144,6 +144,43 @@ class View {
 	}
 
 	/**
+	 * The tags a link preview reads, by property: the trip's title, summary and cover.
+	 * Opened from a share link, its URL and cover carry the code, as the app that fetches
+	 * them has no cookie.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function preview_meta( \WP_Post $trip, bool $shared ): array {
+		$meta  = [
+			'og:type'        => 'website',
+			'og:title'       => get_the_title( $trip ),
+			'og:url'         => $shared ? Trips::share_url( $trip ) : Trips::url( $trip ),
+			'og:description' => self::preview_description( $trip ),
+		];
+		$cover = self::cover_url( $trip->ID, 'medium' );
+		if ( '' !== $cover ) {
+			$meta['og:image'] = $shared ? add_query_arg( Trips::SHARE_ARG, Trips::share_code( $trip ), $cover ) : $cover;
+		}
+		$meta['twitter:card'] = isset( $meta['og:image'] ) ? 'summary_large_image' : 'summary';
+		return array_filter( $meta, fn( $content ) => '' !== $content );
+	}
+
+	/**
+	 * A trip's intro as plain text, cut at a word to 200 characters at most, else its dates.
+	 */
+	public static function preview_description( \WP_Post $trip ): string {
+		$text = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $trip->post_content ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+		if ( '' === $text ) {
+			return self::date_range( $trip->ID );
+		}
+		if ( mb_strlen( $text ) <= 200 ) {
+			return $text;
+		}
+		$cut = mb_substr( $text, 0, 200 );
+		return rtrim( mb_substr( $cut, 0, (int) mb_strrpos( $cut, ' ' ) ), ' ,.;:' ) . '…';
+	}
+
+	/**
 	 * The asset cover_url() shows, or empty if there's none.
 	 */
 	public static function cover_id( int $trip_id ): string {

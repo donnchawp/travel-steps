@@ -95,7 +95,8 @@ wp_app_enqueue_script(
 	'travel-steps'
 );
 
-$page_title = get_the_title( $trip );
+$page_title   = get_the_title( $trip );
+$preview_meta = View::preview_meta( $trip, $shared );
 include __DIR__ . '/_header.php';
 ?>
 <article class="ts-trip"

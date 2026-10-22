@@ -199,7 +199,10 @@
 		}
 		highlight( lit, false );
 		const place = byAnchor.get( key );
-		lit = place ? [ place ] : ( step && markers.get( step.dataset.step ) ) || [];
+		// A heading without a marker of its own, such as photos at home at the end of a trip,
+		// leaves the map where it is: the step's first marker could be the other end of it.
+		// A step without headings has the step's markers.
+		lit = place ? [ place ] : ( step && key === step.id && markers.get( step.dataset.step ) ) || [];
 		highlight( lit, true );
 
 		if ( ! step ) {

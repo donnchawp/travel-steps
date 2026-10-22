@@ -111,7 +111,7 @@
 		if ( ! whole.isValid() ) {
 			map.setView( [ 20, 0 ], 2, { animate } );
 		} else if ( animate ) {
-			map.flyToBounds( whole, { padding, duration: 1 } );
+			map.flyToBounds( whole, { padding, duration: 3 } );
 		} else {
 			map.fitBounds( whole, { padding, animate } );
 		}
@@ -128,8 +128,8 @@
 		if ( map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
 			return;
 		}
-		// A second, however far: Leaflet's own timing takes seconds over a long flight.
-		map.flyToBounds( target, { padding, maxZoom: 16, duration: 1, animate: ! reduced.matches } );
+		// Three seconds, however far: quicker feels hurried, and Leaflet's own timing varies with the distance.
+		map.flyToBounds( target, { padding, maxZoom: 16, duration: 3, animate: ! reduced.matches } );
 	}
 
 	// While a step is read, the rest of the route fades, so a walk round a town isn't lost

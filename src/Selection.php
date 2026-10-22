@@ -7,7 +7,8 @@ namespace TravelSteps;
  *
  * Favourites are the signal: if a step has any, exactly those are shown. A step with
  * none gets an automatic pick spread across the time spent there, with bursts of
- * near-identical shots collapsed to one. Pinned photos are always added; hidden ones
+ * near-identical shots collapsed to one, leaving out photos taken at home, which only
+ * show if you favourite or pin them. Pinned photos are always added; hidden ones
  * never shown. Star ratings are deliberately ignored (they're often workflow states).
  */
 class Selection {
@@ -34,7 +35,7 @@ class Selection {
 		}
 
 		$favourites = array_values( array_filter( $visible, fn( $p ) => ! empty( $p['fav'] ) ) );
-		$base       = $favourites ? $favourites : self::spread( $visible, $limit );
+		$base       = $favourites ? $favourites : self::spread( array_values( array_filter( $visible, fn( $p ) => empty( $p['home'] ) ) ), $limit );
 		$chosen     = array_flip( array_column( $base, 'id' ) );
 		foreach ( $visible as $photo ) {
 			if ( isset( $pinned[ $photo['id'] ] ) ) {

@@ -37,6 +37,13 @@ foreach ( [ 3, 50, 51, 199, 250 ] as $i ) { $fav[ $i ]['fav'] = true; }
 $r = Selection::for_step( $fav, [], [], 8 );
 check( 'favourites only when there are any', [ 3, 50, 51, 199, 250 ] === $ids( $r['shown'] ) );
 
+// Photos taken at home are never auto-picked: they show only as favourites, or pinned.
+$home = [ photo( 1, 0 ) + [ 'home' => true ], photo( 2, 1000 ), photo( 3, 2000 ) + [ 'home' => true ], photo( 4, 3000 ) ];
+$r    = Selection::for_step( $home, [], [], 8 );
+check( 'no favourites: auto-pick leaves out photos taken at home', [ 2, 4 ] === $ids( $r['shown'] ) && [ 1, 3 ] === $ids( $r['rest'] ) );
+$r = Selection::for_step( $home, [ $home[0]['id'] ], [], 8 );
+check( '…but one pinned is shown', [ 1, 2, 4 ] === $ids( $r['shown'] ) );
+
 // Pinned photos are added to the selection; hidden ones removed everywhere.
 $pinned = [ $day[100]['id'] ];
 $hidden = [ $day[3]['id'] ];

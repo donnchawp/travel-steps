@@ -679,6 +679,7 @@ $r                = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $source
 $away_ids         = array_column( Trips::photos( $away_id ), 'id' );
 $source->by_dates = true;
 check( 'an album trip keeps every photo taken at home, with no position', [ $away_row( 1 ), $away_row( 2 ), $away_row( 3 ), $away_row( 4 ) ] === $away_ids && null === Trips::photos( $away_id )[1]['lat'], [ $away_ids, $r ] );
+check( '…marked as taken at home, so they aren’t auto-picked, unlike the photos taken away', [ true, true, false, false ] === array_map( fn( $p ) => ! empty( $p['home'] ), Trips::photos( $away_id ) ), Trips::photos( $away_id ) );
 foreach ( array_merge( Trips::steps( $away_id, true ), [ get_post( $away_id ) ] ) as $post ) {
 	wp_delete_post( $post->ID, true );
 }

@@ -25,7 +25,7 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
-	const FADE_MS = 400; // As .ts-map's opacity transition.
+	const FADE_MS = 400; // As the blur's transition on .ts-map::after.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
 	const padding = [ 30, 30 ];
@@ -110,8 +110,9 @@
 	let move = 0; // The latest move: a fade still under way gives way to a newer one.
 
 	// A short move, to a place already in view at about the same zoom (another day in the
-	// same town), glides. A longer one fades out, jumps and fades back in: flying zooms out
-	// and back in, which is jarring over Cork to Málaga or even Málaga to Cómpeta.
+	// same town), glides. A longer one blurs out of focus, jumps and comes back into focus:
+	// flying zooms out and back in, which is jarring over Cork to Málaga or even Málaga to
+	// Cómpeta.
 	function moveTo( bounds, maxZoom ) {
 		const mine = ++move;
 		const options = { padding, maxZoom };

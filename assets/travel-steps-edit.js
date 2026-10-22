@@ -35,9 +35,10 @@
 		const url = share.querySelector( '.ts-share-url' );
 		const copy = share.querySelector( '.ts-share-copy' );
 		const label = copy.textContent;
-		// The link is for the saved password, on a published trip: until a change is saved, it's out of date.
+		// The link is for the saved password, on a published trip: until a change is saved, it's
+		// out of date. Saving trims the password, so spaces around it change nothing.
 		const stale = () => {
-			const changed = form.elements.password.value !== share.dataset.password || 'publish' !== form.elements.status.value;
+			const changed = form.elements.password.value.trim() !== share.dataset.password || 'publish' !== form.elements.status.value;
 			url.disabled = changed;
 			copy.disabled = changed;
 			share.querySelector( '.ts-share-stale' ).hidden = ! changed;

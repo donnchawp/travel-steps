@@ -61,9 +61,11 @@ class TripSync {
 		$first  = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$last   = (string) get_post_meta( $trip_id, Trips::META_END, true );
 		$source = $this->source ?? Trips::source( $trip_id );
-		// Dates sync took from a trip's own photos (its uploads or album) follow them, so
-		// photos added on later days count. One the author has changed is theirs, and stays.
-		if ( ! $source->needs_dates( $trip_id ) ) {
+		// Uploads and an album's photos were each chosen for the trip; the rest were picked by date.
+		$chosen = ! $source->needs_dates( $trip_id );
+		// Dates sync took from a trip's own photos follow them, so photos added on later
+		// days count. One the author has changed is theirs, and stays.
+		if ( $chosen ) {
 			$auto  = get_post_meta( $trip_id, Trips::META_DATES_AUTO, true );
 			$auto  = is_array( $auto ) ? $auto : [ '', '' ];
 			$first = $first === $auto[0] ? '' : $first;
@@ -111,8 +113,7 @@ class TripSync {
 		$on_days = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
 		$outside = count( $photos ) - count( $on_days );
 		$uploads = Trips::uses_uploads( $trip_id );
-		// Uploads and an album's photos were each chosen for the trip; the rest were picked by date.
-		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, ! $source->needs_dates( $trip_id ) );
+		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, $chosen );
 		$geocoder = $this->geocoder ?? new Geocoder(); // One for the sync.
 		// Uploads carry no place names, and photos with a position only from Dawarich have
 		// none either: name them here. Immich's own names stay, even a country alone, which
@@ -256,7 +257,7 @@ class TripSync {
 				if ( ! $chosen && ! $photo['fav'] ) {
 					continue;
 				}
-				// Immich names the place it was taken; the geocoder skips a photo without a position.
+				// Its place name, from Immich, would name home. The geocoder skips a photo without a position.
 				$photo = array_merge( $photo, [ 'lat' => null, 'lon' => null, 'city' => '', 'country' => '' ] );
 			}
 			$out[] = $photo;

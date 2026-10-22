@@ -136,13 +136,14 @@ class RestController {
 	public function get_trip( \WP_REST_Request $request ): \WP_REST_Response {
 		$trip     = get_post( (int) $request['id'] );
 		$can_edit = current_user_can( 'edit_post', $trip->ID );
-		$route    = json_decode( (string) get_post_meta( $trip->ID, Trips::META_ROUTE, true ), true );
+		$route    = (array) json_decode( (string) get_post_meta( $trip->ID, Trips::META_ROUTE, true ), true );
 		$steps    = Trips::timeline_steps( $trip, $can_edit );
 		$by_step  = Trips::photos_by_step( $trip->ID, $steps );
 
 		$boxes   = Trips::boxes( $trip->ID );
 		$markers = [];
 		$areas   = [];
+		$legs    = [];
 		foreach ( $steps as $index => $step ) {
 			// Same label as the timeline: the day number.
 			$number  = Trips::day_of_trip( $trip->ID, $step ) ?: $index + 1;
@@ -151,14 +152,20 @@ class RestController {
 			usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
 			$markers = array_merge( $markers, View::markers( $step, $photos, $number ) );
 			$areas   = array_merge( $areas, View::areas( $step, $photos, $boxes ) );
+			$on_day  = View::legs( $step, $photos, $route );
+			if ( $on_day ) {
+				$legs[ 'step-' . $step->ID ] = $on_day;
+			}
 		}
 
 		$response = new \WP_REST_Response(
 			[
 				'id'       => $trip->ID,
-				'route'    => is_array( $route ) ? $route : [],
+				// Positions only: the times stay on the server.
+				'route'    => array_map( fn( $segment ) => array_map( fn( $p ) => [ $p[0], $p[1] ], $segment ), $route ),
 				'markers'  => $markers,
 				'areas'    => (object) $areas,
+				'legs'     => (object) $legs,
 				'can_edit' => $can_edit,
 			]
 		);

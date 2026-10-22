@@ -12,7 +12,7 @@ The trip map fits the whole trip when the page loads, and as the reader scrolls 
 
 ## Non-goals
 
-- Showing only the active stretch, or hiding or fading the rest of the route. The whole route stays drawn; only the view changes.
+- Hiding the rest of the route. It stays drawn, faded (below).
 - New controls, or a way to turn the following off.
 - Changing how sync makes steps or headings, or what counts as a place.
 
@@ -48,6 +48,13 @@ These would count as failures even if the zooming worked:
 - **Ten minutes is the resolution.** A heading's area can take in up to ten minutes of the stretch either side of its anchor. Next to a flight, that's nothing.
 - **The trip JSON** sends areas, never the boxes or their times. Each marker that has an area gets it, as `[[south, west], [north, east]]`. A step-level entry needs an area too. That's the "no anchors" case, which already gets a marker from the step's own position, or none at all. How it's carried is the builder's choice, as long as the browser can find the area for a step and for each heading.
 - **Existing trips** have no boxes until their next sync. For them, no areas are sent, and the map pans to the step as it does now. Nothing else changes, and no migration is needed.
+
+### Other days fade (the user's decision, after trying it on selfhoster)
+
+- **The problem:** zoomed into a day around Cómpeta, every day's route through the town was drawn alike, so a walk to a restaurant was lost among the others.
+- **While a step is being read,** its own route is drawn as now, and every other part of the route is faint and thin. Above the first step, the whole route is drawn as now.
+- **The route keeps its times.** Sync stores each simplified route point as `[lat, lon, t]`. The trip JSON still sends `[lat, lon]`, plus, for each step, which runs of route points fall in its day (the same window as its areas). It sends no times.
+- **A route stored before this change** has no times, so nothing fades until the trip's next sync.
 
 ### What a heading's area tells a visitor (my call)
 

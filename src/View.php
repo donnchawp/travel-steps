@@ -348,11 +348,7 @@ class View {
 		}
 		$starts = Days::anchor_times( $step->post_content );
 		sort( $starts );
-		// The step's day, stretched to take in a heading or photo that falls outside it.
-		$day_from = ( new \DateTimeImmutable( Trips::day( $step ), wp_timezone() ) )->getTimestamp();
-		$day_to   = $day_from + DAY_IN_SECONDS;
-		$day_from = min( $day_from, $starts[0] ?? $day_from );
-		$day_to   = max( $day_to, 1 + (int) max( array_merge( [ 0 ], $starts, array_column( $photos, 't' ) ) ) );
+		[ $day_from, $day_to ] = self::day_window( $step, $starts, $photos );
 
 		$spans = [];
 		foreach ( $starts as $i => $start ) {
@@ -382,6 +378,51 @@ class View {
 			}
 		}
 		return $areas;
+	}
+
+	/**
+	 * A step's day, from midnight to midnight, stretched to take in a heading or photo that
+	 * falls outside it.
+	 *
+	 * @param int[] $starts The story's anchor times, sorted.
+	 * @return int[] [ from, to ), unix times.
+	 */
+	private static function day_window( \WP_Post $step, array $starts, array $photos ): array {
+		$from = ( new \DateTimeImmutable( Trips::day( $step ), wp_timezone() ) )->getTimestamp();
+		return [
+			min( $from, $starts[0] ?? $from ),
+			max( $from + DAY_IN_SECONDS, 1 + (int) max( array_merge( [ 0 ], $starts, array_column( $photos, 't' ) ) ) ),
+		];
+	}
+
+	/**
+	 * The runs of route points that fall in a step's day, as [ segment, first, last ]
+	 * indexes into $route, for the map to draw bold while the rest fades. None for a
+	 * route stored without times.
+	 *
+	 * @param array $route Trips::META_ROUTE, decoded.
+	 */
+	public static function legs( \WP_Post $step, array $photos, array $route ): array {
+		$starts = Days::anchor_times( $step->post_content );
+		sort( $starts );
+		[ $from, $to ] = self::day_window( $step, $starts, $photos );
+		$legs = [];
+		foreach ( $route as $seg => $points ) {
+			$first = null;
+			// One past the end closes a run that reaches the end of the segment.
+			foreach ( array_merge( $points, [ null ] ) as $i => $p ) {
+				$in = isset( $p[2] ) && $p[2] >= $from && $p[2] < $to;
+				if ( $in && null === $first ) {
+					$first = $i;
+				} elseif ( ! $in && null !== $first ) {
+					if ( $i - 1 > $first ) {
+						$legs[] = [ $seg, $first, $i - 1 ];
+					}
+					$first = null;
+				}
+			}
+		}
+		return $legs;
 	}
 
 	/**

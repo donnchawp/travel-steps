@@ -62,6 +62,25 @@ class View {
 	}
 
 	/**
+	 * Days with photos but no step, because none of their photos is a favourite: sync
+	 * only makes a step for a day with one. Keyed by Y-m-d, with how many photos each has.
+	 *
+	 * @param \WP_Post[] $steps The editor's timeline, as for unseen_notice().
+	 * @return array<string, int>
+	 */
+	public static function stepless_days( int $trip_id, array $steps ): array {
+		$taken = array_flip( array_map( [ Trips::class, 'day' ], $steps ) );
+		$days  = [];
+		foreach ( Trips::photos( $trip_id ) as $photo ) {
+			$day          = Trips::photo_day( $photo );
+			$days[ $day ] = [ ( $days[ $day ][0] ?? 0 ) + 1, ( $days[ $day ][1] ?? false ) || ! empty( $photo['fav'] ) ];
+		}
+		ksort( $days );
+		$stepless = array_filter( $days, fn( $count, $day ) => ! $count[1] && ! isset( $taken[ $day ] ), ARRAY_FILTER_USE_BOTH );
+		return array_map( fn( $count ) => $count[0], $stepless );
+	}
+
+	/**
 	 * The status badge for a step on a trip's timeline or step list, or null for a
 	 * published step. On a published trip, every other step is hidden from visitors
 	 * and gets a warning.

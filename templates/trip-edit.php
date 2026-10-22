@@ -266,6 +266,20 @@ include __DIR__ . '/_header.php';
 				<input type="text" name="password" autocomplete="off" spellcheck="false" maxlength="255" value="<?php echo esc_attr( $trip ? $trip->post_password : '' ); ?>">
 				<small class="ts-muted"><?php esc_html_e( 'Visitors to a public trip need it to see the trip. Use a long one: nothing stops anyone trying passwords. Leave it empty, or “0”, for no password. A private trip can’t have one.', 'travel-steps' ); ?></small>
 			</label>
+			<?php
+			$share_url = $trip ? Trips::share_url( $trip ) : '';
+			if ( '' !== $share_url ) :
+				?>
+				<div class="ts-share" data-password="<?php echo esc_attr( $trip->post_password ); ?>">
+					<label>
+						<span><?php esc_html_e( 'Share link', 'travel-steps' ); ?></span>
+						<input type="text" class="ts-share-url" readonly value="<?php echo esc_url( $share_url ); ?>">
+					</label>
+					<button type="button" class="ts-share-copy" data-copied="<?php esc_attr_e( 'Copied', 'travel-steps' ); ?>"><?php esc_html_e( 'Copy', 'travel-steps' ); ?></button>
+					<small class="ts-muted"><?php esc_html_e( 'Anyone with this link sees the trip without the password. Changing the password gives a new link, and the old one stops working.', 'travel-steps' ); ?></small>
+					<small class="ts-muted ts-share-stale" hidden><?php esc_html_e( 'Save to get the link for the new password. The link above stops working once you save.', 'travel-steps' ); ?></small>
+				</div>
+			<?php endif; ?>
 			<p class="ts-muted">
 				<?php
 				echo esc_html( sprintf( /* translators: %s: the trip author's name */ __( 'People ticked here see the trip without the password once they’re logged in, as do those on %s’s list in Travel Steps settings and anyone who can edit the trip.', 'travel-steps' ), get_the_author_meta( 'display_name', $author ) ) );

@@ -9,6 +9,7 @@ namespace TravelSteps;
  */
 class Geo {
 	const EARTH_RADIUS_M = 6371000;
+	const BOX_SECONDS    = 600;
 
 	public static function distance( float $lat1, float $lon1, float $lat2, float $lon2 ): float {
 		$d_lat = deg2rad( $lat2 - $lat1 );
@@ -54,6 +55,77 @@ class Geo {
 			$segments[] = $current;
 		}
 		return $segments;
+	}
+
+	/**
+	 * A track as one bounding box per 10 minutes, per segment of split_segments(). The
+	 * route is simplified to fit a budget, which can shrink a walk to two points; these
+	 * keep the walk's extent, and when it was.
+	 *
+	 * @param array $points Oldest first.
+	 * @return array<int, array{0: int, 1: float, 2: float, 3: float, 4: float, 5: int}>
+	 *         [ start, south, west, north, east, piece ], by piece then start.
+	 */
+	public static function time_boxes( array $points ): array {
+		$boxes = [];
+		foreach ( self::split_segments( $points ) as $piece => $segment ) {
+			$by_start = [];
+			foreach ( $segment as $p ) {
+				$start = intdiv( (int) $p[2], self::BOX_SECONDS ) * self::BOX_SECONDS;
+				$box   = $by_start[ $start ] ?? [ $start, $p[0], $p[1], $p[0], $p[1], $piece ];
+				$by_start[ $start ] = [ $start, min( $box[1], $p[0] ), min( $box[2], $p[1] ), max( $box[3], $p[0] ), max( $box[4], $p[1] ), $piece ];
+			}
+			ksort( $by_start );
+			foreach ( $by_start as $box ) {
+				$boxes[] = [ $box[0], round( $box[1], 5 ), round( $box[2], 5 ), round( $box[3], 5 ), round( $box[4], 5 ), $piece ];
+			}
+		}
+		return $boxes;
+	}
+
+	/**
+	 * The area of the track from $from to $to, as [ [ south, west ], [ north, east ] ], or
+	 * null if none of it falls then. Only the pieces passing within $near_m of a $near
+	 * point count, so the far end of a flight isn't part of the place before it; if none
+	 * does, or there's no $near, all of them count.
+	 *
+	 * @param array $boxes From time_boxes().
+	 * @param array $near  [ lat, lon ] points, such as a place's photos.
+	 */
+	public static function span_area( array $boxes, int $from, int $to, array $near, float $near_m ): ?array {
+		$pieces = [];
+		foreach ( $boxes as $box ) {
+			if ( $box[0] < $to && $box[0] + self::BOX_SECONDS > $from ) {
+				$bounds            = array_slice( $box, 1, 4 );
+				$pieces[ $box[5] ] = isset( $pieces[ $box[5] ] ) ? self::union( $pieces[ $box[5] ], $bounds ) : $bounds;
+			}
+		}
+		if ( ! $pieces ) {
+			return null;
+		}
+
+		$close = array_filter(
+			$pieces,
+			function ( $b ) use ( $near, $near_m ) {
+				$d_lat = $near_m / 111320;
+				foreach ( $near as [ $lat, $lon ] ) {
+					$d_lon = $d_lat / max( 0.01, cos( deg2rad( $lat ) ) );
+					if ( $lat >= $b[0] - $d_lat && $lat <= $b[2] + $d_lat && $lon >= $b[1] - $d_lon && $lon <= $b[3] + $d_lon ) {
+						return true;
+					}
+				}
+				return false;
+			}
+		);
+		$area = array_reduce( $close ?: $pieces, fn( $a, $b ) => $a ? self::union( $a, $b ) : $b );
+		return [ [ $area[0], $area[1] ], [ $area[2], $area[3] ] ];
+	}
+
+	/**
+	 * Two [ south, west, north, east ] boxes as one.
+	 */
+	private static function union( array $a, array $b ): array {
+		return [ min( $a[0], $b[0] ), min( $a[1], $b[1] ), max( $a[2], $b[2] ), max( $a[3], $b[3] ) ];
 	}
 
 	/**

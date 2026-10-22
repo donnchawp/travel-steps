@@ -38,8 +38,9 @@ class Trips {
 	const SHARE_ARG = 'share';
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
 	const INTRO_TAGS = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
-	// What can follow a < that starts a tag or comment. Any other < in an intro is text.
-	const TAG_START = '[a-z/!?]';
+	// What can follow a < that starts a tag or comment. Any other < in an intro is text, so
+	// "</3" and "<?" aren't read as broken tags and dropped.
+	const TAG_START = '(?:[a-z]|/[a-z]|!--)';
 
 	// Step meta. A step is a day: the date part of its post date.
 	const META_LAT  = '_ts_lat';

@@ -42,7 +42,7 @@ check( '…and a tag left open is closed within its paragraph', "<strong>Bold</s
 $text = Trips::intro_text( Trips::intro_content( 'B&B' ) );
 check( '…and an ampersand typed reads back as typed', 'B&B' === $text, $text );
 // A < or > that isn't part of a tag is text: kses would cut "<3 Kerry…" off as a broken tag.
-foreach ( [ 'I <3 Kerry and Clare', 'a < b > c', 'x > y, 1 <= 2 << 3' ] as $intro_typed ) {
+foreach ( [ 'I <3 Kerry and Clare', 'a < b > c', 'x > y, 1 <= 2 << 3', 'broken </3 heart', 'what <? now', 'odd <!x> one' ] as $intro_typed ) {
 	$saved = Trips::intro_content( $intro_typed );
 	$text  = Trips::intro_text( $saved );
 	check( "intro: “{$intro_typed}” is kept, and reads back as typed", $intro_typed === $text, [ $saved, $text ] );

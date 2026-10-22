@@ -25,7 +25,7 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
-	const MOVE_MS = 250; // A long move's fade, as .ts-map's transitions.
+	const MOVE_MS = 120; // A long move's fade, as .ts-map's transitions.
 	const TRAVEL_MS = 1000; // Then the streets streaming past.
 	const SLIDE_PX = 80; // How far the map slides as it fades.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
@@ -237,7 +237,8 @@
 			const dx = -ux * eased * distance;
 			const dy = -uy * eased * distance;
 			ctx.clearRect( 0, 0, w, h );
-			ctx.strokeStyle = `rgb(255 255 255 / ${ 0.45 * Math.sin( Math.PI * t ) })`;
+			// In and out quickly at either end.
+			ctx.strokeStyle = `rgb(255 255 255 / ${ 0.45 * Math.min( 1, t / 0.12, ( 1 - t ) / 0.12 ) })`;
 			streets.forEach( ( points ) => {
 				const ox = wrap( points[ 0 ][ 0 ] + dx, w ) - points[ 0 ][ 0 ];
 				const oy = wrap( points[ 0 ][ 1 ] + dy, h ) - points[ 0 ][ 1 ];

@@ -169,7 +169,9 @@ class View {
 	 * A trip's intro as plain text, cut at a word to 200 characters at most, else its dates.
 	 */
 	public static function preview_description( \WP_Post $trip ): string {
-		$text = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $trip->post_content ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+		// A line or paragraph break is a space, or stripping the tags would join its words.
+		$html = preg_replace( '#<br\s*/?>|</(?:p|li|h[1-6]|div)>#i', ' $0', $trip->post_content );
+		$text = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
 		if ( '' === $text ) {
 			return self::date_range( $trip->ID );
 		}

@@ -74,6 +74,9 @@ check( '…and a large card', 'summary_large_image' === $sh_meta( $page, 'twitte
 check( 'preview: the password form has no preview tags', false === strpos( $sh_page( null ), 'og:' ) );
 wp_update_post( [ 'ID' => $sh_trip, 'post_content' => '<!-- wp:paragraph --><p>B&amp;B <b>x</b></p><!-- /wp:paragraph -->' ] );
 check( 'preview: the description is the intro as text, escaped once', 'B&amp;B x' === $sh_meta( $sh_page( $sh_code ), 'og:description' ), $sh_meta( $sh_page( $sh_code ), 'og:description' ) );
+wp_update_post( [ 'ID' => $sh_trip, 'post_content' => '<p>Arrived in Lisbon.<br>Rain all day.</p><p>Then sun.</p>' ] );
+$sh_text = View::preview_description( get_post( $sh_trip ) );
+check( '…with a space where a line or paragraph breaks', 'Arrived in Lisbon. Rain all day. Then sun.' === $sh_text, $sh_text );
 wp_update_post( [ 'ID' => $sh_trip, 'post_content' => str_repeat( 'Lisbon ', 60 ) ] );
 $sh_long = View::preview_description( get_post( $sh_trip ) );
 check( '…trimmed at a word to 200 characters', mb_strlen( $sh_long ) <= 200 && str_ends_with( $sh_long, 'Lisbon…' ), $sh_long );

@@ -140,7 +140,9 @@ class RestController {
 		$steps    = Trips::timeline_steps( $trip, $can_edit );
 		$by_step  = Trips::photos_by_step( $trip->ID, $steps );
 
+		$boxes   = Trips::boxes( $trip->ID );
 		$markers = [];
+		$areas   = [];
 		foreach ( $steps as $index => $step ) {
 			// Same label as the timeline: the day number.
 			$number  = Trips::day_of_trip( $trip->ID, $step ) ?: $index + 1;
@@ -148,6 +150,7 @@ class RestController {
 			$photos  = array_merge( $groups['shown'], $groups['rest'] );
 			usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
 			$markers = array_merge( $markers, View::markers( $step, $photos, $number ) );
+			$areas   = array_merge( $areas, View::areas( $step, $photos, $boxes ) );
 		}
 
 		$response = new \WP_REST_Response(
@@ -155,6 +158,7 @@ class RestController {
 				'id'       => $trip->ID,
 				'route'    => is_array( $route ) ? $route : [],
 				'markers'  => $markers,
+				'areas'    => (object) $areas,
 				'can_edit' => $can_edit,
 			]
 		);

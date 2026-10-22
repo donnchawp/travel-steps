@@ -10,6 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Small formatting helpers shared by templates.
  */
 class View {
+	// How close a stretch of track must pass to a heading's photos to be part of its area.
+	const AREA_NEAR_M = 2000;
+
 	public static function date_range( int $trip_id ): string {
 		$start = (string) get_post_meta( $trip_id, Trips::META_START, true );
 		$end   = (string) get_post_meta( $trip_id, Trips::META_END, true );
@@ -324,6 +327,54 @@ class View {
 			];
 		}
 		return $markers;
+	}
+
+	/**
+	 * The area of the route under each place heading of a step, for the map to zoom to as
+	 * it's read: element id => [ [ south, west ], [ north, east ] ], from the story's
+	 * headings as they are now. A heading's stretch runs from its time to the next one's,
+	 * the first from the start of the day and the last to its end; a step without headings
+	 * has the whole day. Only the track near a heading's photos counts.
+	 *
+	 * @param array $photos The step's visible photos.
+	 * @param array $boxes  Trips::boxes().
+	 */
+	public static function areas( \WP_Post $step, array $photos, array $boxes ): array {
+		if ( ! $boxes ) {
+			return [];
+		}
+		$starts = Days::anchor_times( $step->post_content );
+		sort( $starts );
+		// The step's day, stretched to take in a heading or photo that falls outside it.
+		$day_from = ( new \DateTimeImmutable( Trips::day( $step ), wp_timezone() ) )->getTimestamp();
+		$day_to   = $day_from + DAY_IN_SECONDS;
+		$day_from = min( $day_from, $starts[0] ?? $day_from );
+		$day_to   = max( $day_to, 1 + (int) max( array_column( $photos, 't' ) ?: [ 0 ] ) );
+
+		$spans = [];
+		foreach ( $starts as $i => $start ) {
+			$spans[ Days::ANCHOR_PREFIX . $start ] = [ $i ? $start : $day_from, $starts[ $i + 1 ] ?? $day_to, $i ];
+		}
+		if ( ! $spans ) {
+			$spans[ 'step-' . $step->ID ] = [ $day_from, $day_to, null ];
+		}
+
+		$areas = [];
+		foreach ( $spans as $id => [ $from, $to, $i ] ) {
+			$near = [];
+			foreach ( $photos as $p ) {
+				$section = Days::section_index( $starts, (int) $p['t'] );
+				// The first heading also owns the photos taken before it.
+				if ( null !== $p['lat'] && ( null === $i || $section === $i + 1 || ( 0 === $i && 0 === $section ) ) ) {
+					$near[] = [ (float) $p['lat'], (float) $p['lon'] ];
+				}
+			}
+			$area = Geo::span_area( $boxes, $from, $to, $near, self::AREA_NEAR_M );
+			if ( $area ) {
+				$areas[ $id ] = $area;
+			}
+		}
+		return $areas;
 	}
 
 	/**

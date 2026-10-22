@@ -149,11 +149,14 @@
 			map.fitBounds( bounds, { ...options, animate: false } );
 			return;
 		}
-		// Much the same place, at whatever zoom (another day in the same town, or back out of
-		// a walk): centred within a quarter of the larger view of the two.
+		// Much the same place, at whatever zoom: one takes in the middle of the other (into a
+		// town at the end of a drive, or back out to the drive), or they're centred within a
+		// quarter of the larger of the two (another day in the same town).
 		const view = map.getBounds();
 		const across = ( b ) => map.distance( b.getSouthWest(), b.getNorthEast() );
-		if ( map.distance( view.getCenter(), bounds.getCenter() ) <= Math.max( across( view ), across( bounds ) ) / 4 ) {
+		const near = bounds.contains( view.getCenter() ) || view.contains( bounds.getCenter() ) ||
+			map.distance( view.getCenter(), bounds.getCenter() ) <= Math.max( across( view ), across( bounds ) ) / 4;
+		if ( near ) {
 			// Leaflet stretches the routes with the map as it flies, until they cover it:
 			// they're hidden until it lands. The markers stay.
 			mapEl.classList.add( 'is-flying' );

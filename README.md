@@ -67,7 +67,7 @@ An administrator can also set **Delete cached photos after (days)** in the Site 
 
 Expiry undoes some of the background caching, though. If Immich is down, or the author's key stops working, an expired photo is a broken image (a 502) until they're back. The default is 0, which keeps cached photos for as long as a trip uses them.
 
-The map gets a marker for each place heading (3a, 3b…), or one for each step without headings, numbered by trip day. A step with no position, such as a day of photos taken at home, still appears on the timeline with its story and photos, but has no marker on the map. As you scroll, the map zooms to the part of the route under the heading you're reading, and back out to the whole trip above the first step. A trip zooms like this after its first sync with this version.
+The map gets a marker for each place heading (3a, 3b…), or one for each step without headings, numbered by trip day. A step with no position, such as a day of photos taken at home, still appears on the timeline with its story and photos, but has no marker on the map. As you scroll, the map zooms to the part of the route under the heading you're reading, and back out to the whole trip above the first step. While you read a step, the other days' routes fade. A trip does this after its first sync with this version.
 
 Photos are picked when the page loads, so pin and hide take effect at once. New favourites need a sync to be picked up, and only create a step for a day that doesn't have one yet.
 

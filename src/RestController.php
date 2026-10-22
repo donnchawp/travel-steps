@@ -103,7 +103,8 @@ class RestController {
 	public static function maybe_serve_photo( \WP $wp ): void {
 		$photo = self::photo_request( $wp->request );
 		if ( $photo ) {
-			self::serve_photo( ...$photo );
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the trip's share code.
+			self::serve_photo( $photo[0], $photo[1], $photo[2], wp_unslash( $_GET[ Trips::SHARE_ARG ] ?? '' ) );
 		}
 	}
 
@@ -216,9 +217,12 @@ class RestController {
 	 * only some may see, or fetched by anyone who can edit the trip (for
 	 * those a protected trip lets in, its shown photos; for editors, any synced photo;
 	 * for the trip's managers, any photo uploaded to it, synced or not); "" if they may
-	 * not. Whether shared caches may keep it is photo_cache()'s call.
+	 * not. Whether shared caches may keep it is photo_cache()'s call. A protected trip's
+	 * share code lets in its cover, privately, for a link preview, which has no cookie.
+	 *
+	 * @param mixed $share The share code the request carries, if any.
 	 */
-	public static function access( int $trip_id, string $asset ): string {
+	public static function access( int $trip_id, string $asset, $share = '' ): string {
 		$trip = get_post( $trip_id );
 		if ( ! $trip ) {
 			return '';
@@ -228,7 +232,7 @@ class RestController {
 			return Trips::shared_cacheable( $trip ) && ! in_array( $asset, Trips::hidden( $trip_id ), true ) ? 'public' : 'private';
 		}
 		if ( ! current_user_can( 'edit_post', $trip_id ) ) {
-			return '';
+			return Trips::share_matches( $trip, $share ) && View::cover_id( $trip_id ) === $asset ? 'private' : '';
 		}
 		$synced = in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true );
 		return $synced || ( Trips::can_edit_trip( $trip_id ) && Uploads::attachment( $trip_id, $asset ) ) ? 'private' : '';
@@ -244,8 +248,8 @@ class RestController {
 	 * them all over REST. Outside it, the login cookie and core's password cookie are read
 	 * as on any page.
 	 */
-	public static function serve_photo( int $trip_id, string $asset, string $size ): void {
-		$answer = self::photo_answer( $trip_id, $asset, $size, sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ) );
+	public static function serve_photo( int $trip_id, string $asset, string $size, $share = '' ): void {
+		$answer = self::photo_answer( $trip_id, $asset, $size, sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ), $share );
 		status_header( $answer['status'] );
 		header( 'Cache-Control: ' . $answer['cache'] );
 		header( 'X-Content-Type-Options: nosniff' );
@@ -276,11 +280,12 @@ class RestController {
 	 * opened). Every refusal is the same 404, kept out of caches, so it tells another site
 	 * nothing about who's asking.
 	 *
+	 * @param mixed $share The share code the request carries, if any: see access().
 	 * @return array{status: int, cache: string, etag?: string, image?: array{body: string, type: string}|array{handle: resource, type: string}}
 	 */
-	public static function photo_answer( int $trip_id, string $asset, string $size, string $if_none_match ): array {
+	public static function photo_answer( int $trip_id, string $asset, string $size, string $if_none_match, $share = '' ): array {
 		$valid  = 1 === preg_match( '/^' . self::ASSET_ID . '$/', $asset ) && in_array( $size, self::SIZES, true );
-		$access = $valid ? self::access( $trip_id, $asset ) : '';
+		$access = $valid ? self::access( $trip_id, $asset, $share ) : '';
 		if ( '' === $access ) {
 			return [
 				'status' => 404,

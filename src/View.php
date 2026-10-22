@@ -139,19 +139,24 @@ class View {
 	 * a published step, else the first landscape photo shown there.
 	 */
 	public static function cover_url( int $trip_id, string $size = 'preview' ): string {
+		$asset = self::cover_id( $trip_id );
+		return '' === $asset ? '' : RestController::photo_url( $trip_id, $asset, $size );
+	}
+
+	/**
+	 * The asset cover_url() shows, or empty if there's none.
+	 */
+	public static function cover_id( int $trip_id ): string {
 		$chosen = Trips::cover( $trip_id );
 		if ( '' !== $chosen ) {
-			return RestController::photo_url( $trip_id, $chosen, $size );
+			return $chosen;
 		}
 		$shown = [];
 		foreach ( Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) ) as $groups ) {
 			$shown = array_merge( $shown, $groups['shown'] );
 		}
 		$photo = Selection::lead( array_filter( $shown, fn( $p ) => ( $p['w'] ?? 0 ) >= ( $p['h'] ?? 0 ) ) );
-		if ( ! $photo ) {
-			return '';
-		}
-		return RestController::photo_url( $trip_id, $photo['id'], $size );
+		return $photo ? $photo['id'] : '';
 	}
 
 	/**

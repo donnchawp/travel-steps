@@ -27,6 +27,20 @@ check( 'corner kept', 3 === count( Geo::simplify( $corner, 10 ) ) );
 // Split at a flight-sized gap.
 $flight = [ [ 53.42, -6.27, 0 ], [ 53.43, -6.26, 60 ], [ 40.47, -3.56, 9000 ], [ 40.46, -3.57, 9060 ] ];
 check( 'flight splits route into 2 segments', 2 === count( Geo::split_segments( $flight ) ) );
+
+// A track as a box per 10 minutes, and the area of a span of time from those boxes.
+$boxes = Geo::time_boxes( [ [ 37.0, -4.0, 0 ], [ 37.001, -3.999, 300 ], [ 37.002, -4.0, 700 ] ] );
+check( 'time boxes: one per 10 minutes, with its bounds and piece', [ [ 0, 37.0, -4.0, 37.001, -3.999, 0 ], [ 600, 37.002, -4.0, 37.002, -4.0, 0 ] ] === $boxes );
+$boxes = Geo::time_boxes( [ [ 53.42, -6.27, 0 ], [ 40.47, -3.56, 400 ] ] );
+check( 'time boxes: a jump in the same 10 minutes starts a new piece', [ 0, 1 ] === array_column( $boxes, 5 ) && [ 0, 0 ] === array_column( $boxes, 0 ) );
+$row = [ [ 0, 1.0, 1.0, 1.0, 1.0, 0 ], [ 600, 2.0, 2.0, 2.0, 2.0, 0 ], [ 1200, 3.0, 3.0, 3.0, 3.0, 0 ] ];
+check( 'span area: only the boxes that overlap the span', [ [ 2.0, 2.0 ], [ 2.0, 2.0 ] ] === Geo::span_area( $row, 650, 1200, [], 2000 ) );
+check( 'span area: none overlap', null === Geo::span_area( $row, 1800, 2400, [], 2000 ) );
+$two = [ [ 0, 51.84, -8.50, 51.93, -8.40, 0 ], [ 600, 36.67, -4.50, 36.68, -4.49, 1 ] ];
+check( 'span area: only the piece near the heading’s photos', [ [ 51.84, -8.50 ], [ 51.93, -8.40 ] ] === Geo::span_area( $two, 0, 1200, [ [ 51.8413, -8.4911 ] ], 2000 ) );
+check( 'span area: a photo just outside a piece still picks it', [ [ 36.67, -4.50 ], [ 36.68, -4.49 ] ] === Geo::span_area( $two, 0, 1200, [ [ 36.69, -4.49 ] ], 2000 ) );
+check( 'span area: no photo near any piece keeps them all', [ [ 36.67, -8.50 ], [ 51.93, -4.49 ] ] === Geo::span_area( $two, 0, 1200, [ [ 0.0, 0.0 ] ], 2000 ) );
+check( 'span area: no photos keeps them all', [ [ 36.67, -8.50 ], [ 51.93, -4.49 ] ] === Geo::span_area( $two, 0, 1200, [], 2000 ) );
 $len = Geo::track_length( $flight );
 check( 'track length counts the flight (Dublin-Madrid ~1450km)', $len > 1400000 && $len < 1500000 );
 $glitch = [ [ 53.42, -6.27, 0 ], [ 53.43, -6.26, 60 ], [ 51.50, -0.12, 90 ], [ 53.44, -6.25, 120 ] ];

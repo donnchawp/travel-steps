@@ -4,7 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 /**
- * Shared header partial. Set $page_title before including.
+ * Shared header partial. Set $page_title before including, and $preview_meta for a page
+ * with link-preview tags (see View::preview_meta()).
  */
 wp_app_enqueue_style(
 	'travel-steps',
@@ -20,6 +21,9 @@ wp_app_enqueue_style(
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title><?php wp_app_the_title( isset( $page_title ) ? $page_title : '' ); ?></title>
+	<?php foreach ( $preview_meta ?? [] as $property => $content ) : ?>
+		<meta <?php echo 0 === strpos( $property, 'twitter:' ) ? 'name' : 'property'; ?>="<?php echo esc_attr( $property ); ?>" content="<?php echo esc_attr( $content ); ?>">
+	<?php endforeach; ?>
 	<?php wp_app_head(); ?>
 </head>
 <body class="wp-app-body ts-body">

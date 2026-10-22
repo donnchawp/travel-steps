@@ -63,3 +63,19 @@ check( '…nor a non-string', '' === RestController::access( $sh_trip, $pw_cover
 $sh_refused = RestController::photo_answer( $sh_trip, $pw_photo, 'medium', '', $sh_code );
 check( 'share photo: a refusal is the usual 404 no-store', [ 404, 'no-store' ] === [ $sh_refused['status'], $sh_refused['cache'] ], $sh_refused );
 check( 'cover: cover_url still picks the chosen cover', false !== strpos( View::cover_url( $sh_trip ), $pw_cover ) );
+
+// Link-preview tags.
+$sh_meta = fn( string $page, string $prop ) => preg_match( '/<meta (?:property|name)="' . preg_quote( $prop, '/' ) . '" content="([^"]*)"/', $page, $m ) ? $m[1] : null;
+$page    = $sh_page( $sh_code );
+check( 'preview: a share link’s og:url is the share link', esc_attr( Trips::share_url( get_post( $sh_trip ) ) ) === $sh_meta( $page, 'og:url' ), $sh_meta( $page, 'og:url' ) );
+check( '…and its image is the cover at medium, with the code', false !== strpos( (string) $sh_meta( $page, 'og:image' ), $pw_cover . '/medium' ) && false !== strpos( (string) $sh_meta( $page, 'og:image' ), 'share=' . $sh_code ), $sh_meta( $page, 'og:image' ) );
+check( '…and a large card', 'summary_large_image' === $sh_meta( $page, 'twitter:card' ) );
+check( 'preview: the password form has no preview tags', false === strpos( $sh_page( null ), 'og:' ) );
+wp_update_post( [ 'ID' => $sh_trip, 'post_content' => '<!-- wp:paragraph --><p>B&amp;B <b>x</b></p><!-- /wp:paragraph -->' ] );
+check( 'preview: the description is the intro as text, escaped once', 'B&amp;B x' === $sh_meta( $sh_page( $sh_code ), 'og:description' ), $sh_meta( $sh_page( $sh_code ), 'og:description' ) );
+wp_update_post( [ 'ID' => $sh_trip, 'post_content' => str_repeat( 'Lisbon ', 60 ) ] );
+$sh_long = View::preview_description( get_post( $sh_trip ) );
+check( '…trimmed at a word to 200 characters', mb_strlen( $sh_long ) <= 200 && str_ends_with( $sh_long, 'Lisbon…' ), $sh_long );
+$pw_set( $sh_other_published, '' );
+$page = $render( 'trip.php', (string) $sh_other_published );
+check( 'preview: a public trip’s og:url is its own URL, its image without a code', esc_attr( Trips::url( get_post( $sh_other_published ) ) ) === $sh_meta( $page, 'og:url' ) && false === strpos( (string) $sh_meta( $page, 'og:image' ), 'share=' ) && null !== $sh_meta( $page, 'og:image' ), [ $sh_meta( $page, 'og:url' ), $sh_meta( $page, 'og:image' ) ] );

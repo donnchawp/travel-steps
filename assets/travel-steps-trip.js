@@ -111,7 +111,7 @@
 		if ( ! whole.isValid() ) {
 			map.setView( [ 20, 0 ], 2, { animate } );
 		} else if ( animate ) {
-			map.flyToBounds( whole, { padding } );
+			map.flyToBounds( whole, { padding, duration: 1 } );
 		} else {
 			map.fitBounds( whole, { padding, animate } );
 		}
@@ -128,8 +128,8 @@
 		if ( map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
 			return;
 		}
-		// Leaflet times the flight by how far it goes, so Cork to Málaga isn't a flick.
-		map.flyToBounds( target, { padding, maxZoom: 16, animate: ! reduced.matches } );
+		// A second, however far: Leaflet's own timing takes seconds over a long flight.
+		map.flyToBounds( target, { padding, maxZoom: 16, duration: 1, animate: ! reduced.matches } );
 	}
 
 	// While a step is read, the rest of the route fades, so a walk round a town isn't lost

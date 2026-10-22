@@ -127,7 +127,7 @@
 			// they're hidden until it lands. The markers stay.
 			mapEl.classList.add( 'is-flying' );
 			map.once( 'moveend', () => mapEl.classList.remove( 'is-flying' ) );
-			map.flyToBounds( bounds, { ...options, duration: 3 } );
+			map.flyToBounds( bounds, { ...options, duration: 1 } );
 			return;
 		}
 		mapEl.classList.add( 'is-fading' );

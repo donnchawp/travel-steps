@@ -105,13 +105,21 @@
 		watchReading();
 	}
 
+	// Leaflet stretches the routes with the map as it flies, until they cover it: they're
+	// hidden until it lands. The markers stay.
+	function fly( bounds, options ) {
+		mapEl.classList.add( 'is-flying' );
+		map.once( 'moveend', () => mapEl.classList.remove( 'is-flying' ) );
+		map.flyToBounds( bounds, options );
+	}
+
 	// Flown, not fitted: fitBounds jumps without animating when the zoom changes by more
 	// than four levels, as it does coming back out of a walk.
 	function showWhole( animate ) {
 		if ( ! whole.isValid() ) {
 			map.setView( [ 20, 0 ], 2, { animate } );
 		} else if ( animate ) {
-			map.flyToBounds( whole, { padding, duration: 3 } );
+			fly( whole, { padding, duration: 3 } );
 		} else {
 			map.fitBounds( whole, { padding, animate } );
 		}
@@ -129,7 +137,7 @@
 			return;
 		}
 		// Three seconds, however far: quicker feels hurried, and Leaflet's own timing varies with the distance.
-		map.flyToBounds( target, { padding, maxZoom: 16, duration: 3, animate: ! reduced.matches } );
+		fly( target, { padding, maxZoom: 16, duration: 3, animate: ! reduced.matches } );
 	}
 
 	// While a step is read, the rest of the route fades, so a walk round a town isn't lost

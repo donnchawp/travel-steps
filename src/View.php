@@ -340,7 +340,10 @@ class View {
 	 * @param array $boxes  Trips::boxes().
 	 */
 	public static function areas( \WP_Post $step, array $photos, array $boxes ): array {
-		if ( ! $boxes ) {
+		$located = array_filter( $photos, fn( $p ) => null !== $p['lat'] );
+		// A step with no position, such as a day at home, has no marker to zoom to, and its
+		// track would only frame the area around home.
+		if ( ! $boxes || ( ! $located && '' === get_post_meta( $step->ID, Trips::META_LAT, true ) ) ) {
 			return [];
 		}
 		$starts = Days::anchor_times( $step->post_content );
@@ -349,7 +352,7 @@ class View {
 		$day_from = ( new \DateTimeImmutable( Trips::day( $step ), wp_timezone() ) )->getTimestamp();
 		$day_to   = $day_from + DAY_IN_SECONDS;
 		$day_from = min( $day_from, $starts[0] ?? $day_from );
-		$day_to   = max( $day_to, 1 + (int) max( array_column( $photos, 't' ) ?: [ 0 ] ) );
+		$day_to   = max( $day_to, 1 + (int) max( array_merge( [ 0 ], $starts, array_column( $photos, 't' ) ) ) );
 
 		$spans = [];
 		foreach ( $starts as $i => $start ) {
@@ -361,15 +364,19 @@ class View {
 
 		$areas = [];
 		foreach ( $spans as $id => [ $from, $to, $i ] ) {
-			$near = [];
-			foreach ( $photos as $p ) {
-				$section = Days::section_index( $starts, (int) $p['t'] );
-				// The first heading also owns the photos taken before it.
-				if ( null !== $p['lat'] && ( null === $i || $section === $i + 1 || ( 0 === $i && 0 === $section ) ) ) {
-					$near[] = [ (float) $p['lat'], (float) $p['lon'] ];
+			// The first heading also owns the photos taken before it.
+			$own = array_filter(
+				$located,
+				function ( $p ) use ( $starts, $i ) {
+					$section = Days::section_index( $starts, (int) $p['t'] );
+					return null === $i || $section === $i + 1 || ( 0 === $i && 0 === $section );
 				}
-			}
-			$area = Geo::span_area( $boxes, $from, $to, $near, self::AREA_NEAR_M );
+			);
+			// Its favourites make the place: other photos under it can be from the next one,
+			// such as those taken after landing, before the first favourite there.
+			$favourites = array_filter( $own, fn( $p ) => ! empty( $p['fav'] ) );
+			$near       = array_map( fn( $p ) => [ (float) $p['lat'], (float) $p['lon'] ], array_values( $favourites ?: $own ) );
+			$area       = Geo::span_area( $boxes, $from, $to, $near, self::AREA_NEAR_M );
 			if ( $area ) {
 				$areas[ $id ] = $area;
 			}

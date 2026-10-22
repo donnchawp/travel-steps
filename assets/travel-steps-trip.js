@@ -25,8 +25,8 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
-	const MOVE_MS = 400; // Each half of a long move, as .ts-map's transitions.
-	const SLIDE_PX = 120; // How far the map slides off and on.
+	const MOVE_MS = 250; // A long move's fade, as .ts-map's transitions.
+	const SLIDE_PX = 80; // How far the map slides as it fades.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
 	const padding = [ 30, 30 ];
@@ -131,10 +131,10 @@
 		return streak;
 	}
 
-	// A short move, to a place already in view at about the same zoom (another day in the
-	// same town), glides. A longer one dims the map and streaks it along the way it goes
-	// as it slides off, then the new place slides in and clears: flying zooms out and
-	// back in, which is jarring over Cork to Málaga or even Málaga to Cómpeta.
+	// A move to much the same place glides. A longer one fades the map to nearly black,
+	// streaked along the way it goes as it slides off, and the new place appears: flying
+	// zooms out and back in, which is jarring over Cork to Málaga or even Málaga to
+	// Cómpeta.
 	function moveTo( bounds, maxZoom ) {
 		const mine = ++move;
 		const options = { padding, maxZoom };
@@ -147,9 +147,11 @@
 			map.fitBounds( bounds, { ...options, animate: false } );
 			return;
 		}
-		// The padding is on every side, as fitBounds takes it.
-		const zoom = Math.min( maxZoom, map.getBoundsZoom( bounds, false, L.point( padding ).multiplyBy( 2 ) ) );
-		if ( map.getBounds().intersects( bounds ) && Math.abs( zoom - map.getZoom() ) <= 2 ) {
+		// Much the same place, at whatever zoom (another day in the same town, or back out of
+		// a walk): centred within a quarter of the larger view of the two.
+		const view = map.getBounds();
+		const across = ( b ) => map.distance( b.getSouthWest(), b.getNorthEast() );
+		if ( map.distance( view.getCenter(), bounds.getCenter() ) <= Math.max( across( view ), across( bounds ) ) / 4 ) {
 			// Leaflet stretches the routes with the map as it flies, until they cover it:
 			// they're hidden until it lands. The markers stay.
 			mapEl.classList.add( 'is-flying' );
@@ -173,19 +175,14 @@
 			if ( mine !== move ) {
 				return;
 			}
+			// The new place appears at once, sharp and undimmed.
+			mapEl.classList.add( 'is-arriving' );
 			map.fitBounds( bounds, { ...options, animate: false } );
-			// The new place comes in from ahead, as if the map carried on.
-			pane.style.transition = 'none';
-			pane.style.translate = slide( -SLIDE_PX );
-			pane.getBoundingClientRect();
-			pane.style.transition = '';
+			pane.style.filter = '';
 			pane.style.translate = '';
 			mapEl.classList.remove( 'is-moving' );
-			setTimeout( () => {
-				if ( mine === move ) {
-					pane.style.filter = '';
-				}
-			}, MOVE_MS / 2 );
+			pane.getBoundingClientRect();
+			mapEl.classList.remove( 'is-arriving' );
 		}, MOVE_MS );
 	}
 

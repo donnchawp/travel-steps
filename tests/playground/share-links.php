@@ -5,7 +5,9 @@
  * page. Required at the end of smoke.php after password-trips.php, in its scope: uses
  * check(), $render, $pw_trip, $pw_set, $pw_enter, $pw_photo and $pw_cover.
  */
+use TravelSteps\RestController;
 use TravelSteps\Trips;
+use TravelSteps\View;
 
 [ $sh_trip ] = $pw_trip( 'Shared Lisbon' );
 $pw_set( $sh_trip, 'kerry and clare' );
@@ -49,3 +51,15 @@ $sh_old_code = $sh_code;
 $sh_code     = Trips::share_code( get_post( $sh_trip ) );
 [ $sh_other_published ] = $pw_trip( 'Another Lisbon' );
 $pw_set( $sh_other_published, 'another' );
+
+// The cover photo, which a link preview loads without the cookie.
+wp_set_current_user( 0 );
+$pw_enter( null );
+check( 'share photo: the code lets the cover through, privately', 'private' === RestController::access( $sh_trip, $pw_cover, $sh_code ) );
+check( '…but no other photo', '' === RestController::access( $sh_trip, $pw_photo, $sh_code ) );
+check( '…and an old code nothing', '' === RestController::access( $sh_trip, $pw_cover, $sh_old_code ) );
+check( '…nor another trip’s', '' === RestController::access( $sh_trip, $pw_cover, Trips::share_code( get_post( $sh_other_published ) ) ) );
+check( '…nor a non-string', '' === RestController::access( $sh_trip, $pw_cover, [ $sh_code ] ) );
+$sh_refused = RestController::photo_answer( $sh_trip, $pw_photo, 'medium', '', $sh_code );
+check( 'share photo: a refusal is the usual 404 no-store', [ 404, 'no-store' ] === [ $sh_refused['status'], $sh_refused['cache'] ], $sh_refused );
+check( 'cover: cover_url still picks the chosen cover', false !== strpos( View::cover_url( $sh_trip ), $pw_cover ) );

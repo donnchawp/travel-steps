@@ -39,7 +39,9 @@
 	}
 
 	function drawTrip( trip ) {
-		map = L.map( mapEl, { scrollWheelZoom: false, zoomControl: true } );
+		// On a touch screen one finger scrolls the page, even over the map, which fills the
+		// top of a phone's: two fingers move and zoom it.
+		map = L.map( mapEl, { scrollWheelZoom: false, zoomControl: true, dragging: ! window.matchMedia( '(hover: none)' ).matches } );
 		L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

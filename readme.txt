@@ -18,7 +18,7 @@ Visitors never reach Immich. WordPress fetches the photos and serves them itself
 
 Sync creates a draft step for every day with favourite photos. Each place you visited that day gets a heading and a Trip photos block. You write each step in the block editor and publish it. On the trip page you can pin or hide a photo, or make one the cover. On a phone, press Edit photos first.
 
-Only published steps of published trips are public. Your home is kept off every map. Photos uploaded to a trip that were taken at home show without a place, and trips of Immich photos leave them out. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
+Only published steps of published trips are public. Your home is kept off every map. Photos taken at home show without a place when you chose them for the trip, as uploads, in an Immich album, or as favourites; a trip of Immich photos picked by its dates leaves out the rest. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
 
 A trip can also have a password. Logged-in users on its viewer lists see it without one.
 

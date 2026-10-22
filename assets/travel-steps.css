@@ -126,7 +126,8 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
    map's panes and below its controls. */
 .ts-map .leaflet-map-pane { transition: translate .25s ease-in; }
 .ts-map::after { content: ""; position: absolute; inset: 0; z-index: 650; pointer-events: none; background: rgb(0 0 0 / 0); transition: background-color .25s ease-in; }
-.ts-map.is-moving::after { background: rgb(0 0 0 / .85); }
+.ts-map.is-moving::after { background: rgb(0 0 0 / .9); }
+.ts-map-travel { position: absolute; inset: 0; z-index: 660; width: 100%; height: 100%; pointer-events: none; }
 .ts-map.is-arriving .leaflet-map-pane, .ts-map.is-arriving::after { transition: none; }
 .ts-map.is-unavailable { display: none; }
 .ts-map.is-flying .leaflet-overlay-pane { visibility: hidden; }

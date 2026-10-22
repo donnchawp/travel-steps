@@ -26,6 +26,7 @@
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
 	const MOVE_MS = 250; // A long move's fade, as .ts-map's transitions.
+	const TRAVEL_MS = 1000; // Then the streets streaming past.
 	const SLIDE_PX = 80; // How far the map slides as it fades.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
@@ -132,7 +133,8 @@
 	}
 
 	// A move to much the same place glides. A longer one fades the map to nearly black,
-	// streaked along the way it goes as it slides off, and the new place appears: flying
+	// streaked along the way it goes as it slides off, streets stream past for a moment,
+	// and the new place appears: flying
 	// zooms out and back in, which is jarring over Cork to Málaga or even Málaga to
 	// Cómpeta.
 	function moveTo( bounds, maxZoom ) {
@@ -172,18 +174,82 @@
 		pane.style.translate = slide( SLIDE_PX );
 		mapEl.classList.add( 'is-moving' );
 		setTimeout( () => {
+			if ( mine === move ) {
+				travel( ux, uy, mine, () => {
+					// The new place appears at once, sharp and undimmed.
+					mapEl.classList.add( 'is-arriving' );
+					map.fitBounds( bounds, { ...options, animate: false } );
+					pane.style.filter = '';
+					pane.style.translate = '';
+					mapEl.classList.remove( 'is-moving' );
+					pane.getBoundingClientRect();
+					mapEl.classList.remove( 'is-arriving' );
+				} );
+			}
+		}, MOVE_MS );
+	}
+
+	// On the darkened map, sparse thin white lines, like bits of street, stream past the
+	// way the map would move, faster then slower, as it travels to somewhere further off.
+	function travel( ux, uy, mine, done ) {
+		const canvas = document.createElement( 'canvas' );
+		canvas.className = 'ts-map-travel';
+		const w = mapEl.clientWidth;
+		const h = mapEl.clientHeight;
+		const dpr = window.devicePixelRatio || 1;
+		canvas.width = w * dpr;
+		canvas.height = h * dpr;
+		mapEl.append( canvas );
+		const ctx = canvas.getContext( '2d' );
+		ctx.scale( dpr, dpr );
+		ctx.lineWidth = 1;
+		ctx.lineCap = 'round';
+
+		// A run of street at one of a few angles, some turning a corner.
+		const streets = Array.from( { length: Math.max( 8, Math.round( ( w * h ) / 14000 ) ) }, () => {
+			const angle = ( Math.floor( Math.random() * 4 ) * Math.PI ) / 4 + ( Math.random() - 0.5 ) * 0.3;
+			const length = 40 + Math.random() * 140;
+			const x = Math.random() * w;
+			const y = Math.random() * h;
+			const points = [ [ x, y ], [ x + Math.cos( angle ) * length, y + Math.sin( angle ) * length ] ];
+			if ( Math.random() < 0.5 ) {
+				const turn = angle + ( Math.random() < 0.5 ? 1 : -1 ) * ( Math.PI / 2 );
+				const more = 20 + Math.random() * 70;
+				points.push( [ points[ 1 ][ 0 ] + Math.cos( turn ) * more, points[ 1 ][ 1 ] + Math.sin( turn ) * more ] );
+			}
+			return points;
+		} );
+		// Off one edge, back on at the other.
+		const wrap = ( v, size ) => ( ( ( ( v + 150 ) % ( size + 300 ) ) + size + 300 ) % ( size + 300 ) ) - 150;
+		const distance = 1.5 * Math.max( w, h );
+		const start = performance.now();
+
+		const frame = ( now ) => {
 			if ( mine !== move ) {
+				canvas.remove();
 				return;
 			}
-			// The new place appears at once, sharp and undimmed.
-			mapEl.classList.add( 'is-arriving' );
-			map.fitBounds( bounds, { ...options, animate: false } );
-			pane.style.filter = '';
-			pane.style.translate = '';
-			mapEl.classList.remove( 'is-moving' );
-			pane.getBoundingClientRect();
-			mapEl.classList.remove( 'is-arriving' );
-		}, MOVE_MS );
+			const t = Math.min( 1, ( now - start ) / TRAVEL_MS );
+			const eased = t < 0.5 ? 2 * t * t : 1 - ( ( -2 * t + 2 ) ** 2 ) / 2;
+			const dx = -ux * eased * distance;
+			const dy = -uy * eased * distance;
+			ctx.clearRect( 0, 0, w, h );
+			ctx.strokeStyle = `rgb(255 255 255 / ${ 0.45 * Math.sin( Math.PI * t ) })`;
+			streets.forEach( ( points ) => {
+				const ox = wrap( points[ 0 ][ 0 ] + dx, w ) - points[ 0 ][ 0 ];
+				const oy = wrap( points[ 0 ][ 1 ] + dy, h ) - points[ 0 ][ 1 ];
+				ctx.beginPath();
+				points.forEach( ( [ x, y ], i ) => ctx[ i ? 'lineTo' : 'moveTo' ]( x + ox, y + oy ) );
+				ctx.stroke();
+			} );
+			if ( t < 1 ) {
+				requestAnimationFrame( frame );
+			} else {
+				canvas.remove();
+				done();
+			}
+		};
+		requestAnimationFrame( frame );
 	}
 
 	function showWhole( animate ) {

@@ -120,7 +120,8 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 
 .ts-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .ts-map-wrap { position: sticky; top: 32px; height: calc(100vh - 32px); }
-.ts-map { width: 100%; height: 100%; background: var(--ts-line); }
+.ts-map { width: 100%; height: 100%; background: var(--ts-line); transition: opacity .4s; }
+.ts-map.is-fading { opacity: 0; }
 .ts-map.is-unavailable { display: none; }
 .ts-map.is-flying .leaflet-overlay-pane { visibility: hidden; }
 .ts-timeline { padding: 1.5rem 24px 6rem; }

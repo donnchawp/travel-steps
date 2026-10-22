@@ -25,6 +25,7 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
+	const FADE_MS = 400; // As .ts-map's opacity transition.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
 	const padding = [ 30, 30 ];
@@ -105,39 +106,58 @@
 		watchReading();
 	}
 
-	// Leaflet stretches the routes with the map as it flies, until they cover it: they're
-	// hidden until it lands. The markers stay.
-	function fly( bounds, options ) {
-		mapEl.classList.add( 'is-flying' );
-		map.once( 'moveend', () => mapEl.classList.remove( 'is-flying' ) );
-		map.flyToBounds( bounds, options );
+	const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' );
+	let move = 0; // The latest move: a fade still under way gives way to a newer one.
+
+	// A short move, to a place already in view at about the same zoom (another day in the
+	// same town), glides. A longer one fades out, jumps and fades back in: flying zooms out
+	// and back in, which is jarring over Cork to Málaga or even Málaga to Cómpeta.
+	function moveTo( bounds, maxZoom ) {
+		const mine = ++move;
+		const options = { padding, maxZoom };
+		mapEl.classList.remove( 'is-fading' );
+		if ( reduced.matches ) {
+			map.fitBounds( bounds, { ...options, animate: false } );
+			return;
+		}
+		// The padding is on every side, as fitBounds takes it.
+		const zoom = Math.min( maxZoom, map.getBoundsZoom( bounds, false, L.point( padding ).multiplyBy( 2 ) ) );
+		if ( map.getBounds().intersects( bounds ) && Math.abs( zoom - map.getZoom() ) <= 2 ) {
+			// Leaflet stretches the routes with the map as it flies, until they cover it:
+			// they're hidden until it lands. The markers stay.
+			mapEl.classList.add( 'is-flying' );
+			map.once( 'moveend', () => mapEl.classList.remove( 'is-flying' ) );
+			map.flyToBounds( bounds, { ...options, duration: 3 } );
+			return;
+		}
+		mapEl.classList.add( 'is-fading' );
+		setTimeout( () => {
+			if ( mine === move ) {
+				map.fitBounds( bounds, { ...options, animate: false } );
+				mapEl.classList.remove( 'is-fading' );
+			}
+		}, FADE_MS );
 	}
 
-	// Flown, not fitted: fitBounds jumps without animating when the zoom changes by more
-	// than four levels, as it does coming back out of a walk.
 	function showWhole( animate ) {
 		if ( ! whole.isValid() ) {
 			map.setView( [ 20, 0 ], 2, { animate } );
 		} else if ( animate ) {
-			fly( whole, { padding, duration: 3 } );
+			moveTo( whole, map.getMaxZoom() );
 		} else {
 			map.fitBounds( whole, { padding, animate } );
 		}
 	}
 
-	const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' );
-
 	// Zoom to an area, unless it's already in view at about the zoom it would get, so going
 	// between two places close together doesn't wobble.
 	function showArea( area ) {
 		const target = L.latLngBounds( area );
-		// The padding is on every side, as flyToBounds takes it.
 		const zoom = Math.min( 16, map.getBoundsZoom( target, false, L.point( padding ).multiplyBy( 2 ) ) );
 		if ( map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
 			return;
 		}
-		// Three seconds, however far: quicker feels hurried, and Leaflet's own timing varies with the distance.
-		fly( target, { padding, maxZoom: 16, duration: 3, animate: ! reduced.matches } );
+		moveTo( target, 16 );
 	}
 
 	// While a step is read, the rest of the route fades, so a walk round a town isn't lost
@@ -182,7 +202,7 @@
 		highlight( lit, true );
 
 		if ( ! step ) {
-			showWhole( ! reduced.matches );
+			showWhole( true );
 		} else if ( areas[ key ] ) {
 			showArea( areas[ key ] );
 		} else if ( lit.length ) {

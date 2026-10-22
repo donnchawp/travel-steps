@@ -25,7 +25,11 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
+	const byAnchor = new Map(); // A place heading's id => { marker, label }.
+	const padding = [ 30, 30 ];
 	let map = null;
+	let whole = null; // The whole trip's bounds.
+	let areas = {}; // Element id => the area of the route under it.
 
 	function stepIcon( label, active ) {
 		const span = document.createElement( 'span' );
@@ -69,8 +73,10 @@
 				.addTo( map )
 				.on( 'click', () => {
 					const el = document.getElementById( m.anchor ) || document.getElementById( 'step-' + m.step );
+					// To just above the reading line, so it's the place being read: at the top of a
+					// phone it would be behind the map, and the place after it read instead.
 					if ( el ) {
-						el.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+						window.scrollTo( { top: window.scrollY + el.getBoundingClientRect().top - readingLine() + 8, behavior: 'smooth' } );
 					}
 				} );
 			const key = String( m.step );
@@ -78,54 +84,116 @@
 				markers.set( key, [] );
 			}
 			markers.get( key ).push( { marker, label: m.label } );
+			byAnchor.set( m.anchor, { marker, label: m.label } );
 			bounds.extend( [ m.lat, m.lon ] );
 		} );
 
-		if ( bounds.isValid() ) {
-			map.fitBounds( bounds, { padding: [ 30, 30 ] } );
+		whole = bounds;
+		areas = trip.areas || {};
+		showWhole( false );
+		watchReading();
+	}
+
+	function showWhole( animate ) {
+		if ( whole.isValid() ) {
+			map.fitBounds( whole, { padding, animate } );
 		} else {
-			map.setView( [ 20, 0 ], 2 );
+			map.setView( [ 20, 0 ], 2, { animate } );
 		}
-		watchSteps();
 	}
 
-	let activeStep = null;
-	function setActive( id ) {
-		if ( id === activeStep ) {
+	const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' );
+
+	// Zoom to an area, unless it's already in view at about the zoom it would get, so going
+	// between two places close together doesn't wobble.
+	function showArea( area ) {
+		const target = L.latLngBounds( area );
+		const zoom = Math.min( 16, map.getBoundsZoom( target, false, L.point( padding ) ) );
+		if ( map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
 			return;
 		}
-		( markers.get( activeStep ) || [] ).forEach( ( m ) => {
-			m.marker.setIcon( stepIcon( m.label, false ) ).setZIndexOffset( 0 );
+		map.flyToBounds( target, { padding, maxZoom: 16, duration: 0.8, animate: ! reduced.matches } );
+	}
+
+	function highlight( list, active ) {
+		list.forEach( ( m ) => {
+			m.marker.setIcon( stepIcon( m.label, active ) ).setZIndexOffset( active ? 1000 : 0 );
 		} );
-		activeStep = id;
+	}
+
+	let activeKey = 'trip';
+	let lit = [];
+	// key: the id of the place heading being read, 'step-<id>' for a step without one, or
+	// 'trip' above the first step.
+	function setActive( step, key ) {
+		if ( key === activeKey ) {
+			return;
+		}
+		activeKey = key;
 		document.querySelectorAll( '.ts-step.is-active' ).forEach( ( el ) => el.classList.remove( 'is-active' ) );
-		const section = document.getElementById( 'step-' + id );
-		if ( section ) {
-			section.classList.add( 'is-active' );
+		if ( step ) {
+			step.classList.add( 'is-active' );
 		}
-		const current = markers.get( id ) || [];
-		current.forEach( ( m ) => {
-			m.marker.setIcon( stepIcon( m.label, true ) ).setZIndexOffset( 1000 );
-		} );
-		if ( current.length ) {
-			map.panTo( current[ 0 ].marker.getLatLng(), { animate: true } );
+		highlight( lit, false );
+		const place = byAnchor.get( key );
+		lit = place ? [ place ] : ( step && markers.get( step.dataset.step ) ) || [];
+		highlight( lit, true );
+
+		if ( ! step ) {
+			showWhole( ! reduced.matches );
+		} else if ( areas[ key ] ) {
+			showArea( areas[ key ] );
+		} else if ( lit.length ) {
+			map.panTo( lit[ 0 ].marker.getLatLng(), { animate: true } );
 		}
 	}
 
-	// Follow the step nearest the top of the viewport as you scroll the timeline.
-	function watchSteps() {
-		const sections = document.querySelectorAll( '.ts-step' );
-		if ( ! sections.length || ! ( 'IntersectionObserver' in window ) ) {
+	// What's being read is what's at a line 30% down the part of the screen the timeline
+	// shows: on narrow screens the map is stuck above it.
+	const narrow = window.matchMedia( '(max-width: 860px)' );
+	function readingLine() {
+		const wrap = mapEl.parentElement;
+		const top = narrow.matches ? ( parseFloat( getComputedStyle( wrap ).top ) || 0 ) + wrap.offsetHeight : 0;
+		return top + 0.3 * ( window.innerHeight - top );
+	}
+
+	function lastAbove( elements, line ) {
+		let last = null;
+		elements.forEach( ( el ) => {
+			if ( el.getBoundingClientRect().top <= line ) {
+				last = el;
+			}
+		} );
+		return last;
+	}
+
+	function follow() {
+		const line = readingLine();
+		const step = lastAbove( document.querySelectorAll( '.ts-step' ), line );
+		if ( ! step ) {
+			setActive( null, 'trip' );
 			return;
 		}
-		const observer = new IntersectionObserver( ( entries ) => {
-			const visible = entries.filter( ( e ) => e.isIntersecting )
-				.sort( ( a, b ) => a.boundingClientRect.top - b.boundingClientRect.top );
-			if ( visible.length ) {
-				setActive( visible[ 0 ].target.dataset.step );
+		// Before a step's first heading, its title and date, the first place is being read.
+		const headings = step.querySelectorAll( '[id^="ts-place-"]' );
+		const heading = lastAbove( headings, line ) || headings[ 0 ];
+		setActive( step, heading ? heading.id : step.id );
+	}
+
+	function watchReading() {
+		let queued = false;
+		const queue = () => {
+			if ( ! queued ) {
+				queued = true;
+				requestAnimationFrame( () => {
+					queued = false;
+					follow();
+				} );
 			}
-		}, { rootMargin: '-30% 0px -60% 0px' } );
-		sections.forEach( ( s ) => observer.observe( s ) );
+		};
+		window.addEventListener( 'scroll', queue, { passive: true } );
+		window.addEventListener( 'resize', queue );
+		follow();
 	}
 
 	if ( mapEl && window.L ) {

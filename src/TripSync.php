@@ -258,7 +258,8 @@ class TripSync {
 					continue;
 				}
 				// Its place name, from Immich, would name home. The geocoder skips a photo without a position.
-				$photo = array_merge( $photo, [ 'lat' => null, 'lon' => null, 'city' => '', 'country' => '' ] );
+				// Marked, so Selection never picks it for a step by itself.
+				$photo = array_merge( $photo, [ 'lat' => null, 'lon' => null, 'city' => '', 'country' => '', 'home' => true ] );
 			}
 			$out[] = $photo;
 		}

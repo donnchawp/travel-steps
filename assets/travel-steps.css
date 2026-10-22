@@ -121,11 +121,12 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .ts-map-wrap { position: sticky; top: 32px; height: calc(100vh - 32px); }
 .ts-map { width: 100%; height: 100%; background: var(--ts-line); }
-/* A long move blurs the map out of focus and back in, over a layer above the map's panes
-   and below its controls: fading it would show the page through it, or go dark between
-   two light maps on a dark display. */
-.ts-map::after { content: ""; position: absolute; inset: 0; z-index: 650; pointer-events: none; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); transition: -webkit-backdrop-filter .4s, backdrop-filter .4s; }
-.ts-map.is-fading::after { -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+/* A long move dims the map, which slides off streaked and the new place slides in (the
+   streak is an SVG filter the script sets). The dimming is over the map's panes and
+   below its controls, and only to half, so a light map doesn't flash dark. */
+.ts-map .leaflet-map-pane { transition: translate .4s ease-in-out; }
+.ts-map::after { content: ""; position: absolute; inset: 0; z-index: 650; pointer-events: none; background: rgb(0 0 0 / 0); transition: background-color .4s; }
+.ts-map.is-moving::after { background: rgb(0 0 0 / .5); }
 .ts-map.is-unavailable { display: none; }
 .ts-map.is-flying .leaflet-overlay-pane { visibility: hidden; }
 .ts-timeline { padding: 1.5rem 24px 6rem; }

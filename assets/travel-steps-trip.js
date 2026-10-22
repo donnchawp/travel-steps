@@ -94,11 +94,15 @@
 		watchReading();
 	}
 
+	// Flown, not fitted: fitBounds jumps without animating when the zoom changes by more
+	// than four levels, as it does coming back out of a walk.
 	function showWhole( animate ) {
-		if ( whole.isValid() ) {
-			map.fitBounds( whole, { padding, animate } );
-		} else {
+		if ( ! whole.isValid() ) {
 			map.setView( [ 20, 0 ], 2, { animate } );
+		} else if ( animate ) {
+			map.flyToBounds( whole, { padding } );
+		} else {
+			map.fitBounds( whole, { padding, animate } );
 		}
 	}
 
@@ -108,11 +112,13 @@
 	// between two places close together doesn't wobble.
 	function showArea( area ) {
 		const target = L.latLngBounds( area );
-		const zoom = Math.min( 16, map.getBoundsZoom( target, false, L.point( padding ) ) );
+		// The padding is on every side, as flyToBounds takes it.
+		const zoom = Math.min( 16, map.getBoundsZoom( target, false, L.point( padding ).multiplyBy( 2 ) ) );
 		if ( map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
 			return;
 		}
-		map.flyToBounds( target, { padding, maxZoom: 16, duration: 0.8, animate: ! reduced.matches } );
+		// Leaflet times the flight by how far it goes, so Cork to Málaga isn't a flick.
+		map.flyToBounds( target, { padding, maxZoom: 16, animate: ! reduced.matches } );
 	}
 
 	function highlight( list, active ) {

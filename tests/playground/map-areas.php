@@ -56,6 +56,8 @@ $ma_source->rows    = [
 	array_merge( row( 501, '2025-06-01', '07:30', $cork_airport[0], $cork_airport[1], 'Cork', true ), [ 'country' => 'Ireland' ] ),
 	array_merge( row( 502, '2025-06-01', '12:20', $malaga_airport[0], $malaga_airport[1], 'Málaga', true ), [ 'country' => 'Spain' ] ),
 	array_merge( row( 503, '2025-06-01', '14:00', $competa[0], $competa[1], 'Cómpeta', true ), [ 'country' => 'Spain' ] ),
+	// Taken after landing, before the first favourite in Málaga, so it shows under Cork Airport.
+	array_merge( row( 504, '2025-06-01', '12:10', $malaga_airport[0], $malaga_airport[1], 'Málaga', false ), [ 'country' => 'Spain' ] ),
 ];
 update_post_meta( $ma_trip, Trips::META_START, '2025-06-01' );
 update_post_meta( $ma_trip, Trips::META_END, '2025-06-02' );
@@ -85,11 +87,18 @@ sort( $ma_starts );
 $ma_areas      = (array) ( $ma_data['areas'] ?? [] );
 [ $cork, $malaga, $competa_area ] = array_values( $ma_areas ) + [ null, null, null ];
 check( 'map areas: one per place heading, keyed by its anchor', 3 === count( $ma_starts ) && array_map( fn( $t ) => Days::ANCHOR_PREFIX . $t, $ma_starts ) === array_keys( $ma_areas ), array_keys( $ma_areas ) );
-check( '…Cork Airport’s covers the drive from home to the airport, and nothing in Spain', $cork && $cork[0][0] > 51.8 && $cork[1][0] >= 51.92 && $cork[0][1] <= -8.49, $cork );
+check( '…Cork Airport’s covers the drive from home to the airport, and nothing in Spain, though a photo under it was taken there', $cork && $cork[0][0] > 51.8 && $cork[1][0] >= 51.92 && $cork[0][1] <= -8.49, $cork );
 check( '…Málaga’s covers the drive to Cómpeta', $malaga && $malaga[0][1] <= -4.49 && $malaga[1][1] >= -3.97 && $malaga[1][0] < 37, $malaga );
 check( '…and Cómpeta’s is just the walk', $competa_area && $competa_area[1][0] - $competa_area[0][0] < 0.01 && $competa_area[1][1] - $competa_area[0][1] < 0.01, $competa_area );
 check( '…though the route was simplified to fit', array_sum( array_map( 'count', $ma_data['route'] ) ) <= 8000 );
 check( '…and no track times or boxes are sent', ! isset( $ma_data['boxes'] ) && false === strpos( wp_json_encode( $ma_data ), (string) $ma_at( '12:00' ) ) );
+
+// A step with no position (here, one added by hand on the day of the long drive) gets
+// no area: on a day at home, its track would only frame the area around home.
+$ma_blank = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $ma_trip, 'post_title' => 'Driving', 'post_status' => 'publish', 'post_date' => '2025-06-02 12:00:00' ] );
+[ , $ma_data ] = $ma_read();
+check( 'map areas: a step with no position gets none', ! isset( ( (array) $ma_data['areas'] )[ 'step-' . $ma_blank ] ), array_keys( (array) $ma_data['areas'] ) );
+wp_delete_post( $ma_blank, true );
 
 // A story edited after sync gets areas for the headings it has now.
 wp_update_post( [ 'ID' => $ma_step->ID, 'post_content' => "<!-- wp:paragraph -->\n<p>A long day.</p>\n<!-- /wp:paragraph -->" ] );

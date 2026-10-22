@@ -77,8 +77,10 @@ class FakeSource implements PhotoSource {
 		$this->asked = $range;
 		return $this->rows;
 	}
+	// False for photos chosen for the trip, as an album's or uploads are.
+	public bool $by_dates = true;
 	public function needs_dates( int $trip_id ): bool {
-		return true;
+		return $this->by_dates;
 	}
 }
 function row( $n, $day, $hm, $lat, $lon, $city, $fav ) {
@@ -667,7 +669,16 @@ $away_stats = get_post_meta( $away_id, Trips::META_STATS, true );
 check( 'a bad fix at home is dropped before home is cut out', ! is_wp_error( $r ) && [ 'PT' ] === ( $away_stats['countries'] ?? null ) && ( $away_stats['distance_km'] ?? 999 ) < 50, [ is_wp_error( $r ) ? $r->get_error_message() : $r, $away_stats ] );
 check( 'sync cuts out the trip author’s home, not the home of whoever syncs', ! is_wp_error( $r ) && $r['points'] <= 12, is_wp_error( $r ) ? $r->get_error_message() : $r );
 $away_ids = array_column( Trips::photos( $away_id ), 'id' );
-check( 'an Immich trip still leaves out the photos taken at home, and doesn’t count them', [ row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'], row( 4, '2025-05-01', '14:20', 0, 0, '', 1 )['id'] ] === $away_ids && ! isset( $r['at_home'] ), [ $away_ids, $r ] );
+$away_row = fn( $n ) => row( $n, '2025-05-01', '', 0, 0, '', 1 )['id'];
+check( 'an Immich trip by dates leaves out the photos taken at home but a favourite, and doesn’t count them', [ $away_row( 1 ), $away_row( 3 ), $away_row( 4 ) ] === $away_ids && ! isset( $r['at_home'] ), [ $away_ids, $r ] );
+$away_home = Trips::photos( $away_id )[0];
+check( '…keeping the favourite with no position or place, so home stays off the map', [ null, null, '', '' ] === [ $away_home['lat'], $away_home['lon'], $away_home['city'], $away_home['country'] ], $away_home );
+// An album's photos are chosen for the trip, as uploads are: all those taken at home stay.
+$source->by_dates = false;
+$r                = ( new TripSync( new HomeDawarich( 'http://x', 'k' ), $source ) )->sync( $away_id );
+$away_ids         = array_column( Trips::photos( $away_id ), 'id' );
+$source->by_dates = true;
+check( 'an album trip keeps every photo taken at home, with no position', [ $away_row( 1 ), $away_row( 2 ), $away_row( 3 ), $away_row( 4 ) ] === $away_ids && null === Trips::photos( $away_id )[1]['lat'], [ $away_ids, $r ] );
 foreach ( array_merge( Trips::steps( $away_id, true ), [ get_post( $away_id ) ] ) as $post ) {
 	wp_delete_post( $post->ID, true );
 }

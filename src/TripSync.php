@@ -111,7 +111,8 @@ class TripSync {
 		$on_days = array_values( array_filter( $photos, fn( $p ) => $p['day'] >= $first && $p['day'] <= $last ) );
 		$outside = count( $photos ) - count( $on_days );
 		$uploads = Trips::uses_uploads( $trip_id );
-		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, $uploads );
+		// Uploads and an album's photos were each chosen for the trip; the rest were picked by date.
+		[ $photos, $at_home, $unlocated ] = $this->locate_photos( $on_days, $points, $home, ! $source->needs_dates( $trip_id ) );
 		$geocoder = $this->geocoder ?? new Geocoder(); // One for the sync.
 		// Uploads carry no place names, and photos with a position only from Dawarich have
 		// none either: name them here. Immich's own names stay, even a country alone, which
@@ -223,8 +224,9 @@ class TripSync {
 
 	/**
 	 * Give photos without GPS the position you were at when they were taken. Those taken
-	 * near home are dropped, or, if $keep_home (uploads, each chosen for the trip), kept
-	 * without a position, so they're on their day but off the map. $points has no fixes at
+	 * near home are kept without a position or place, so they're on their day but off the
+	 * map, if $chosen (uploads or an album: each chosen for the trip) or they're favourites,
+	 * which you only mark to show; the rest are dropped. $points has no fixes at
 	 * home, so only a photo's own GPS puts it there: one Dawarich can't place is unlocated,
 	 * not at home. Images with no camera in their EXIF (screenshots, saved downloads) are
 	 * dropped too, unless you favourited them.
@@ -232,7 +234,7 @@ class TripSync {
 	 * @return array{0: array, 1: int, 2: int} The photos kept, how many were taken at home,
 	 *         and how many kept have no position from their GPS or Dawarich.
 	 */
-	private function locate_photos( array $photos, array $points, ?array $home, bool $keep_home ): array {
+	private function locate_photos( array $photos, array $points, ?array $home, bool $chosen ): array {
 		$out       = [];
 		$at_home   = 0;
 		$unlocated = 0;
@@ -251,12 +253,11 @@ class TripSync {
 				++$unlocated;
 			} elseif ( $home && Geo::distance( $photo['lat'], $photo['lon'], $home['lat'], $home['lon'] ) <= $home['radius_m'] ) {
 				++$at_home;
-				if ( ! $keep_home ) {
+				if ( ! $chosen && ! $photo['fav'] ) {
 					continue;
 				}
-				// Uploads have no place names yet, and the geocoder skips a photo without a position.
-				$photo['lat'] = null;
-				$photo['lon'] = null;
+				// Immich names the place it was taken; the geocoder skips a photo without a position.
+				$photo = array_merge( $photo, [ 'lat' => null, 'lon' => null, 'city' => '', 'country' => '' ] );
 			}
 			$out[] = $photo;
 		}

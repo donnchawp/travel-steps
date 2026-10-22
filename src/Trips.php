@@ -26,6 +26,7 @@ class Trips {
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';
 	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon].
+	const META_BOXES  = '_ts_boxes';       // JSON: the route's track as Geo::time_boxes() rows.
 	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
 	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.
 	const META_PINNED = '_ts_pinned';      // array of photo ids always shown.
@@ -605,6 +606,15 @@ class Trips {
 
 	public static function photos( int $trip_id ): array {
 		return self::decode_photos( (string) get_post_meta( $trip_id, self::META_PHOTOS, true ) );
+	}
+
+	/**
+	 * A box per 10 minutes of the trip's track, as sync left them; none before its first
+	 * sync with them.
+	 */
+	public static function boxes( int $trip_id ): array {
+		$boxes = json_decode( (string) get_post_meta( $trip_id, self::META_BOXES, true ), true );
+		return is_array( $boxes ) ? $boxes : [];
 	}
 
 	/**

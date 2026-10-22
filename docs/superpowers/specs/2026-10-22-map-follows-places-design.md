@@ -39,10 +39,12 @@ These would count as failures even if the zooming worked:
 ### Boxes of the track, kept at sync (my call)
 
 - The stored route can't be used for this. It has no times, and on a long trip sync loosens its simplification (up to about 5 km) to fit 8,000 points, which can shrink a walk around a town to two points.
-- Instead, sync keeps a summary of the full track before it's simplified: **one bounding box per 10 minutes that has points,** as `[start, south, west, north, east]`, in a new trip meta. The route itself is unchanged.
+- Instead, sync keeps a summary of the full track before it's simplified: **one bounding box per 10 minutes that has points, per piece of the track,** as `[start, south, west, north, east, piece]`, in a new trip meta. The route itself is unchanged.
   - **Size:** that's at most 144 boxes a day, and fewer in practice, so a two-week trip is a couple of thousand small rows.
   - **Source:** the track is the same one the route comes from today, after `Geo::exclude_near()` has cut out home. For a trip without location history, it's the photos' own positions, as now.
-- **A span's area** is the union of the boxes whose 10 minutes start inside it. It's worked out when the trip JSON is built, not stored per heading, so a story edited after sync gets areas for its current headings.
+- **Each box records which piece of the track it's on.** The track is split into pieces wherever the route itself breaks, at a jump of more than 20 km (`Geo::split_segments()`).
+- **A span's area** is the union of the boxes whose 10 minutes overlap it, keeping only the pieces that pass within 2 km of one of the heading's located photos. When the heading has no located photos, or no piece passes near one, every piece is kept. (My call. Without it, the minutes in Malaga between landing and the airport photo would belong to "Cork Airport", and stretch its view to Spain.)
+- **The heading's photos** are the ones it shows, worked out as `View::render_story()` does (`Days::section_index()`). The first heading also takes the photos before its anchor. It's worked out when the trip JSON is built, not stored per heading, so a story edited after sync gets areas for its current headings.
 - **Ten minutes is the resolution.** A heading's area can take in up to ten minutes of the stretch either side of its anchor. Next to a flight, that's nothing.
 - **The trip JSON** sends areas, never the boxes or their times. Each marker that has an area gets it, as `[[south, west], [north, east]]`. A step-level entry needs an area too. That's the "no anchors" case, which already gets a marker from the step's own position, or none at all. How it's carried is the builder's choice, as long as the browser can find the area for a step and for each heading.
 - **Existing trips** have no boxes until their next sync. For them, no areas are sent, and the map pans to the step as it does now. Nothing else changes, and no migration is needed.

@@ -19,7 +19,7 @@
 - **The code is equivalent to the password.** The plugin never logs it, and never puts it in a cacheable response.
 - **A missing, wrong or malformed code** (including `share[]=x`) renders exactly what no code renders, byte for byte, with no PHP notices.
 - **Photo-route refusals** stay a uniform `404 no-store`. Non-public answers keep `Cross-Origin-Resource-Policy: same-site`, and an answer through a code is cached `private`, never `public`.
-- **The share response sends `Referrer-Policy: no-referrer`.**
+- **The share response sends `Referrer-Policy: strict-origin`.** Not `no-referrer`, which gets OpenStreetMap tiles blocked.
 - **Public text:** British spelling, no em dashes, and no other trip app named.
 - **Every commit** ends with `Claude-Session: https://claude.ai/code/session_01673F61MoBbqkEkbKPRYHgQ`.
 - **Never run `make deploy`,** and never read `Makefile.local`.
@@ -51,7 +51,7 @@
   - `Trips::share_matches( \WP_Post $trip, $code ): bool` takes any value from the request. It's false for a non-string, an empty expected code, or no `hash_equals` match.
   - `Trips::handle_share_link( \WP_Post $trip ): bool` reads `$_GET[ SHARE_ARG ]`. When it matches:
     - it sets core's cookie to a phpass hash of `$trip->post_password`, and puts the same value in `$_COOKIE[ Trips::password_cookie() ]`, so `needs_password()` passes in this request;
-    - it sends `Referrer-Policy: no-referrer`;
+    - it sends `Referrer-Policy: strict-origin`;
     - it returns true.
     Otherwise it returns false and does nothing.
 - Refactor: `handle_password_post()` and `handle_share_link()` share `private static function set_password_cookie( string $password, string $url ): void`. It holds the phpass hash, the `post_password_expires` filter, `COOKIEPATH`, `COOKIE_DOMAIN` and the secure flag from `$url`'s scheme.

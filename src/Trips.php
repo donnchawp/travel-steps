@@ -423,8 +423,9 @@ class Trips {
 			return false;
 		}
 		self::set_password_cookie( $trip->post_password, self::url( $trip ) );
-		// Requests the page makes before its script tidies the address bar don't pass the code on.
-		header( 'Referrer-Policy: no-referrer' );
+		// The page's requests carry only the origin, not the code: the map's tile server
+		// refuses a request with no referrer at all.
+		header( 'Referrer-Policy: strict-origin' );
 		return true;
 	}
 

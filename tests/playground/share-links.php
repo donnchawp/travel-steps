@@ -29,6 +29,7 @@ $sh_form = $sh_page( null );
 $page    = $sh_page( $sh_code );
 check( '…opens the trip without the form', false !== strpos( $page, 'Secret story' ) && false === strpos( $page, 'name="post_password"' ) );
 check( '…sets core’s cookie to the password, as the form does', ( new PasswordHash( 8, true ) )->CheckPassword( 'kerry and clare', wp_unslash( $_COOKIE[ Trips::password_cookie() ] ?? '' ) ) );
+check( '…tells the browser to send only the origin, so map tiles load but no request carries the code', in_array( 'Referrer-Policy: strict-origin', headers_list(), true ), headers_list() );
 check( '…and gives the page the clean URL to show', false !== strpos( $page, 'data-clean-url="' . esc_url( Trips::url( get_post( $sh_trip ) ) ) . '"' ) );
 foreach ( [ 'wrong', '', [ $sh_code ] ] as $sh_bad ) {
 	check( 'share: a bad code renders what no code does, byte for byte', $sh_form === $sh_page( $sh_bad ), $sh_bad );

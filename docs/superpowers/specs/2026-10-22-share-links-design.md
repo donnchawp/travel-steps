@@ -73,7 +73,7 @@ These would count as failures even if the link worked:
 
 - Follow the existing photo-route rules: a refusal is a uniform `404 no-store`, and a non-public answer has `Cross-Origin-Resource-Policy: same-site`.
 - The code is equivalent to the password, so treat it that way. The plugin never logs it, and never puts it in a cacheable response.
-- The share response sends `Referrer-Policy: no-referrer`, so requests the page makes before `replaceState` runs don't pass the code on in the Referer header. (My call.)
+- The share response sends `Referrer-Policy: strict-origin`, so no request the page makes passes the code on in the Referer header. The policy lasts for the page's whole life, `replaceState` or not. Not `no-referrer`: OpenStreetMap's tile servers block requests with no Referer, which left the map blank. (My call, changed after the selfhoster test.)
 - Because the code is in a query string, it ends up in the web server's and Cloudflare's access logs, and in the preview caches of WhatsApp and similar apps. That's accepted: whoever reads those logs already runs the site, and the preview apps were sent the link on purpose. A URL fragment would keep the code out of the logs, but preview fetchers don't send fragments. (My call.)
 - `wp_hash()` depends on the site's salts. Rotating them changes every code, so old share links stop working. That's accepted as a second, rare way to revoke links. (My call.)
 - Any public text (the changelog, readme) uses plain wording and doesn't name other trip apps.

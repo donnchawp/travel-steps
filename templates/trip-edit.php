@@ -275,9 +275,9 @@ include __DIR__ . '/_header.php';
 						<span><?php esc_html_e( 'Share link', 'travel-steps' ); ?></span>
 						<input type="text" class="ts-share-url" readonly value="<?php echo esc_url( $share_url ); ?>">
 					</label>
-					<button type="button" class="ts-share-copy" data-copied="<?php esc_attr_e( 'Copied', 'travel-steps' ); ?>"><?php esc_html_e( 'Copy', 'travel-steps' ); ?></button>
+					<button type="button" class="ts-button ts-button-secondary ts-share-copy" data-copied="<?php esc_attr_e( 'Copied', 'travel-steps' ); ?>"><?php esc_html_e( 'Copy', 'travel-steps' ); ?></button>
 					<small class="ts-muted"><?php esc_html_e( 'Anyone with this link sees the trip without the password. Changing the password gives a new link, and the old one stops working.', 'travel-steps' ); ?></small>
-					<small class="ts-muted ts-share-stale" hidden><?php esc_html_e( 'Save to get the link for the new password. The link above stops working once you save.', 'travel-steps' ); ?></small>
+					<small class="ts-muted ts-share-stale" hidden><?php esc_html_e( 'This link is for the trip as saved. Save your changes to see the link they give.', 'travel-steps' ); ?></small>
 				</div>
 			<?php endif; ?>
 			<p class="ts-muted">

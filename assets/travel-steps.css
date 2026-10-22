@@ -263,6 +263,10 @@ html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 .ts-form fieldset { display: grid; gap: 1rem; margin: 0; padding: 1rem 1.1rem 1.2rem; border: 1px solid var(--ts-line); border-radius: var(--ts-radius); background: var(--ts-surface); }
 .ts-form legend { padding: 0 .4rem; font-weight: 700; }
 .ts-form fieldset p { margin: 0; }
+/* The share link and its Copy button side by side, the notes on their own lines below. */
+.ts-share { display: grid; grid-template-columns: 1fr auto; gap: .3rem .5rem; align-items: end; }
+.ts-share-copy:disabled { opacity: .5; cursor: default; }
+.ts-share > small { grid-column: 1 / -1; }
 .ts-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
 .ts-form-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
 /* .ts-button's display would otherwise win over the hidden attribute. */

@@ -1181,6 +1181,7 @@ require '/smoke/photo-cache.php';
 require '/smoke/cache-fill.php';
 require '/smoke/cache-sweep.php';
 require '/smoke/trip-intro.php';
+require '/smoke/map-areas.php';
 } catch ( Throwable $e ) {
 	$out[] = 'FAIL exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
 }

@@ -143,6 +143,7 @@ class TripSync {
 
 		$route = $this->simplify_route( Geo::split_segments( $track ) );
 		update_post_meta( $trip_id, Trips::META_ROUTE, wp_slash( wp_json_encode( $route ) ) );
+		update_post_meta( $trip_id, Trips::META_BOXES, wp_slash( wp_json_encode( Geo::time_boxes( $track ) ) ) );
 		update_post_meta( $trip_id, Trips::META_PHOTOS, wp_slash( wp_json_encode( $photos ) ) );
 
 		// Counted by ISO code: Immich, GeoNames and Dawarich don't all spell a country alike.

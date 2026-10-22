@@ -373,9 +373,10 @@ class TripSync {
 	}
 
 	/**
-	 * Simplify each segment, loosening the tolerance until the route fits the budget.
+	 * Simplify each segment, loosening the tolerance until the route fits the budget. Each
+	 * point keeps its time, so the map can tell one day's route from another's.
 	 *
-	 * @return array<int, array<int, array{0: float, 1: float}>>
+	 * @return array<int, array<int, array{0: float, 1: float, 2: int}>>
 	 */
 	private function simplify_route( array $segments ): array {
 		$tolerance = self::ROUTE_TOLERANCE_M;
@@ -384,7 +385,7 @@ class TripSync {
 			$total = 0;
 			foreach ( $segments as $segment ) {
 				$simple = array_map(
-					fn( $p ) => [ round( $p[0], 5 ), round( $p[1], 5 ) ],
+					fn( $p ) => [ round( $p[0], 5 ), round( $p[1], 5 ), (int) $p[2] ],
 					Geo::simplify( $segment, $tolerance )
 				);
 				$total  += count( $simple );

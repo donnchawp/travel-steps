@@ -91,6 +91,12 @@ check( '…Cork Airport’s covers the drive from home to the airport, and nothi
 check( '…Málaga’s covers the drive to Cómpeta', $malaga && $malaga[0][1] <= -4.49 && $malaga[1][1] >= -3.97 && $malaga[1][0] < 37, $malaga );
 check( '…and Cómpeta’s is just the walk', $competa_area && $competa_area[1][0] - $competa_area[0][0] < 0.01 && $competa_area[1][1] - $competa_area[0][1] < 0.01, $competa_area );
 check( '…though the route was simplified to fit', array_sum( array_map( 'count', $ma_data['route'] ) ) <= 8000 );
+$ma_leg_points = [];
+foreach ( (array) ( ( (array) ( $ma_data['legs'] ?? [] ) )[ 'step-' . $ma_step->ID ] ?? [] ) as [ $seg, $first, $last ] ) {
+	$ma_leg_points = array_merge( $ma_leg_points, array_slice( $ma_data['route'][ $seg ] ?? [], $first, $last - $first + 1 ) );
+}
+check( 'map legs: the step’s day of the route, to draw bold while others fade', count( $ma_leg_points ) >= 2 && [] === array_filter( $ma_leg_points, fn( $p ) => $p[0] > 37.1 && $p[0] < 37.3 ) && [] !== array_filter( $ma_leg_points, fn( $p ) => abs( $p[0] - 36.8345 ) < 0.01 ) && [] !== array_filter( $ma_leg_points, fn( $p ) => $p[0] > 51.8 ), [ $ma_leg_points, $ma_data['legs'] ?? null ] );
+check( '…and the route is sent as positions only', [ 2 ] === array_values( array_unique( array_map( 'count', array_merge( ...$ma_data['route'] ) ) ) ) );
 check( '…and no track times or boxes are sent', ! isset( $ma_data['boxes'] ) && false === strpos( wp_json_encode( $ma_data ), (string) $ma_at( '12:00' ) ) );
 
 // A step with no position (here, one added by hand on the day of the long drive) gets
@@ -112,10 +118,12 @@ wp_update_post( [ 'ID' => $ma_step->ID, 'post_content' => "<!-- wp:heading -->\n
 $ma_off        = ( (array) ( $ma_data['areas'] ?? [] ) )[ Days::ANCHOR_PREFIX . $ma_early ] ?? null;
 check( '…and a heading timed the day before still gets an area, Cork included', $ma_off && $ma_off[1][0] > 51.9, $ma_data['areas'] ?? null );
 
-// A trip synced before boxes were kept.
+// A trip synced before boxes, or route times, were kept.
 delete_post_meta( $ma_trip, Trips::META_BOXES );
+$ma_route = json_decode( (string) get_post_meta( $ma_trip, Trips::META_ROUTE, true ), true );
+update_post_meta( $ma_trip, Trips::META_ROUTE, wp_slash( wp_json_encode( array_map( fn( $seg ) => array_map( fn( $p ) => [ $p[0], $p[1] ], $seg ), $ma_route ) ) ) );
 [ $ma_status, $ma_data ] = $ma_read();
-check( 'map areas: a trip without boxes has none, and no error', 200 === $ma_status && '{}' === wp_json_encode( $ma_data['areas'] ?? null ), $ma_data['areas'] ?? null );
+check( 'map areas: a trip without boxes or route times has no areas or legs, and no error', 200 === $ma_status && '{}' === wp_json_encode( $ma_data['areas'] ?? null ) && '{}' === wp_json_encode( $ma_data['legs'] ?? null ), [ $ma_data['areas'] ?? null, $ma_data['legs'] ?? null ] );
 
 foreach ( array_merge( Trips::steps( $ma_trip, true ), [ get_post( $ma_trip ) ] ) as $post ) {
 	wp_delete_post( $post->ID, true );

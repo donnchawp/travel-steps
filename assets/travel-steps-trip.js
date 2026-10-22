@@ -24,12 +24,17 @@
 	/* ---------- Map ---------- */
 
 	const mapEl = document.getElementById( 'ts-map' );
+	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
 	const padding = [ 30, 30 ];
 	let map = null;
 	let whole = null; // The whole trip's bounds.
 	let areas = {}; // Element id => the area of the route under it.
+	let legs = {}; // 'step-<id>' => [ segment, first, last ] runs of the route on its day.
+	let route = [];
+	const lines = []; // The whole route's polylines, with the style each is drawn in.
+	let bold = null; // The step's own route, drawn over the faded whole.
 
 	function stepIcon( label, active ) {
 		const span = document.createElement( 'span' );
@@ -54,19 +59,24 @@
 		const bounds = L.latLngBounds( [] );
 		const segments = trip.route || [];
 
+		const line = ( points, style ) => {
+			lines.push( { line: L.polyline( points, style ).addTo( map ), style } );
+		};
 		segments.forEach( ( segment, i ) => {
 			if ( segment.length > 1 ) {
-				L.polyline( segment, { color: '#e8591a', weight: 4, opacity: 0.9 } ).addTo( map );
+				line( segment, ROUTE );
 				segment.forEach( ( p ) => bounds.extend( p ) );
 			}
 			// Bridge gaps between segments (flights, ferries, phone off) with a dashed line.
 			const next = segments[ i + 1 ];
 			if ( next && segment.length && next.length ) {
-				L.polyline( [ segment[ segment.length - 1 ], next[ 0 ] ], {
+				line( [ segment[ segment.length - 1 ], next[ 0 ] ], {
 					color: '#e8591a', weight: 2, opacity: 0.7, dashArray: '6 8',
-				} ).addTo( map );
+				} );
 			}
 		} );
+		route = segments;
+		bold = L.layerGroup().addTo( map );
 
 		( trip.markers || [] ).forEach( ( m ) => {
 			const marker = L.marker( [ m.lat, m.lon ], { icon: stepIcon( m.label, false ), title: m.title } )
@@ -90,6 +100,7 @@
 
 		whole = bounds;
 		areas = trip.areas || {};
+		legs = trip.legs || {};
 		showWhole( false );
 		watchReading();
 	}
@@ -121,6 +132,18 @@
 		map.flyToBounds( target, { padding, maxZoom: 16, animate: ! reduced.matches } );
 	}
 
+	// While a step is read, the rest of the route fades, so a walk round a town isn't lost
+	// among the other days' routes through it. A route synced without times has no legs,
+	// and doesn't fade.
+	function fadeAllBut( stepId ) {
+		const own = legs[ stepId ];
+		bold.clearLayers();
+		lines.forEach( ( l ) => l.line.setStyle( own ? { opacity: 0.25, weight: Math.min( 2, l.style.weight ) } : l.style ) );
+		( own || [] ).forEach( ( [ seg, first, last ] ) => {
+			L.polyline( route[ seg ].slice( first, last + 1 ), ROUTE ).addTo( bold );
+		} );
+	}
+
 	function highlight( list, active ) {
 		list.forEach( ( m ) => {
 			m.marker.setIcon( stepIcon( m.label, active ) ).setZIndexOffset( active ? 1000 : 0 );
@@ -128,6 +151,7 @@
 	}
 
 	let activeKey = 'trip';
+	let activeStep = null;
 	let lit = [];
 	// key: the id of the place heading being read, 'step-<id>' for a step without one, or
 	// 'trip' above the first step.
@@ -139,6 +163,10 @@
 		document.querySelectorAll( '.ts-step.is-active' ).forEach( ( el ) => el.classList.remove( 'is-active' ) );
 		if ( step ) {
 			step.classList.add( 'is-active' );
+		}
+		if ( step !== activeStep ) {
+			activeStep = step;
+			fadeAllBut( step ? step.id : null );
 		}
 		highlight( lit, false );
 		const place = byAnchor.get( key );

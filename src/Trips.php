@@ -25,7 +25,7 @@ class Trips {
 	const META_SOURCE = '_ts_source';      // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';
-	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon].
+	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon, t] ([lat, lon] if synced before 0.6).
 	const META_BOXES  = '_ts_boxes';       // JSON: the route's track as Geo::time_boxes() rows.
 	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
 	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.

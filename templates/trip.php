@@ -11,10 +11,13 @@ use TravelSteps\View;
 $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
 // Core does this for a singular post with a password; this route isn't one, so a page
 // cache could otherwise keep the unlocked trip and serve it to everyone. The password
-// form posts here too: that sets core's cookie and redirects.
+// form posts here too: that sets core's cookie and redirects. A share link sets it too,
+// and shows the trip in the same request.
+$shared = false;
 if ( $trip && Trips::is_protected( $trip ) ) {
 	nocache_headers();
 	Trips::handle_password_post( $trip );
+	$shared = Trips::handle_share_link( $trip );
 }
 if ( $trip && Trips::needs_password( $trip ) ) {
 	include __DIR__ . '/_password.php';
@@ -97,7 +100,10 @@ include __DIR__ . '/_header.php';
 ?>
 <article class="ts-trip"
 	data-api="<?php echo esc_url( rest_url( RestController::NS . '/trips/' . $trip->ID ) ); ?>"
-	data-nonce="<?php echo esc_attr( $authed ? wp_create_nonce( 'wp_rest' ) : '' ); ?>">
+	data-nonce="<?php echo esc_attr( $authed ? wp_create_nonce( 'wp_rest' ) : '' ); ?>"
+	<?php if ( $shared ) : ?>
+		data-clean-url="<?php echo esc_url( Trips::url( $trip ) ); ?>"
+	<?php endif; ?>>
 
 	<header class="ts-hero<?php echo $cover ? ' has-cover' : ''; ?>">
 		<?php if ( $cover ) : ?>

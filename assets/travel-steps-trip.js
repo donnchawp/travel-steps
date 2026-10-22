@@ -6,6 +6,10 @@
 	if ( ! root ) {
 		return;
 	}
+	// Opened from a share link: the cookie is set, so the code needn't stay in the address bar.
+	if ( root.dataset.cleanUrl ) {
+		history.replaceState( null, '', root.dataset.cleanUrl );
+	}
 	const nonce = root.dataset.nonce;
 
 	function api( path, options = {} ) {

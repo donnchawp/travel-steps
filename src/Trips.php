@@ -34,6 +34,8 @@ class Trips {
 	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
 	const META_ERROR  = '_ts_sync_error';  // last sync error message.
 	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.
+	// The query argument a share link carries its code in.
+	const SHARE_ARG = 'share';
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
 	const INTRO_TAGS = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
 
@@ -374,16 +376,71 @@ class Trips {
 		}
 		$to = add_query_arg( 'tried', '1', self::url( $trip ) );
 		if ( is_string( $_POST['post_password'] ) ) {
-			require_once ABSPATH . WPINC . '/class-phpass.php';
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hashed, as core does: sanitising would change the password.
-			$hash = ( new \PasswordHash( 8, true ) )->HashPassword( wp_unslash( $_POST['post_password'] ) );
-			/** This filter is documented in wp-login.php */
-			$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's filter, so a site's cookie lifetime applies here too.
-			setcookie( self::password_cookie(), $hash, $expire, COOKIEPATH, COOKIE_DOMAIN, 'https' === wp_parse_url( $to, PHP_URL_SCHEME ) );
+			self::set_password_cookie( wp_unslash( $_POST['post_password'] ), $to );
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		wp_safe_redirect( $to );
 		exit;
+	}
+
+	/**
+	 * A protected trip's share code: a keyed hash of its password, so a link made with it
+	 * stops working when the password changes, and gives nothing of the password away.
+	 * Empty for a trip with no password to skip.
+	 */
+	public static function share_code( \WP_Post $trip ): string {
+		return 'publish' === $trip->post_status && self::is_protected( $trip ) ? wp_hash( 'share|' . $trip->ID . '|' . $trip->post_password ) : '';
+	}
+
+	/**
+	 * The link that opens a protected trip without its password, or empty if it has none.
+	 */
+	public static function share_url( \WP_Post $trip ): string {
+		$code = self::share_code( $trip );
+		return '' === $code ? '' : add_query_arg( self::SHARE_ARG, $code, self::url( $trip ) );
+	}
+
+	/**
+	 * Whether a value from the request is the trip's share code.
+	 *
+	 * @param mixed $code
+	 */
+	public static function share_matches( \WP_Post $trip, $code ): bool {
+		$expected = self::share_code( $trip );
+		return is_string( $code ) && '' !== $expected && hash_equals( $expected, $code );
+	}
+
+	/**
+	 * Lets the visitor in, as the password form would, if the request carries the trip's
+	 * share code: sets core's cookie, and the request's copy of it, so the trip shows
+	 * in this request. A preview fetcher keeps no cookie across a redirect, so there's
+	 * none. Returns whether it did.
+	 */
+	public static function handle_share_link( \WP_Post $trip ): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the code.
+		if ( ! self::share_matches( $trip, wp_unslash( $_GET[ self::SHARE_ARG ] ?? '' ) ) ) {
+			return false;
+		}
+		self::set_password_cookie( $trip->post_password, self::url( $trip ) );
+		// Requests the page makes before its script tidies the address bar don't pass the code on.
+		header( 'Referrer-Policy: no-referrer' );
+		return true;
+	}
+
+	/**
+	 * Sets core's post password cookie to a hash of a password, as wp-login.php does, for
+	 * the request as well as the browser.
+	 *
+	 * @param string $url Where the visitor goes next: the cookie is secure if that's https.
+	 */
+	private static function set_password_cookie( string $password, string $url ): void {
+		require_once ABSPATH . WPINC . '/class-phpass.php';
+		$hash = ( new \PasswordHash( 8, true ) )->HashPassword( $password );
+		/** This filter is documented in wp-login.php */
+		$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's filter, so a site's cookie lifetime applies here too.
+		setcookie( self::password_cookie(), $hash, $expire, COOKIEPATH, COOKIE_DOMAIN, 'https' === wp_parse_url( $url, PHP_URL_SCHEME ) );
+		$_COOKIE[ self::password_cookie() ] = $hash;
 	}
 
 	/**

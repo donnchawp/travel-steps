@@ -1153,6 +1153,7 @@ check( '…and moving a step out of a trip is allowed', 0 === $step_parent( $ali
 require '/smoke/upload-trips.php';
 require '/smoke/upload-pages.php';
 require '/smoke/password-trips.php';
+require '/smoke/share-links.php';
 require '/smoke/photo-cache.php';
 require '/smoke/cache-fill.php';
 require '/smoke/cache-sweep.php';

@@ -832,6 +832,17 @@ $js   = wp_json_encode( $urls, JSON_UNESCAPED_SLASHES );
 check( 'trip photo: the modal loads it through the photo proxy', false !== strpos( $urls['url'], "/travel-steps/photo/$photos_trip/$photo_id/" ) && false !== strpos( $urls['sizes']['thumbnail']['url'] ?? '', "/travel-steps/photo/$photos_trip/$photo_id/thumbnail" ) && false === strpos( $js, wp_get_upload_dir()['baseurl'] . '/travel-steps/' ) && false === strpos( $js, $name ), $js );
 $xmlrpc = apply_filters( 'xmlrpc_prepare_media_item', [ 'link' => wp_get_attachment_url( $photo ), 'thumbnail' => wp_get_attachment_url( $photo ), 'metadata' => wp_get_attachment_metadata( $photo ) ], get_post( $photo ), 'thumbnail' );
 check( 'trip photo: XML-RPC gives no URL or file names for it', [ '', '', [] ] === [ $xmlrpc['link'], $xmlrpc['thumbnail'], $xmlrpc['metadata'] ], $xmlrpc );
+// Core renders any image as a featured image for anyone who can edit the post, with its file's URLs.
+check( 'trip photo: core renders no image for it', '' === wp_get_attachment_image( $photo, 'medium' ) && false === wp_get_attachment_image_src( $photo ) );
+check( 'trip photo: can’t be a post’s featured image', ! set_post_thumbnail( $other_post, $photo ) && ! has_post_thumbnail( $other_post ) );
+wp_set_current_user( $contributor );
+$contribs_post = wp_insert_post( [ 'post_title' => 'A contributor’s draft', 'post_status' => 'draft', 'post_author' => $contributor ] );
+$featured      = $rest_post( "/wp/v2/posts/$contribs_post", [ 'featured_media' => $photo ] );
+check( '…nor one set through REST by someone who can’t see it, who isn’t told its file', ! has_post_thumbnail( $contribs_post ) && false === strpos( wp_json_encode( $featured->get_data() ), $name ), $featured->get_data() );
+wp_set_current_user( 1 );
+check( 'an ordinary image can still be a featured image', (bool) set_post_thumbnail( $other_post, $described ) && false !== strpos( get_the_post_thumbnail( $other_post ), '<img' ) );
+delete_post_thumbnail( $other_post );
+wp_delete_post( $contribs_post, true );
 
 // An author allowed to make trips sees their own trip photos, though core lists
 // private attachments only to editors.

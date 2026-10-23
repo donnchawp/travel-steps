@@ -25,6 +25,7 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
+	const GLIDE_S = 1; // A move to much the same place.
 	const STEP_S = 0.6; // Each of a long move's three steps.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
@@ -115,15 +116,11 @@
 	function moveTo( bounds, maxZoom ) {
 		const mine = ++move;
 		const options = { padding, maxZoom };
-		// Ends any move under way now, so its moveend can't be taken for a step of this one.
-		map.stop();
+		mapEl.classList.remove( 'is-flying' );
 		if ( reduced.matches ) {
-			mapEl.classList.remove( 'is-flying' );
 			map.fitBounds( bounds, { ...options, animate: false } );
 			return;
 		}
-		// Leaflet stretches the routes with the map as it zooms, until they cover it:
-		// they're hidden until it lands. The markers stay.
 		mapEl.classList.add( 'is-flying' );
 		const steps = [];
 		// Much the same place, at whatever zoom: one takes in the middle of the other (into a
@@ -145,7 +142,7 @@
 			}
 			steps.push( () => map.panTo( bounds.getCenter(), { duration: STEP_S } ) );
 		}
-		steps.push( () => map.flyToBounds( bounds, { ...options, duration: near ? 1 : STEP_S } ) );
+		steps.push( () => map.flyToBounds( bounds, { ...options, duration: near ? GLIDE_S : STEP_S } ) );
 
 		const next = () => {
 			if ( mine !== move ) {
@@ -156,11 +153,11 @@
 				mapEl.classList.remove( 'is-flying' );
 				return;
 			}
-			// Each step ends with a moveend, even one that turns out not to move. The next
-			// starts on the frame after, as one started while Leaflet is still ending the
-			// last is cut short.
-			map.once( 'moveend', () => requestAnimationFrame( next ) );
+			// Each step is animated, so it ends with a moveend after it starts: one from a move
+			// it cut short fires as it starts, before this listens. The next step starts on the
+			// frame after, as one started while Leaflet is still ending the last is cut short.
 			step();
+			map.once( 'moveend', () => requestAnimationFrame( next ) );
 		};
 		next();
 	}

@@ -256,8 +256,8 @@ class RestController {
 	 *
 	 * Not through REST: REST takes anyone without a nonce for a visitor, and a nonce in an
 	 * <img> URL would let anyone the URL reached, copied from the media modal say, act as
-	 * them all over REST. Outside it, the login cookie and core's password cookie are read
-	 * as on any page.
+	 * them all over REST. Outside it, the login cookie, core's password cookie and share
+	 * links' cookies are read as on any page.
 	 */
 	public static function serve_photo( int $trip_id, string $asset, string $size, $share = '' ): void {
 		$answer = self::photo_answer( $trip_id, $asset, $size, sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ), $share );

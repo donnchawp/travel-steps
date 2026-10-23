@@ -838,7 +838,11 @@ check( 'trip photo: can’t be a post’s featured image', ! set_post_thumbnail(
 wp_set_current_user( $contributor );
 $contribs_post = wp_insert_post( [ 'post_title' => 'A contributor’s draft', 'post_status' => 'draft', 'post_author' => $contributor ] );
 $featured      = $rest_post( "/wp/v2/posts/$contribs_post", [ 'featured_media' => $photo ] );
-check( '…nor one set through REST by someone who can’t see it, who isn’t told its file', ! has_post_thumbnail( $contribs_post ) && false === strpos( wp_json_encode( $featured->get_data() ), $name ), $featured->get_data() );
+check( '…nor one set through REST by someone who can’t see it', ! has_post_thumbnail( $contribs_post ), $featured->get_data() );
+// The featured image box's AJAX answer renders any ID it's given, without setting it.
+require_once ABSPATH . 'wp-admin/includes/post.php';
+$box = _wp_post_thumbnail_html( $photo, $contribs_post );
+check( '…and the featured image box doesn’t show them its file', false === strpos( $box, $name ) && false === strpos( $box, '<img' ), $box );
 wp_set_current_user( 1 );
 check( 'an ordinary image can still be a featured image', (bool) set_post_thumbnail( $other_post, $described ) && false !== strpos( get_the_post_thumbnail( $other_post ), '<img' ) );
 delete_post_thumbnail( $other_post );

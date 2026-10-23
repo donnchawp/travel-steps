@@ -110,14 +110,21 @@
 	const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' );
 	let move = 0; // The latest move: one still under way gives way to a newer one.
 
+	// Ends the move under way, if any, for one that takes its place.
+	function stopMoving() {
+		mapEl.classList.remove( 'is-flying' );
+		return ++move;
+	}
+
 	// A move to much the same place glides. A longer one goes in three steps: out until
 	// the new place is in view, across to it, and in. Flying there in one go swells the
 	// map and races across it, which is hard to follow over Cork to Málaga.
 	function moveTo( bounds, maxZoom ) {
-		const mine = ++move;
+		const mine = stopMoving();
 		const options = { padding, maxZoom };
-		mapEl.classList.remove( 'is-flying' );
-		if ( reduced.matches ) {
+		// Without 3D transforms Leaflet doesn't animate a zoom, so the steps couldn't wait for
+		// each other.
+		if ( reduced.matches || ! L.Browser.any3d ) {
 			map.fitBounds( bounds, { ...options, animate: false } );
 			return;
 		}
@@ -153,8 +160,9 @@
 				mapEl.classList.remove( 'is-flying' );
 				return;
 			}
-			// Each step is animated, so it ends with a moveend after it starts: one from a move
-			// it cut short fires as it starts, before this listens. The next step starts on the
+			// Each step is animated (the pan too, as the zoom out puts the new place in view),
+			// so it ends with a moveend after it starts: one from a move it cut short fires as
+			// it starts, before this listens. The next step starts on the
 			// frame after, as one started while Leaflet is still ending the last is cut short.
 			step();
 			map.once( 'moveend', () => requestAnimationFrame( next ) );
@@ -173,11 +181,12 @@
 	}
 
 	// Zoom to an area, unless it's already in view at about the zoom it would get, so going
-	// between two places close together doesn't wobble.
+	// between two places close together doesn't wobble. Not while the map is on its way
+	// somewhere else, which it would carry on to.
 	function showArea( area ) {
 		const target = L.latLngBounds( area );
 		const zoom = Math.min( 16, map.getBoundsZoom( target, false, L.point( padding ).multiplyBy( 2 ) ) );
-		if ( map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
+		if ( ! mapEl.classList.contains( 'is-flying' ) && map.getBounds().contains( target ) && zoom - map.getZoom() < 1 ) {
 			return;
 		}
 		moveTo( target, 16 );
@@ -232,6 +241,7 @@
 		} else if ( areas[ key ] ) {
 			showArea( areas[ key ] );
 		} else if ( lit.length ) {
+			stopMoving();
 			map.panTo( lit[ 0 ].marker.getLatLng(), { animate: true } );
 		}
 	}

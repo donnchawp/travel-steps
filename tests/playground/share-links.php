@@ -3,7 +3,7 @@
  * Share links: a protected trip opened from a link built from its password, the cover photo
  * a link preview loads through it, the preview tags on trip pages, and the link on the edit
  * page. Required at the end of smoke.php after password-trips.php, in its scope: uses
- * check(), $render, $pw_trip, $pw_set, $pw_enter, $pw_photo and $pw_cover.
+ * check(), $render, $pw_trip, $pw_set, $pw_enter, $pw_attr, $pw_photo and $pw_cover.
  */
 use TravelSteps\RestController;
 use TravelSteps\Trips;
@@ -16,6 +16,7 @@ $sh_page = function ( $code ) use ( $render, $sh_trip, $pw_enter ) {
 	wp_set_current_user( 0 );
 	$pw_enter( null );
 	unset( $_COOKIE[ Trips::share_cookie( get_post( $sh_trip ) ) ] );
+	header_remove( 'Set-Cookie' );
 	if ( null !== $code ) {
 		$_GET[ Trips::SHARE_ARG ] = $code;
 	}
@@ -34,8 +35,8 @@ check( '…opens the trip without the form', false !== strpos( $page, 'Secret st
 $sh_name   = Trips::share_cookie( get_post( $sh_trip ) );
 $sh_cookie = $_COOKIE[ $sh_name ] ?? '';
 check( '…sets a cookie for this trip holding the code, not core’s cookie', $sh_code === $sh_cookie && ! isset( $_COOKIE[ Trips::password_cookie() ] ), $_COOKIE );
-$sh_set = preg_grep( '/^Set-Cookie: ' . preg_quote( $sh_name, '/' ) . '=/', headers_list() );
-check( '…which scripts can’t read and other sites’ requests don’t carry', 1 === count( $sh_set ) && false !== stripos( reset( $sh_set ), '; HttpOnly' ) && false !== stripos( reset( $sh_set ), '; SameSite=Lax' ), headers_list() );
+$sh_set = current( preg_grep( '/^Set-Cookie: ' . preg_quote( $sh_name, '/' ) . '=/', headers_list() ) ) ?: null;
+check( '…which lasts as core’s does, scripts can’t read, and other sites’ requests don’t carry', abs( (int) $pw_attr( $sh_set, 'Max-Age' ) - 10 * DAY_IN_SECONDS ) < 5 && COOKIEPATH === $pw_attr( $sh_set, 'path' ) && true === $pw_attr( $sh_set, 'HttpOnly' ) && 'Lax' === $pw_attr( $sh_set, 'SameSite' ), $sh_set );
 // A later visit, with the cookie and no code.
 $sh_return = function ( int $trip, string $name, string $value ) use ( $render, $pw_enter ) {
 	wp_set_current_user( 0 );
@@ -46,6 +47,9 @@ $sh_return = function ( int $trip, string $name, string $value ) use ( $render, 
 	return $page;
 };
 check( '…and the cookie opens the trip on a later visit', false !== strpos( $sh_return( $sh_trip, $sh_name, $sh_cookie ), 'Secret story' ) );
+$_COOKIE[ $sh_name ] = $sh_cookie;
+check( '…as core’s own password check agrees', ! post_password_required( get_post( $sh_trip ) ) );
+unset( $_COOKIE[ $sh_name ] );
 [ $sh_same ] = $pw_trip( 'Same password Lisbon' );
 $pw_set( $sh_same, 'kerry and clare' );
 check( '…but not another trip with the same password', false !== strpos( $sh_return( $sh_same, $sh_name, $sh_cookie ), 'name="post_password"' ) );

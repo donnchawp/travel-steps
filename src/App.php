@@ -71,6 +71,7 @@ class App extends BaseApp {
 		add_filter( 'wp_unique_post_slug', [ Trips::class, 'unique_slug' ], 10, 5 );
 		add_filter( 'wp_insert_post_data', [ Trips::class, 'step_parent' ], 10, 2 );
 		add_filter( 'protected_title_format', [ Trips::class, 'protected_title_format' ], 10, 2 );
+		add_filter( 'post_password_required', [ Trips::class, 'unlocked' ], 10, 2 );
 		add_action( 'admin_init', [ self::class, 'suggest_privacy_policy' ] );
 		add_action( 'post_updated', [ Subscriptions::class, 'password_changed' ], 10, 3 );
 		add_action( 'before_delete_post', [ Subscriptions::class, 'delete_for_trip' ] );

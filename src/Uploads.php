@@ -53,6 +53,7 @@ class Uploads {
 		add_filter( 'wp_prepare_attachment_for_js', [ self::class, 'prepare_for_js' ], 10, 2 );
 		add_filter( 'xmlrpc_prepare_media_item', [ self::class, 'xmlrpc_item' ], 10, 2 );
 		add_filter( 'rest_prepare_attachment', [ self::class, 'rest_item' ], 10, 2 );
+		add_filter( 'wp_get_attachment_image_src', [ self::class, 'image_src' ], 10, 2 );
 		add_filter( 'ajax_query_attachments_args', [ self::class, 'modal_query' ] );
 		add_filter( 'rest_attachment_query', [ self::class, 'exclude' ] );
 		add_action( 'load-upload.php', fn() => add_action( 'pre_get_posts', [ self::class, 'library_list' ] ) );
@@ -425,6 +426,19 @@ class Uploads {
 			$item['metadata']  = [];
 		}
 		return $item;
+	}
+
+	/**
+	 * Core renders any image for anyone who can edit some post: as a featured image
+	 * (set_post_thumbnail() checks only that it renders) and in its answer, with the
+	 * file's URLs. A trip photo renders as nothing, so it can't be one. The modal is
+	 * left alone: it reads image_downsize(), and prepare_for_js() replaces its URLs.
+	 *
+	 * @param array|false $image
+	 * @return array|false
+	 */
+	public static function image_src( $image, $attachment_id ) {
+		return '' !== self::photo_id( (int) $attachment_id ) ? false : $image;
 	}
 
 	/**

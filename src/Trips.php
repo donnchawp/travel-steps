@@ -421,10 +421,11 @@ class Trips {
 	}
 
 	/**
-	 * The name of the cookie a trip's share link sets.
+	 * The name of the cookie a trip's share link sets. It starts as core's does, so page
+	 * caches that skip visitors with core's cookie skip these too, but never equals it.
 	 */
 	public static function share_cookie( \WP_Post $trip ): string {
-		return 'travel-steps-share_' . $trip->ID . '_' . COOKIEHASH;
+		return 'wp-postpass_travel-steps_' . $trip->ID . '_' . COOKIEHASH;
 	}
 
 	/**
@@ -432,10 +433,10 @@ class Trips {
 	 * its current share link before, whose cookie holds the trip's code. On the filter,
 	 * so core's own checks (its REST content, say) agree with the trip page's.
 	 */
-	public static function unlocked( bool $required, $post ): bool {
+	public static function unlocked( $required, $post ): bool {
 		$post = get_post( $post );
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the code.
-		return $required && ! ( $post && self::TRIP === $post->post_type && self::share_matches( $post, wp_unslash( $_COOKIE[ self::share_cookie( $post ) ] ?? '' ) ) );
+		return (bool) $required && ! ( $post && self::TRIP === $post->post_type && self::share_matches( $post, wp_unslash( $_COOKIE[ self::share_cookie( $post ) ] ?? '' ) ) );
 	}
 
 	/**

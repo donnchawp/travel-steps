@@ -17,6 +17,10 @@ $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
 $shared = false;
 if ( $trip && Trips::is_protected( $trip ) ) {
 	nocache_headers();
+	// For page caches that go by this rather than the headers.
+	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+		define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Page caches' own constant.
+	}
 	Trips::handle_password_post( $trip );
 	$shared = Trips::handle_share_link( $trip );
 }

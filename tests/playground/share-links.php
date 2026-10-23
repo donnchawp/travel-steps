@@ -3,13 +3,14 @@
  * Share links: a protected trip opened from a link built from its password, the cover photo
  * a link preview loads through it, the preview tags on trip pages, and the link on the edit
  * page. Required at the end of smoke.php after password-trips.php, in its scope: uses
- * check(), $render, $pw_trip, $pw_set, $pw_enter, $pw_attr, $pw_photo and $pw_cover.
+ * check(), $render, $refused, $pw_trip, $pw_set, $pw_enter, $pw_attr, $pw_reach, $pw_photo
+ * and $pw_cover.
  */
 use TravelSteps\RestController;
 use TravelSteps\Trips;
 use TravelSteps\View;
 
-[ $sh_trip ] = $pw_trip( 'Shared Lisbon' );
+[ $sh_trip, $sh_step ] = $pw_trip( 'Shared Lisbon' );
 $pw_set( $sh_trip, 'kerry and clare' );
 // The trip page as a visitor without the password sees it, with a share code or none.
 $sh_page = function ( $code ) use ( $render, $sh_trip, $pw_enter ) {
@@ -28,8 +29,8 @@ $sh_code = Trips::share_code( get_post( $sh_trip ) );
 check( 'share: a protected trip has a 32-character code', 1 === preg_match( '/^[0-9a-f]{32}$/', $sh_code ), $sh_code );
 check( '…and its link holds the code, not the password', false !== strpos( Trips::share_url( get_post( $sh_trip ) ), 'share=' . $sh_code ) && false === strpos( Trips::share_url( get_post( $sh_trip ) ), 'kerry' ), Trips::share_url( get_post( $sh_trip ) ) );
 $sh_form = $sh_page( null );
-$page    = $sh_page( $sh_code );
-check( '…opens the trip without the form', false !== strpos( $page, 'Secret story' ) && false === strpos( $page, 'name="post_password"' ) );
+$sh_open = $sh_page( $sh_code );
+check( '…opens the trip without the form', false !== strpos( $sh_open, 'Secret story' ) && false === strpos( $sh_open, 'name="post_password"' ) );
 // Core's cookie would hold a hash of the password, which opens any post with that password
 // and can be cracked offline: the link's cookie holds only the code, for this trip.
 $sh_name   = Trips::share_cookie( get_post( $sh_trip ) );
@@ -49,13 +50,22 @@ $sh_return = function ( int $trip, string $name, string $value ) use ( $render, 
 check( '…and the cookie opens the trip on a later visit', false !== strpos( $sh_return( $sh_trip, $sh_name, $sh_cookie ), 'Secret story' ) );
 $_COOKIE[ $sh_name ] = $sh_cookie;
 check( '…as core’s own password check agrees', ! post_password_required( get_post( $sh_trip ) ) );
+// The rest of the trip, with the cookie alone.
+$sh_reach = function () use ( $pw_reach, $sh_trip, $sh_step ) {
+	$seen = $pw_reach( $sh_trip, $sh_step );
+	return [ $seen['rest']->get_status(), $seen['photo'], $seen['step'], $seen['core'] ];
+};
+$sh_seen = $sh_reach();
+check( '…and its map data, photos, step and core REST', [ 200, 'private', 200, 'open' ] === $sh_seen, $sh_seen );
+check( '…under a name page caches already skip, which isn’t core’s', str_starts_with( $sh_name, 'wp-postpass_' ) && Trips::password_cookie() !== $sh_name );
+check( '…and no page cache keeps the page', defined( 'DONOTCACHEPAGE' ) );
 unset( $_COOKIE[ $sh_name ] );
 [ $sh_same ] = $pw_trip( 'Same password Lisbon' );
 $pw_set( $sh_same, 'kerry and clare' );
 check( '…but not another trip with the same password', false !== strpos( $sh_return( $sh_same, $sh_name, $sh_cookie ), 'name="post_password"' ) );
 check( '…even under that trip’s cookie name', false !== strpos( $sh_return( $sh_same, Trips::share_cookie( get_post( $sh_same ) ), $sh_cookie ), 'name="post_password"' ) );
 check( '…tells the browser to send only the origin, so map tiles load but no request carries the code', in_array( 'Referrer-Policy: strict-origin', headers_list(), true ), headers_list() );
-check( '…and gives the page the clean URL to show', false !== strpos( $page, 'data-clean-url="' . esc_url( Trips::url( get_post( $sh_trip ) ) ) . '"' ) );
+check( '…and gives the page the clean URL to show', false !== strpos( $sh_open, 'data-clean-url="' . esc_url( Trips::url( get_post( $sh_trip ) ) ) . '"' ) );
 foreach ( [ 'wrong', '', [ $sh_code ] ] as $sh_bad ) {
 	check( 'share: a bad code renders what no code does, byte for byte', $sh_form === $sh_page( $sh_bad ), $sh_bad );
 }
@@ -65,6 +75,10 @@ check( 'share: another trip’s code doesn’t open this one', $sh_form === $sh_
 $pw_set( $sh_trip, 'a new password' );
 check( 'share: after a password change, the old code gets the form', false !== strpos( $sh_page( $sh_code ), 'name="post_password"' ) );
 check( '…and so does the cookie it set', false !== strpos( $sh_return( $sh_trip, $sh_name, $sh_cookie ), 'name="post_password"' ) );
+$_COOKIE[ $sh_name ] = $sh_cookie;
+$sh_seen             = $sh_reach();
+unset( $_COOKIE[ $sh_name ] );
+check( '…which opens nothing else of the trip either', $refused( $sh_seen[0] ) && '' === $sh_seen[1] && $refused( $sh_seen[2] ) && 'shut' === $sh_seen[3], $sh_seen );
 check( '…and the code changes', Trips::share_code( get_post( $sh_trip ) ) !== $sh_code );
 foreach ( [ '', '0' ] as $sh_none ) {
 	$pw_set( $sh_other, $sh_none );

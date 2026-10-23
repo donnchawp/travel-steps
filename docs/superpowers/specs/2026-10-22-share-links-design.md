@@ -40,11 +40,11 @@ These would count as failures even if the link worked:
 ### Opening a share link (my call)
 
 - The link is the trip's normal URL with the code added (for example `…/trip/{slug}/?share={code}`). The exact form is the builder's choice.
-- With a valid code, the response sets core's post password cookie exactly as `Trips::handle_password_post()` does, with the same name, hash, expiry filter, path and secure flag. It then renders the trip page itself with a 200. It doesn't redirect, because a preview fetcher doesn't carry the cookie across a redirect and would land on the password form.
+- With a valid code, the response sets a share cookie for that trip only (`Trips::share_cookie()`), holding the code, with core's password-cookie expiry filter, path and secure flag, plus HttpOnly and SameSite=Lax. It then renders the trip page itself with a 200. (Changed after review: it first set core's post password cookie, whose phpass hash of the password opens every post with the same password and can be cracked offline.) It doesn't redirect, because a preview fetcher doesn't carry the cookie across a redirect and would land on the password form.
 - On load, the page replaces the address-bar URL with the clean trip URL (`history.replaceState`).
 - The response keeps the `nocache_headers()` that protected trips already get.
 - With a missing or wrong code, the trip behaves exactly as it does now.
-- Core's cookie holds one password. Opening trip B's share link replaces the cookie for trip A, as typing B's password does now. That's accepted.
+- Each trip has its own share cookie, so opening trip B's share link leaves trip A's in place.
 
 ### Preview tags (the user wants them for public trips too; the tags themselves my call)
 

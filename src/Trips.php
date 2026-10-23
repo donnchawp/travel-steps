@@ -326,8 +326,9 @@ class Trips {
 	}
 
 	/**
-	 * Whether a trip has a password: core's post password, checked with core's cookie.
-	 * Empty as core's post_password_required() sees it, so "0" is no password.
+	 * Whether a trip has a password: core's post password, checked with core's cookie or
+	 * the trip's share cookie. Empty as core's post_password_required() sees it, so "0"
+	 * is no password.
 	 */
 	public static function is_protected( \WP_Post $trip ): bool {
 		return ! empty( $trip->post_password );
@@ -351,10 +352,11 @@ class Trips {
 
 	/**
 	 * Whether the current user has to type a trip's password to see it: it's published
-	 * with one, they may not skip it, and core's cookie doesn't hold it.
+	 * with one, they may not skip it, and neither core's cookie nor the trip's share cookie
+	 * holds it.
 	 */
 	public static function needs_password( \WP_Post $trip ): bool {
-		return 'publish' === $trip->post_status && self::is_protected( $trip ) && ! self::skips_password( $trip ) && post_password_required( $trip );
+		return 'publish' === $trip->post_status && self::is_protected( $trip ) && ! self::skips_password( $trip ) && ! self::shared( $trip ) && post_password_required( $trip );
 	}
 
 	/**
@@ -416,17 +418,51 @@ class Trips {
 	}
 
 	/**
-	 * Lets the visitor in, as the password form would, if the request carries the trip's
-	 * share code: sets core's cookie, and the request's copy of it, so the trip shows
-	 * in this request. A preview fetcher keeps no cookie across a redirect, so there's
-	 * none. Returns whether it did.
+	 * The name of the cookie a trip's share link sets.
+	 */
+	public static function share_cookie( \WP_Post $trip ): string {
+		return 'travel-steps-share_' . $trip->ID . '_' . COOKIEHASH;
+	}
+
+	/**
+	 * Whether the visitor opened the trip's current share link before: its cookie holds
+	 * the trip's code.
+	 */
+	public static function shared( \WP_Post $trip ): bool {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the code.
+		return self::share_matches( $trip, wp_unslash( $_COOKIE[ self::share_cookie( $trip ) ] ?? '' ) );
+	}
+
+	/**
+	 * Lets the visitor in if the request carries the trip's share code: sets the trip's
+	 * share cookie, and the request's copy of it, so the trip shows in this request. A
+	 * preview fetcher keeps no cookie across a redirect, so there's none. Not core's
+	 * password cookie: that holds a hash of the password, which opens every post with
+	 * the same password and can be cracked offline. The share cookie holds the code,
+	 * which opens this trip only and stops working when its password changes. Returns
+	 * whether it did.
 	 */
 	public static function handle_share_link( \WP_Post $trip ): bool {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared with the code.
-		if ( ! self::share_matches( $trip, wp_unslash( $_GET[ self::SHARE_ARG ] ?? '' ) ) ) {
+		$code = wp_unslash( $_GET[ self::SHARE_ARG ] ?? '' );
+		if ( ! self::share_matches( $trip, $code ) ) {
 			return false;
 		}
-		self::set_password_cookie( $trip->post_password, self::url( $trip ) );
+		/** This filter is documented in wp-login.php */
+		$expire = apply_filters( 'post_password_expires', time() + 10 * DAY_IN_SECONDS ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core's filter, so a site's password cookie lifetime applies here too.
+		setcookie(
+			self::share_cookie( $trip ),
+			$code,
+			[
+				'expires'  => $expire,
+				'path'     => COOKIEPATH,
+				'domain'   => COOKIE_DOMAIN,
+				'secure'   => 'https' === wp_parse_url( self::url( $trip ), PHP_URL_SCHEME ),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			]
+		);
+		$_COOKIE[ self::share_cookie( $trip ) ] = $code;
 		// The page's requests carry only the origin, not the code: the map's tile server
 		// refuses a request with no referrer at all.
 		header( 'Referrer-Policy: strict-origin' );
@@ -465,8 +501,8 @@ class Trips {
 	/**
 	 * Whether the current user's requests for a trip's REST must carry a REST nonce,
 	 * which REST needs to know who they are: they see it by their login, as it isn't
-	 * public. Visitors with a protected trip's password need none: core's cookie is read
-	 * without one. Photos need none either: see RestController::serve_photo().
+	 * public. Visitors with a protected trip's password need none: core's cookie, and a
+	 * share link's, is read without one. Photos need none either: see RestController::serve_photo().
 	 */
 	public static function by_login( \WP_Post $trip ): bool {
 		return ! self::is_public( $trip ) && self::skips_password( $trip );

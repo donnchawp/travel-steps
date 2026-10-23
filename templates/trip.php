@@ -12,8 +12,8 @@ use TravelSteps\View;
 $trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
 // Core does this for a singular post with a password; this route isn't one, so a page
 // cache could otherwise keep the unlocked trip and serve it to everyone. The password
-// form posts here too: that sets core's cookie and redirects. A share link sets it too,
-// and shows the trip in the same request.
+// form posts here too: that sets core's cookie and redirects. A share link sets its own
+// cookie, and shows the trip in the same request.
 $shared = false;
 if ( $trip && Trips::is_protected( $trip ) ) {
 	nocache_headers();

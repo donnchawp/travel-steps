@@ -15,6 +15,7 @@ $pw_set( $sh_trip, 'kerry and clare' );
 $sh_page = function ( $code ) use ( $render, $sh_trip, $pw_enter ) {
 	wp_set_current_user( 0 );
 	$pw_enter( null );
+	unset( $_COOKIE[ Trips::share_cookie( get_post( $sh_trip ) ) ] );
 	if ( null !== $code ) {
 		$_GET[ Trips::SHARE_ARG ] = $code;
 	}
@@ -28,7 +29,27 @@ check( '…and its link holds the code, not the password', false !== strpos( Tri
 $sh_form = $sh_page( null );
 $page    = $sh_page( $sh_code );
 check( '…opens the trip without the form', false !== strpos( $page, 'Secret story' ) && false === strpos( $page, 'name="post_password"' ) );
-check( '…sets core’s cookie to the password, as the form does', ( new PasswordHash( 8, true ) )->CheckPassword( 'kerry and clare', wp_unslash( $_COOKIE[ Trips::password_cookie() ] ?? '' ) ) );
+// Core's cookie would hold a hash of the password, which opens any post with that password
+// and can be cracked offline: the link's cookie holds only the code, for this trip.
+$sh_name   = Trips::share_cookie( get_post( $sh_trip ) );
+$sh_cookie = $_COOKIE[ $sh_name ] ?? '';
+check( '…sets a cookie for this trip holding the code, not core’s cookie', $sh_code === $sh_cookie && ! isset( $_COOKIE[ Trips::password_cookie() ] ), $_COOKIE );
+$sh_set = preg_grep( '/^Set-Cookie: ' . preg_quote( $sh_name, '/' ) . '=/', headers_list() );
+check( '…which scripts can’t read and other sites’ requests don’t carry', 1 === count( $sh_set ) && false !== stripos( reset( $sh_set ), '; HttpOnly' ) && false !== stripos( reset( $sh_set ), '; SameSite=Lax' ), headers_list() );
+// A later visit, with the cookie and no code.
+$sh_return = function ( int $trip, string $name, string $value ) use ( $render, $pw_enter ) {
+	wp_set_current_user( 0 );
+	$pw_enter( null );
+	$_COOKIE[ $name ] = $value;
+	$page             = $render( 'trip.php', (string) $trip );
+	unset( $_COOKIE[ $name ] );
+	return $page;
+};
+check( '…and the cookie opens the trip on a later visit', false !== strpos( $sh_return( $sh_trip, $sh_name, $sh_cookie ), 'Secret story' ) );
+[ $sh_same ] = $pw_trip( 'Same password Lisbon' );
+$pw_set( $sh_same, 'kerry and clare' );
+check( '…but not another trip with the same password', false !== strpos( $sh_return( $sh_same, $sh_name, $sh_cookie ), 'name="post_password"' ) );
+check( '…even under that trip’s cookie name', false !== strpos( $sh_return( $sh_same, Trips::share_cookie( get_post( $sh_same ) ), $sh_cookie ), 'name="post_password"' ) );
 check( '…tells the browser to send only the origin, so map tiles load but no request carries the code', in_array( 'Referrer-Policy: strict-origin', headers_list(), true ), headers_list() );
 check( '…and gives the page the clean URL to show', false !== strpos( $page, 'data-clean-url="' . esc_url( Trips::url( get_post( $sh_trip ) ) ) . '"' ) );
 foreach ( [ 'wrong', '', [ $sh_code ] ] as $sh_bad ) {
@@ -39,6 +60,7 @@ $pw_set( $sh_other, 'other' );
 check( 'share: another trip’s code doesn’t open this one', $sh_form === $sh_page( Trips::share_code( get_post( $sh_other ) ) ) );
 $pw_set( $sh_trip, 'a new password' );
 check( 'share: after a password change, the old code gets the form', false !== strpos( $sh_page( $sh_code ), 'name="post_password"' ) );
+check( '…and so does the cookie it set', false !== strpos( $sh_return( $sh_trip, $sh_name, $sh_cookie ), 'name="post_password"' ) );
 check( '…and the code changes', Trips::share_code( get_post( $sh_trip ) ) !== $sh_code );
 foreach ( [ '', '0' ] as $sh_none ) {
 	$pw_set( $sh_other, $sh_none );

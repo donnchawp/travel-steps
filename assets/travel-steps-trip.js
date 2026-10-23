@@ -25,9 +25,7 @@
 
 	const mapEl = document.getElementById( 'ts-map' );
 	const ROUTE = { color: '#e8591a', weight: 4, opacity: 0.9 };
-	const MOVE_MS = 120; // A long move's fade, as .ts-map's transitions.
-	const TRAVEL_MS = 1000; // Then the streets streaming past.
-	const SLIDE_PX = 80; // How far the map slides as it fades.
+	const STEP_S = 0.6; // Each of a long move's three steps.
 	const markers = new Map(); // Step id => [ { marker, label } ], one per place.
 	const byAnchor = new Map(); // A place heading's id => { marker, label }.
 	const padding = [ 30, 30 ];
@@ -110,45 +108,24 @@
 
 	const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' );
 	let move = 0; // The latest move: one still under way gives way to a newer one.
-	let streak = null; // The blur along the way a long move goes.
 
-	// A blur along one direction, as the map's streaks while it travels: a Gaussian blur
-	// is only along the axes, so a diagonal is the nearest mix of the two.
-	function streakFilter() {
-		if ( ! streak ) {
-			const ns = 'http://www.w3.org/2000/svg';
-			const svg = document.createElementNS( ns, 'svg' );
-			svg.setAttribute( 'aria-hidden', 'true' );
-			svg.setAttribute( 'width', '0' );
-			svg.setAttribute( 'height', '0' );
-			svg.style.position = 'absolute';
-			const filter = document.createElementNS( ns, 'filter' );
-			filter.id = 'ts-streak';
-			streak = document.createElementNS( ns, 'feGaussianBlur' );
-			filter.append( streak );
-			svg.append( filter );
-			document.body.append( svg );
-		}
-		return streak;
-	}
-
-	// A move to much the same place glides. A longer one fades the map to nearly black,
-	// streaked along the way it goes as it slides off, streets stream past for a moment,
-	// and the new place appears: flying
-	// zooms out and back in, which is jarring over Cork to Málaga or even Málaga to
-	// Cómpeta.
+	// A move to much the same place glides. A longer one goes in three steps: out until
+	// the new place is in view, across to it, and in. Flying there in one go swells the
+	// map and races across it, which is hard to follow over Cork to Málaga.
 	function moveTo( bounds, maxZoom ) {
 		const mine = ++move;
 		const options = { padding, maxZoom };
-		const pane = map.getPane( 'mapPane' );
-		// Whatever a long move still under way left.
-		pane.style.filter = '';
-		pane.style.translate = '';
-		mapEl.classList.remove( 'is-moving' );
+		// Ends any move under way now, so its moveend can't be taken for a step of this one.
+		map.stop();
 		if ( reduced.matches ) {
+			mapEl.classList.remove( 'is-flying' );
 			map.fitBounds( bounds, { ...options, animate: false } );
 			return;
 		}
+		// Leaflet stretches the routes with the map as it zooms, until they cover it:
+		// they're hidden until it lands. The markers stay.
+		mapEl.classList.add( 'is-flying' );
+		const steps = [];
 		// Much the same place, at whatever zoom: one takes in the middle of the other (into a
 		// town at the end of a drive, or back out to the drive), or they're centred within a
 		// quarter of the larger of the two (another day in the same town).
@@ -156,104 +133,36 @@
 		const across = ( b ) => map.distance( b.getSouthWest(), b.getNorthEast() );
 		const near = bounds.contains( view.getCenter() ) || view.contains( bounds.getCenter() ) ||
 			map.distance( view.getCenter(), bounds.getCenter() ) <= Math.max( across( view ), across( bounds ) ) / 4;
-		if ( near ) {
-			// Leaflet stretches the routes with the map as it flies, until they cover it:
-			// they're hidden until it lands. The markers stay.
-			mapEl.classList.add( 'is-flying' );
-			map.once( 'moveend', () => mapEl.classList.remove( 'is-flying' ) );
-			map.flyToBounds( bounds, { ...options, duration: 1 } );
-			return;
+		if ( ! near ) {
+			// Out, staying centred, to the zoom that takes in the new place and its mirror
+			// image about the centre, so all of it is in view.
+			const centre = map.project( view.getCenter() );
+			const corners = [ bounds.getSouthWest(), bounds.getNorthEast() ];
+			const around = L.latLngBounds( corners.concat( corners.map( ( p ) => map.unproject( centre.multiplyBy( 2 ).subtract( map.project( p ) ) ) ) ) );
+			const out = map.getBoundsZoom( around, false, L.point( padding ).multiplyBy( 2 ) );
+			if ( out < map.getZoom() ) {
+				steps.push( () => map.flyTo( view.getCenter(), out, { duration: STEP_S } ) );
+			}
+			steps.push( () => map.panTo( bounds.getCenter(), { duration: STEP_S } ) );
 		}
+		steps.push( () => map.flyToBounds( bounds, { ...options, duration: near ? 1 : STEP_S } ) );
 
-		// Which way the new place is, on screen: the map slides the other way.
-		const way = map.latLngToContainerPoint( bounds.getCenter() ).subtract( map.getSize().divideBy( 2 ) );
-		const length = Math.hypot( way.x, way.y );
-		const ux = length ? way.x / length : 0;
-		const uy = length ? way.y / length : 0;
-		const slide = ( by ) => `${ Math.round( -ux * by ) }px ${ Math.round( -uy * by ) }px`;
-		streakFilter().setAttribute( 'stdDeviation', `${ 2 + 18 * Math.abs( ux ) } ${ 2 + 18 * Math.abs( uy ) }` );
-
-		pane.style.filter = 'url(#ts-streak)';
-		pane.style.translate = slide( SLIDE_PX );
-		mapEl.classList.add( 'is-moving' );
-		setTimeout( () => {
-			if ( mine === move ) {
-				travel( ux, uy, mine, () => {
-					// The new place appears at once, sharp and undimmed.
-					mapEl.classList.add( 'is-arriving' );
-					map.fitBounds( bounds, { ...options, animate: false } );
-					pane.style.filter = '';
-					pane.style.translate = '';
-					mapEl.classList.remove( 'is-moving' );
-					pane.getBoundingClientRect();
-					mapEl.classList.remove( 'is-arriving' );
-				} );
-			}
-		}, MOVE_MS );
-	}
-
-	// On the darkened map, sparse thin white lines, like bits of street, stream past the
-	// way the map would move, faster then slower, as it travels to somewhere further off.
-	function travel( ux, uy, mine, done ) {
-		const canvas = document.createElement( 'canvas' );
-		canvas.className = 'ts-map-travel';
-		const w = mapEl.clientWidth;
-		const h = mapEl.clientHeight;
-		const dpr = window.devicePixelRatio || 1;
-		canvas.width = w * dpr;
-		canvas.height = h * dpr;
-		mapEl.append( canvas );
-		const ctx = canvas.getContext( '2d' );
-		ctx.scale( dpr, dpr );
-		ctx.lineWidth = 1;
-		ctx.lineCap = 'round';
-
-		// A run of street at one of a few angles, some turning a corner.
-		const streets = Array.from( { length: Math.max( 8, Math.round( ( w * h ) / 14000 ) ) }, () => {
-			const angle = ( Math.floor( Math.random() * 4 ) * Math.PI ) / 4 + ( Math.random() - 0.5 ) * 0.3;
-			const length = 40 + Math.random() * 140;
-			const x = Math.random() * w;
-			const y = Math.random() * h;
-			const points = [ [ x, y ], [ x + Math.cos( angle ) * length, y + Math.sin( angle ) * length ] ];
-			if ( Math.random() < 0.5 ) {
-				const turn = angle + ( Math.random() < 0.5 ? 1 : -1 ) * ( Math.PI / 2 );
-				const more = 20 + Math.random() * 70;
-				points.push( [ points[ 1 ][ 0 ] + Math.cos( turn ) * more, points[ 1 ][ 1 ] + Math.sin( turn ) * more ] );
-			}
-			return points;
-		} );
-		// Off one edge, back on at the other.
-		const wrap = ( v, size ) => ( ( ( ( v + 150 ) % ( size + 300 ) ) + size + 300 ) % ( size + 300 ) ) - 150;
-		const distance = 1.5 * Math.max( w, h );
-		const start = performance.now();
-
-		const frame = ( now ) => {
+		const next = () => {
 			if ( mine !== move ) {
-				canvas.remove();
 				return;
 			}
-			const t = Math.min( 1, ( now - start ) / TRAVEL_MS );
-			const eased = t < 0.5 ? 2 * t * t : 1 - ( ( -2 * t + 2 ) ** 2 ) / 2;
-			const dx = -ux * eased * distance;
-			const dy = -uy * eased * distance;
-			ctx.clearRect( 0, 0, w, h );
-			// In and out quickly at either end.
-			ctx.strokeStyle = `rgb(255 255 255 / ${ 0.45 * Math.min( 1, t / 0.12, ( 1 - t ) / 0.12 ) })`;
-			streets.forEach( ( points ) => {
-				const ox = wrap( points[ 0 ][ 0 ] + dx, w ) - points[ 0 ][ 0 ];
-				const oy = wrap( points[ 0 ][ 1 ] + dy, h ) - points[ 0 ][ 1 ];
-				ctx.beginPath();
-				points.forEach( ( [ x, y ], i ) => ctx[ i ? 'lineTo' : 'moveTo' ]( x + ox, y + oy ) );
-				ctx.stroke();
-			} );
-			if ( t < 1 ) {
-				requestAnimationFrame( frame );
-			} else {
-				canvas.remove();
-				done();
+			const step = steps.shift();
+			if ( ! step ) {
+				mapEl.classList.remove( 'is-flying' );
+				return;
 			}
+			// Each step ends with a moveend, even one that turns out not to move. The next
+			// starts on the frame after, as one started while Leaflet is still ending the
+			// last is cut short.
+			map.once( 'moveend', () => requestAnimationFrame( next ) );
+			step();
 		};
-		requestAnimationFrame( frame );
+		next();
 	}
 
 	function showWhole( animate ) {

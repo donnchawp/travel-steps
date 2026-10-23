@@ -74,12 +74,24 @@ class App extends BaseApp {
 		add_action( 'admin_init', [ self::class, 'suggest_privacy_policy' ] );
 		add_action( 'post_updated', [ Subscriptions::class, 'password_changed' ], 10, 3 );
 		add_action( 'before_delete_post', [ Subscriptions::class, 'delete_for_trip' ] );
+		add_action( 'wp_app_before_render', [ self::class, 'frame_options' ], 10, 2 );
 
 		parent::init();
 
 		// See cook-app: BaseApp defers setup_menu() to an init callback at the
 		// priority we're currently inside, so it would never run.
 		$this->setup_menu();
+	}
+
+	/**
+	 * The app's pages have one-click controls (viewers, pin, hide, cover), so another
+	 * site mustn't frame them; the site itself may, as OpenStation's windows do.
+	 * wp_app_before_render runs for every wp-app app, so only this one's routes.
+	 */
+	public static function frame_options( $template, $route ): void {
+		if ( self::URL_PATH === ( $route['app_path'] ?? '' ) ) {
+			send_frame_options_header();
+		}
 	}
 
 	/**

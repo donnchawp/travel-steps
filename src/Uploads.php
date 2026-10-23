@@ -430,8 +430,8 @@ class Uploads {
 
 	/**
 	 * Core renders any image for anyone who can edit some post: as a featured image
-	 * (set_post_thumbnail() checks only that it renders) and in its answer, with the
-	 * file's URLs. A trip photo renders as nothing, so it can't be one. The modal is
+	 * (set_post_thumbnail() checks only that it renders) and in the featured image box's
+	 * AJAX answer for any ID, set or not, with the file's URLs. A trip photo renders as nothing, so it can't be one. The modal is
 	 * left alone: it reads image_downsize(), and prepare_for_js() replaces its URLs.
 	 *
 	 * @param array|false $image

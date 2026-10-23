@@ -42,9 +42,9 @@ These would count as failures even if the link worked:
 - The link is the trip's normal URL with the code added (for example `…/trip/{slug}/?share={code}`). The exact form is the builder's choice.
 - With a valid code, the response sets a share cookie for that trip only (`Trips::share_cookie()`), holding the code, with core's password-cookie expiry filter, path and secure flag, plus HttpOnly and SameSite=Lax. It then renders the trip page itself with a 200. (Changed after review: it first set core's post password cookie, whose phpass hash of the password opens every post with the same password and can be cracked offline.) It doesn't redirect, because a preview fetcher doesn't carry the cookie across a redirect and would land on the password form.
 - On load, the page replaces the address-bar URL with the clean trip URL (`history.replaceState`).
-- The response keeps the `nocache_headers()` that protected trips already get.
+- The response keeps the `nocache_headers()` that protected trips already get, and defines `DONOTCACHEPAGE` for page caching plugins that go by it.
 - With a missing or wrong code, the trip behaves exactly as it does now.
-- Each trip has its own share cookie, so opening trip B's share link leaves trip A's in place.
+- Each trip has its own share cookie, so opening trip B's share link leaves trip A's in place. A share cookie never opens any other post, even one with the same password. Its name starts `wp-postpass_`, as core's does, so page caches that skip visitors with core's cookie skip it too.
 
 ### Preview tags (the user wants them for public trips too; the tags themselves my call)
 

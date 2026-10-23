@@ -88,7 +88,7 @@ class App extends BaseApp {
 	 * site mustn't frame them; the site itself may, as OpenStation's windows do.
 	 * wp_app_before_render runs for every wp-app app, so only this one's routes.
 	 */
-	public static function frame_options( $template, $route ): void {
+	public static function frame_options( $template, $route = [] ): void {
 		if ( self::URL_PATH === ( $route['app_path'] ?? '' ) ) {
 			send_frame_options_header();
 		}

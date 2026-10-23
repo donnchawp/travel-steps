@@ -1188,6 +1188,16 @@ check( '…but the trip’s author can', $bobs === $step_parent( $bob, [ 'post_p
 check( '…and so can an editor who can edit the trip', $bobs === $step_parent( $eddie, [ 'post_parent' => $bobs ] ) );
 check( '…and moving a step out of a trip is allowed', 0 === $step_parent( $alice, [ 'ID' => $alice_step, 'post_parent' => 0 ] ) );
 
+// The app's pages have one-click controls (viewers, pin, hide), so only the site may frame them.
+$framed = function ( string $app_path ): bool {
+	header_remove( 'X-Frame-Options' );
+	do_action( 'wp_app_before_render', '', [ 'app_path' => $app_path ] );
+	return in_array( 'X-Frame-Options: SAMEORIGIN', headers_list(), true );
+};
+check( 'the app’s pages can be framed only by the site', $framed( TravelSteps\App::URL_PATH ), headers_list() );
+check( '…and another app’s pages are left alone', ! $framed( 'another-app' ), headers_list() );
+header_remove( 'X-Frame-Options' );
+
 require '/smoke/upload-trips.php';
 require '/smoke/upload-pages.php';
 require '/smoke/password-trips.php';

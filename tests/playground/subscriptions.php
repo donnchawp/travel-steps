@@ -308,6 +308,11 @@ wp_update_post( [ 'ID' => $sb_prot, 'post_password' => 'mondego' ] );
 $sb_prot_day3 = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $sb_prot, 'post_title' => 'Day three', 'post_status' => 'publish', 'post_date' => '2025-05-03 12:00:00' ] );
 wp_set_current_user( 0 );
 check( 'roundup: after a password change the logged-in subscriber is skipped, and kept', [] === $sb_run() && 1 === count( $sb_subs( $sb_prot ) ) );
+// The links in their old email mustn't hand them the new share code.
+$sb_new_code = Trips::share_code( get_post( $sb_prot ) );
+$sb_old_link = $sb_url_in( $mails[0]['message'] ?? '', 'unsubscribe' );
+$page        = $sb_link( str_replace( 'do=unsubscribe', 'do=confirm', $sb_old_link ) );
+check( 'password change: an old email’s link, as confirm, doesn’t show the new share code', '' !== $sb_old_link && false === strpos( (string) $page, $sb_new_code ) && false !== strpos( (string) $page, 'View the trip' ), $page );
 
 // One address with an account subscription and an email-only one gets one email, and one unsubscribe ends both.
 [ $sb_two, [ , $sb_two_day2 ] ] = $sb_trip( 'Both ways Lisbon' );
@@ -383,6 +388,10 @@ check( '…counts them', false !== strpos( $edit, '2 subscribers' ), substr( $ed
 $edit = $render( 'trip-edit.php', (string) $sb_prot );
 check( '…but not one who can’t see the trip any more', false !== strpos( $edit, '0 subscribers get' ) && false !== strpos( $edit, 'Friendly Fiona' ), substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 600 ) );
 check( '…and says when the last roundup went', false !== stripos( $edit, 'last roundup' ) );
+wp_set_current_user( 0 );
+$page = $sb_link( $sb_old_link );
+check( 'password change: an old email’s unsubscribe link doesn’t show the new share code', false === strpos( (string) $page, $sb_new_code ) && 0 === count( $sb_subs( $sb_prot ) ), $page );
+wp_set_current_user( $sb_author );
 $sb_remove = function ( int $user, int $sub ) use ( $stopped ) {
 	wp_set_current_user( $user );
 	$_POST = $_REQUEST = [ 'subscription' => $sub, '_wpnonce' => wp_create_nonce( 'travel_steps_remove_subscriber' ) ];

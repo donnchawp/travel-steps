@@ -83,7 +83,7 @@ A protected trip's roundup links carry its share code. Changing its password del
 
 Every email has a one-click unsubscribe link, and `List-Unsubscribe` headers so mail clients can show their own button. The form answers the same whether an address is new, waiting to confirm or subscribed already, and sends an address at most one confirmation email per trip a day. A hidden field catches bots. An unconfirmed signup is deleted after 7 days.
 
-The trip's edit page lists its subscribers with a Remove button each, and says when the last roundup went and what it listed. Subscriptions are `ts_subscription` posts under the trip, out of wp-admin, REST and XML-RPC. WordPress's personal data export and erase tools find them by email address. Deleting a trip deletes its subscriptions, and deleting the plugin deletes them all.
+The trip's edit page lists its subscribers with a Remove button each, and says when the last roundup went and what it listed. If some of its emails didn't go, because the site's mail refused them or the run stopped part-way, it says how many, without naming anyone, and they aren't sent again. Subscriptions are `ts_subscription` posts under the trip, out of wp-admin, REST and XML-RPC. WordPress's personal data export and erase tools find them by email address. Deleting a trip deletes its subscriptions, and deleting the plugin deletes them all.
 
 On a site whose cron only runs on page loads, roundups go out with the first visit after the hour.
 

@@ -308,7 +308,7 @@ $sb_panel    = function () use ( $render, $sb_author, $sb_rt, $sb_panel_of ) {
 	wp_set_current_user( 0 );
 	return $sb_panel_of( $edit );
 };
-check( '…so the edit page names no failures', false === strpos( $sb_panel(), 'couldn’t be sent' ), $sb_panel() );
+check( '…so the edit page names no failures', false === strpos( $sb_panel(), 'couldn’t be sent' ) && false === strpos( $sb_panel(), 'didn’t go out' ), $sb_panel() );
 
 // Mail the site couldn't send is counted, never named.
 $sb_refuse = fn( $sent, $atts ) => 'ana@example.org' === $atts['to'] ? false : $sent;
@@ -337,7 +337,8 @@ try {
 }
 remove_filter( 'pre_wp_mail', $sb_die, 20 );
 check( 'roundup: a run that dies part-way records what it sent', [ 'recipients' => 2, 'sent' => 1, 'failed' => 0 ] === $sb_last(), $sb_last() );
-check( '…and the edit page counts the rest as not sent', false !== strpos( $sb_panel(), '1 of 2 couldn’t be sent.' ), $sb_panel() );
+check( '…and the edit page counts the rest as not sent', false !== strpos( $sb_panel(), '1 of 2 didn’t go out.' ), $sb_panel() );
+check( '…without blaming the site’s mail', false === strpos( $sb_panel(), 'mail settings' ), $sb_panel() );
 
 // A private trip sends nothing, and keeps its subscribers.
 wp_set_current_user( 1 );

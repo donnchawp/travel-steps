@@ -206,8 +206,8 @@ class Roundup {
 		return max( 0, (int) ( $last['recipients'] ?? 0 ) - (int) $last['sent'] );
 	}
 
-	/** The trip's record of its last roundup, or [] if it has none. */
-	private static function last( int $trip_id ): array {
+	/** The trip's record of its last roundup (see META_LAST), or [] if it has none. */
+	public static function last( int $trip_id ): array {
 		$last = get_post_meta( $trip_id, self::META_LAST, true );
 		return is_array( $last ) ? $last : [];
 	}

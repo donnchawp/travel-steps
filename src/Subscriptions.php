@@ -478,14 +478,18 @@ class Subscriptions {
 	}
 
 	/**
-	 * What a confirm or unsubscribe link does: 'confirmed', 'unsubscribed', 'expired' (a
-	 * pending subscription confirmed too late, now dropped) or 'invalid'. Also answers a
-	 * mail client's one-click unsubscribe, a POST to the same link.
+	 * A confirm or unsubscribe link from an email. Opening it ($act false) changes nothing,
+	 * since mail scanners open every link: it answers 'confirm' or 'unsubscribe', the button
+	 * to show, or 'expired' or 'invalid'. Pressing the button, or a mail client's one-click
+	 * unsubscribe, POSTs to the same link ($act true), which does it: 'confirmed',
+	 * 'unsubscribed', 'expired' (a pending subscription confirmed too late, now dropped) or
+	 * 'invalid'.
 	 *
 	 * @param array<string, mixed> $query The link's query arguments.
+	 * @param bool                 $act   Whether to do what the link says, or only say what it would do.
 	 * @return array{state: string, trip: ?\WP_Post, sub: int}
 	 */
-	public static function handle_link( array $query ): array {
+	public static function handle_link( array $query, bool $act ): array {
 		$do  = is_string( $query['do'] ?? null ) ? $query['do'] : '';
 		$key = is_string( $query['key'] ?? null ) ? $query['key'] : '';
 		$sub = is_scalar( $query['sub'] ?? null ) ? self::get( absint( $query['sub'] ) ) : null;
@@ -496,15 +500,18 @@ class Subscriptions {
 				'sub'   => 0,
 			];
 		}
-		$trip = get_post( $sub['trip'] );
-		$trip = $trip && Trips::TRIP === $trip->post_type ? $trip : null;
-		if ( 'unsubscribe' === $do ) {
+		$trip    = get_post( $sub['trip'] );
+		$trip    = $trip && Trips::TRIP === $trip->post_type ? $trip : null;
+		$expired = 'confirm' === $do && self::PENDING === $sub['status'] && $sub['mailed'] < time() - self::EXPIRE_S;
+		if ( ! $act ) {
+			$state = $expired ? 'expired' : $do;
+		} elseif ( 'unsubscribe' === $do ) {
 			self::end( $sub );
 			if ( $sub['email'] ) {
 				self::clear_cookie( $sub['trip'] );
 			}
 			$state = 'unsubscribed';
-		} elseif ( self::PENDING === $sub['status'] && $sub['mailed'] < time() - self::EXPIRE_S ) {
+		} elseif ( $expired ) {
 			self::delete( $sub['id'] );
 			$state = 'expired';
 		} else {

@@ -494,7 +494,7 @@ include __DIR__ . '/_header.php';
 		$subscriptions = Subscriptions::for_trip( $trip_id );
 		// Those a roundup would go to: confirmed, able to see the trip, one per address.
 		$reached       = count( Roundup::recipients( $trip ) );
-		$last_roundup  = get_post_meta( $trip_id, Roundup::META_LAST, true );
+		$last_roundup  = Roundup::last( $trip_id );
 		?>
 		<section class="ts-panel" id="ts-subscribers">
 			<h2><?php esc_html_e( 'Subscribers', 'travel-steps' ); ?></h2>
@@ -525,14 +525,13 @@ include __DIR__ . '/_header.php';
 					);
 					$unsent = Roundup::last_unsent( $trip_id );
 					if ( $unsent ) {
-						echo ' <strong>' . esc_html(
-							sprintf(
-								/* translators: 1: number of emails not sent, 2: number of recipients */
-								__( '%1$s of %2$s couldn’t be sent. Check the site’s mail settings.', 'travel-steps' ),
-								number_format_i18n( $unsent ),
-								number_format_i18n( $recipients )
-							)
-						) . '</strong>';
+						// Refused by the site's mail, or not reached by a run that died part-way.
+						$unsent_text = ( $last_roundup['failed'] ?? 0 ) > 0
+							/* translators: 1: number of emails not sent, 2: number of recipients */
+							? __( '%1$s of %2$s couldn’t be sent. Check the site’s mail settings.', 'travel-steps' )
+							/* translators: 1: number of emails not sent, 2: number of recipients */
+							: __( '%1$s of %2$s didn’t go out.', 'travel-steps' );
+						echo ' <strong>' . esc_html( sprintf( $unsent_text, number_format_i18n( $unsent ), number_format_i18n( $recipients ) ) ) . '</strong>';
 					}
 				} else {
 					esc_html_e( 'No roundup has been sent yet.', 'travel-steps' );

@@ -20,6 +20,6 @@ class PlacesRestController extends \WP_REST_Terms_Controller {
 	}
 
 	private function forbidden(): \WP_Error {
-		return new \WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to do that.', 'travel-steps' ), [ 'status' => rest_authorization_required_code() ] );
+		return new \WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to do that.', 'travel-steps-storyteller' ), [ 'status' => rest_authorization_required_code() ] );
 	}
 }

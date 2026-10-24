@@ -66,10 +66,10 @@ class Trips {
 			self::TRIP,
 			[
 				'labels'       => [
-					'name'          => __( 'Trips', 'travel-steps' ),
-					'singular_name' => __( 'Trip', 'travel-steps' ),
-					'add_new_item'  => __( 'Add trip', 'travel-steps' ),
-					'edit_item'     => __( 'Edit trip', 'travel-steps' ),
+					'name'          => __( 'Trips', 'travel-steps-storyteller' ),
+					'singular_name' => __( 'Trip', 'travel-steps-storyteller' ),
+					'add_new_item'  => __( 'Add trip', 'travel-steps-storyteller' ),
+					'edit_item'     => __( 'Edit trip', 'travel-steps-storyteller' ),
 				],
 				// Rendered by the app at /travel-steps/trip/{slug}, not by the theme.
 				'public'       => false,
@@ -86,9 +86,9 @@ class Trips {
 			self::STEP,
 			[
 				'labels'       => [
-					'name'          => __( 'Steps', 'travel-steps' ),
-					'singular_name' => __( 'Step', 'travel-steps' ),
-					'edit_item'     => __( 'Edit step', 'travel-steps' ),
+					'name'          => __( 'Steps', 'travel-steps-storyteller' ),
+					'singular_name' => __( 'Step', 'travel-steps-storyteller' ),
+					'edit_item'     => __( 'Edit step', 'travel-steps-storyteller' ),
 				],
 				'public'       => false,
 				'show_ui'      => true,
@@ -106,8 +106,8 @@ class Trips {
 			self::STEP,
 			[
 				'labels'            => [
-					'name'          => __( 'Places', 'travel-steps' ),
-					'singular_name' => __( 'Place', 'travel-steps' ),
+					'name'          => __( 'Places', 'travel-steps-storyteller' ),
+					'singular_name' => __( 'Place', 'travel-steps-storyteller' ),
 				],
 				'public'            => false,
 				'show_ui'           => true,
@@ -559,7 +559,7 @@ class Trips {
 	 * The error for a trip that needs dates and hasn't got usable ones.
 	 */
 	public static function no_dates(): \WP_Error {
-		return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps' ) );
+		return new \WP_Error( 'travel_steps_no_dates', __( 'Set the trip start and end dates first.', 'travel-steps-storyteller' ) );
 	}
 
 	/**
@@ -716,7 +716,7 @@ class Trips {
 	private function trip_from_request(): \WP_Post {
 		$trip = get_post( absint( $_POST['trip_id'] ?? 0 ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified by callers.
 		if ( ! $trip || ! self::can_edit_trip( $trip->ID ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps-storyteller' ), 403 );
 		}
 		return $trip;
 	}
@@ -791,10 +791,10 @@ class Trips {
 		if ( $trip_id ) {
 			$this->trip_from_request();
 			if ( ! self::can_sync_trip( $trip_id ) && array_intersect_key( $input, array_flip( [ 'start', 'end', 'album', 'photos', 'taken', 'sync' ] ) ) ) {
-				wp_die( esc_html__( 'Only the trip’s author can change its dates or photos, or sync it.', 'travel-steps' ), 403 );
+				wp_die( esc_html__( 'Only the trip’s author can change its dates or photos, or sync it.', 'travel-steps-storyteller' ), 403 );
 			}
 		} elseif ( ! current_user_can( 'edit_posts' ) || ! current_user_can( self::capability() ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to create trips.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Sorry, you are not allowed to create trips.', 'travel-steps-storyteller' ), 403 );
 		}
 
 		$status = in_array( $input['status'] ?? '', [ 'draft', 'publish', 'private' ], true ) ? $input['status'] : 'draft';
@@ -805,7 +805,7 @@ class Trips {
 		$postarr = [
 			'ID'          => $trip_id,
 			'post_type'   => self::TRIP,
-			'post_title'  => sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps' ),
+			'post_title'  => sanitize_text_field( $input['title'] ?? '' ) ?: __( 'Untitled trip', 'travel-steps-storyteller' ),
 			'post_status' => $status,
 		];
 		// An intro with more than paragraphs has no field on the form; only the block editor changes it.
@@ -871,7 +871,7 @@ class Trips {
 		check_admin_referer( 'travel_steps_sync' );
 		$trip = $this->trip_from_request();
 		if ( ! self::can_sync_trip( $trip->ID ) ) {
-			wp_die( esc_html__( 'Only the trip’s author can sync it.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Only the trip’s author can sync it.', 'travel-steps-storyteller' ), 403 );
 		}
 		$this->run_sync_and_redirect( $trip );
 	}
@@ -918,7 +918,7 @@ class Trips {
 			[
 				'post_type'     => self::STEP,
 				'post_parent'   => $trip->ID,
-				'post_title'    => __( 'New step', 'travel-steps' ),
+				'post_title'    => __( 'New step', 'travel-steps-storyteller' ),
 				'post_status'   => 'draft',
 				'post_date_gmt' => gmdate( 'Y-m-d H:i:s', $arrived ),
 				'post_date'     => wp_date( 'Y-m-d H:i:s', $arrived ),

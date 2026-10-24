@@ -78,11 +78,11 @@ class DawarichClient {
 			$code = wp_remote_retrieve_response_code( $response );
 			if ( in_array( $code, [ 401, 403 ], true ) && '' !== $this->owner ) {
 				/* translators: 1: a user's name, 2: HTTP status code */
-				return new \WP_Error( 'travel_steps_dawarich_key_refused', sprintf( __( 'Dawarich refused %1$s’s API key (HTTP %2$d).', 'travel-steps' ), $this->owner, $code ) );
+				return new \WP_Error( 'travel_steps_dawarich_key_refused', sprintf( __( 'Dawarich refused %1$s’s API key (HTTP %2$d).', 'travel-steps-storyteller' ), $this->owner, $code ) );
 			}
 			if ( 200 !== $code ) {
 				/* translators: %d: HTTP status code */
-				return new \WP_Error( 'travel_steps_dawarich_error', sprintf( __( 'Dawarich returned HTTP %d.', 'travel-steps' ), $code ) );
+				return new \WP_Error( 'travel_steps_dawarich_error', sprintf( __( 'Dawarich returned HTTP %d.', 'travel-steps-storyteller' ), $code ) );
 			}
 
 			$rows = json_decode( wp_remote_retrieve_body( $response ), true );

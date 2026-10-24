@@ -50,7 +50,7 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 		<button type="button" class="ts-photo-open"
 			data-full="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
 			data-caption="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>"
-			aria-label="<?php esc_attr_e( 'Open photo', 'travel-steps' ); ?>">
+			aria-label="<?php esc_attr_e( 'Open photo', 'travel-steps-storyteller' ); ?>">
 			<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], $size ) ); ?>"
 				alt="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>" loading="lazy"
 				<?php if ( ! empty( $photo['w'] ) && ! empty( $photo['h'] ) ) : ?>
@@ -60,11 +60,11 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 		<?php if ( $can_curate ) : ?>
 			<span class="ts-photo-tools">
 				<?php if ( ! empty( $photo['fav'] ) && ! $uploads ) : ?>
-					<span class="ts-photo-fav" title="<?php esc_attr_e( 'Favourite in Immich', 'travel-steps' ); ?>">♥</span>
+					<span class="ts-photo-fav" title="<?php esc_attr_e( 'Favourite in Immich', 'travel-steps-storyteller' ); ?>">♥</span>
 				<?php endif; ?>
-				<button type="button" class="ts-photo-state" data-set="pinned" aria-pressed="<?php echo 'pinned' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Always show this photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Pin', 'travel-steps' ); ?></button>
-				<button type="button" class="ts-photo-state" data-set="hidden" aria-pressed="<?php echo 'hidden' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Never show this photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Hide', 'travel-steps' ); ?></button>
-				<button type="button" class="ts-photo-cover" aria-pressed="<?php echo $cover_id === $photo['id'] ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Use as the trip’s header photo', 'travel-steps' ); ?>"><?php esc_html_e( 'Cover', 'travel-steps' ); ?></button>
+				<button type="button" class="ts-photo-state" data-set="pinned" aria-pressed="<?php echo 'pinned' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Always show this photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Pin', 'travel-steps-storyteller' ); ?></button>
+				<button type="button" class="ts-photo-state" data-set="hidden" aria-pressed="<?php echo 'hidden' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Never show this photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Hide', 'travel-steps-storyteller' ); ?></button>
+				<button type="button" class="ts-photo-cover" aria-pressed="<?php echo $cover_id === $photo['id'] ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Use as the trip’s header photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Cover', 'travel-steps-storyteller' ); ?></button>
 			</span>
 		<?php endif; ?>
 	</figure>
@@ -120,9 +120,9 @@ include __DIR__ . '/_header.php';
 			</ul>
 			<?php if ( $can_curate ) : ?>
 				<p class="ts-form-actions">
-					<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a>
+					<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
 					<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
-					<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps' ); ?></button>
+					<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps-storyteller' ); ?></button>
 				</p>
 			<?php endif; ?>
 		</div>
@@ -130,7 +130,7 @@ include __DIR__ . '/_header.php';
 
 	<div class="ts-layout">
 		<div class="ts-map-wrap">
-			<div id="ts-map" class="ts-map" role="region" aria-label="<?php esc_attr_e( 'Trip map', 'travel-steps' ); ?>"></div>
+			<div id="ts-map" class="ts-map" role="region" aria-label="<?php esc_attr_e( 'Trip map', 'travel-steps-storyteller' ); ?>"></div>
 		</div>
 
 		<div class="ts-timeline">
@@ -139,7 +139,7 @@ include __DIR__ . '/_header.php';
 				<p class="ts-notice is-warning">
 					<?php echo esc_html( $unseen ); ?>
 					<?php if ( current_user_can( Trips::capability() ) ) : ?>
-						<a href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps' ); ?></a>
+						<a href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
 					<?php endif; ?>
 				</p>
 			<?php endif; ?>
@@ -148,7 +148,7 @@ include __DIR__ . '/_header.php';
 			<?php endif; ?>
 
 			<?php if ( ! $steps ) : ?>
-				<p class="ts-empty"><?php esc_html_e( 'No steps yet.', 'travel-steps' ); ?></p>
+				<p class="ts-empty"><?php esc_html_e( 'No steps yet.', 'travel-steps-storyteller' ); ?></p>
 			<?php endif; ?>
 
 			<?php
@@ -164,7 +164,7 @@ include __DIR__ . '/_header.php';
 						<p class="ts-step-meta">
 							<?php if ( $day > 0 ) : ?>
 								<?php /* translators: %d: day number of the trip */ ?>
-								<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps' ), $day ) ); ?></span>
+								<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps-storyteller' ), $day ) ); ?></span>
 							<?php endif; ?>
 							<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
 							<?php $badge = View::step_badge( $trip, $step ); ?>
@@ -181,11 +181,11 @@ include __DIR__ . '/_header.php';
 							</ul>
 						<?php endif; ?>
 						<?php if ( ! wp_strip_all_tags( $step->post_content ) && $can_edit ) : ?>
-							<p class="ts-muted"><?php esc_html_e( 'No story yet.', 'travel-steps' ); ?></p>
+							<p class="ts-muted"><?php esc_html_e( 'No story yet.', 'travel-steps-storyteller' ); ?></p>
 						<?php endif; ?>
 						<?php View::render_story( $step, $groups['shown'], $render_grid ); ?>
 						<?php if ( $can_edit ) : ?>
-							<p class="ts-step-actions"><a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Write in the block editor', 'travel-steps' ); ?></a></p>
+							<p class="ts-step-actions"><a href="<?php echo esc_url( get_edit_post_link( $step->ID ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Write in the block editor', 'travel-steps-storyteller' ); ?></a></p>
 						<?php endif; ?>
 						<?php if ( $more ) : ?>
 							<details class="ts-more-photos">
@@ -196,9 +196,9 @@ include __DIR__ . '/_header.php';
 									echo esc_html(
 										$groups['shown']
 											/* translators: %s: number of photos */
-											? sprintf( _n( 'Show %s more photo', 'Show %s more photos', $count, 'travel-steps' ), number_format_i18n( $count ) )
+											? sprintf( _n( 'Show %s more photo', 'Show %s more photos', $count, 'travel-steps-storyteller' ), number_format_i18n( $count ) )
 											/* translators: %s: number of photos */
-											: sprintf( _n( 'Show %s hidden photo', 'Show %s hidden photos', $count, 'travel-steps' ), number_format_i18n( $count ) )
+											: sprintf( _n( 'Show %s hidden photo', 'Show %s hidden photos', $count, 'travel-steps-storyteller' ), number_format_i18n( $count ) )
 									);
 									?>
 								</summary>
@@ -223,11 +223,11 @@ include __DIR__ . '/_header.php';
 	</div>
 
 	<dialog class="ts-lightbox">
-		<button type="button" class="ts-lightbox-close" aria-label="<?php esc_attr_e( 'Close', 'travel-steps' ); ?>">×</button>
-		<button type="button" class="ts-lightbox-prev" aria-label="<?php esc_attr_e( 'Previous photo', 'travel-steps' ); ?>">‹</button>
+		<button type="button" class="ts-lightbox-close" aria-label="<?php esc_attr_e( 'Close', 'travel-steps-storyteller' ); ?>">×</button>
+		<button type="button" class="ts-lightbox-prev" aria-label="<?php esc_attr_e( 'Previous photo', 'travel-steps-storyteller' ); ?>">‹</button>
 		<?php // A slide per photo on screen, added when it opens: swiping scrolls it. Left to right on any page, so the script's scroll maths holds. ?>
 		<div class="ts-lightbox-strip" dir="ltr"></div>
-		<button type="button" class="ts-lightbox-next" aria-label="<?php esc_attr_e( 'Next photo', 'travel-steps' ); ?>">›</button>
+		<button type="button" class="ts-lightbox-next" aria-label="<?php esc_attr_e( 'Next photo', 'travel-steps-storyteller' ); ?>">›</button>
 	</dialog>
 </article>
 <?php

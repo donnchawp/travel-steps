@@ -761,6 +761,26 @@ $rest_post = function ( $route, $params ) {
 $own_photo = '00000000-0000-4000-8000-000000000001';
 check( 'contributor cannot pin, hide or choose the cover of their trip', 403 === $rest_post( "/travel-steps/v1/trips/$own_trip/photo-state", [ 'asset' => $own_photo, 'state' => 'hidden' ] )->get_status() && 403 === $rest_post( "/travel-steps/v1/trips/$own_trip/cover", [ 'asset' => '' ] )->get_status() );
 check( 'contributor’s trip page offers no Edit trip button', false === strpos( $render( 'trip.php', (string) $own_trip ), 'Edit trip' ) );
+// Core gives a draft whatever slug it's sent, so one can share a published trip's.
+wp_set_current_user( 1 );
+$slugged = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Slugged', 'post_name' => 'slugged', 'post_status' => 'publish' ] );
+wp_set_current_user( $contributor );
+$shadow = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Shadow', 'post_name' => 'slugged', 'post_status' => 'draft', 'post_author' => $contributor ] );
+check( 'a draft can share a published trip’s slug', 'slugged' === get_post( $shadow )->post_name && 'slugged' === get_post( $slugged )->post_name );
+check( '…but the published trip keeps its URL, for the draft’s author too', $slugged === Trips::find_by_slug( 'slugged' )?->ID );
+wp_set_current_user( 0 );
+check( '…and for visitors, who get its page', $slugged === Trips::find_by_slug( 'slugged' )?->ID && false !== strpos( $render( 'trip.php', 'slugged' ), 'Slugged' ) );
+wp_set_current_user( 1 );
+$own_draft = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Own draft', 'post_name' => 'two-drafts', 'post_status' => 'draft' ] );
+wp_set_current_user( $contributor );
+$their_draft = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Their draft', 'post_name' => 'two-drafts', 'post_status' => 'draft', 'post_author' => $contributor ] );
+check( 'two drafts with one slug: each author gets their own', $their_draft === Trips::find_by_slug( 'two-drafts' )?->ID );
+wp_set_current_user( 1 );
+check( '…and someone who can edit both, the older', $own_draft === Trips::find_by_slug( 'two-drafts' )?->ID );
+wp_set_current_user( $contributor );
+foreach ( [ $slugged, $shadow, $own_draft, $their_draft ] as $id ) {
+	wp_delete_post( $id, true );
+}
 $_POST = $_REQUEST = [];
 wp_set_current_user( 1 );
 check( 'administrators have the travel-steps capability', current_user_can( Trips::capability() ) );

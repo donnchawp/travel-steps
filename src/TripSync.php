@@ -50,7 +50,7 @@ class TripSync {
 		return Lock::run(
 			'travel_steps_sync_lock_' . $trip_id,
 			fn() => $this->run( $trip_id ),
-			new \WP_Error( 'travel_steps_sync_running', __( 'A sync of this trip is already running.', 'travel-steps' ) )
+			new \WP_Error( 'travel_steps_sync_running', __( 'A sync of this trip is already running.', 'travel-steps-storyteller' ) )
 		);
 	}
 
@@ -198,13 +198,13 @@ class TripSync {
 	private function dates_from( int $trip_id, string $first, string $last, array $photos, int $untimed ) {
 		if ( ! $photos ) {
 			if ( $untimed ) {
-				return new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps' ) );
+				return new \WP_Error( 'travel_steps_no_dates', __( 'None of the trip’s photos say when they were taken, so set its dates.', 'travel-steps-storyteller' ) );
 			}
 			return new \WP_Error(
 				'travel_steps_no_photos',
 				Trips::uses_uploads( $trip_id )
-					? __( 'Add photos to the trip, or set its dates.', 'travel-steps' )
-					: __( 'The album has no photos, so set the trip’s dates.', 'travel-steps' )
+					? __( 'Add photos to the trip, or set its dates.', 'travel-steps-storyteller' )
+					: __( 'The album has no photos, so set the trip’s dates.', 'travel-steps-storyteller' )
 			);
 		}
 		$days  = array_column( $photos, 'day' );
@@ -213,7 +213,7 @@ class TripSync {
 		$last  = $last ?: $auto[1];
 		// A date typed after every photo (or before), paired with one from the photos, is backwards.
 		if ( $first > $last ) {
-			return new \WP_Error( 'travel_steps_photos_outside', __( 'None of the trip’s photos were taken between its dates: change or clear them.', 'travel-steps' ) );
+			return new \WP_Error( 'travel_steps_photos_outside', __( 'None of the trip’s photos were taken between its dates: change or clear them.', 'travel-steps-storyteller' ) );
 		}
 		update_post_meta( $trip_id, Trips::META_START, $first );
 		update_post_meta( $trip_id, Trips::META_END, $last );
@@ -326,8 +326,8 @@ class TripSync {
 					'post_type'     => Trips::STEP,
 					'post_parent'   => $trip_id,
 					/* translators: %d: day number of the trip */
-					'post_title'    => Days::title( $places, sprintf( __( 'Day %d', 'travel-steps' ), Days::day_number( $first, $day ) ) ),
-					'post_content'  => Days::seed_content( $places, __( 'Somewhere new', 'travel-steps' ) ),
+					'post_title'    => Days::title( $places, sprintf( __( 'Day %d', 'travel-steps-storyteller' ), Days::day_number( $first, $day ) ) ),
+					'post_content'  => Days::seed_content( $places, __( 'Somewhere new', 'travel-steps-storyteller' ) ),
 					'post_status'   => 'draft',
 					'post_date'     => $date,
 					'post_date_gmt' => get_gmt_from_date( $date ),

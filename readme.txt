@@ -1,4 +1,4 @@
-=== Travel Steps ===
+=== Travel Steps Storyteller ===
 Contributors: donncha
 Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
@@ -12,7 +12,7 @@ A travel journal with photos from Immich or uploaded to the trip, an optional ro
 
 == Description ==
 
-Travel Steps shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip.
+Travel Steps Storyteller shows a trip on your own WordPress site as a map beside a day-by-day timeline. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip.
 
 Visitors never reach Immich. WordPress fetches the photos and serves them itself, so Immich and the original files stay private.
 

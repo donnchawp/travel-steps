@@ -56,7 +56,7 @@ class View {
 		}
 		return sprintf(
 			/* translators: %s: number of published steps */
-			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $published, 'travel-steps' ),
+			_n( 'This trip isn’t public, so visitors can’t see its %s published step. Set its visibility to Public to show it.', 'This trip isn’t public, so visitors can’t see its %s published steps. Set its visibility to Public to show them.', $published, 'travel-steps-storyteller' ),
 			number_format_i18n( $published )
 		);
 	}
@@ -82,7 +82,7 @@ class View {
 			'text'  => 'private' === $step->post_status
 				? $label
 				/* translators: %s: a step's status, such as Draft or Pending */
-				: sprintf( __( '%s, not public', 'travel-steps' ), $label ),
+				: sprintf( __( '%s, not public', 'travel-steps-storyteller' ), $label ),
 		];
 	}
 
@@ -96,12 +96,12 @@ class View {
 		$total = $published + $hidden;
 		return sprintf(
 			/* translators: 1: number of published steps, 2: number of steps on the trip */
-			_n( 'Visitors see %1$s of %2$s step.', 'Visitors see %1$s of %2$s steps.', $total, 'travel-steps' ),
+			_n( 'Visitors see %1$s of %2$s step.', 'Visitors see %1$s of %2$s steps.', $total, 'travel-steps-storyteller' ),
 			number_format_i18n( $published ),
 			number_format_i18n( $total )
 		) . ' ' . sprintf(
 			/* translators: %s: number of steps that aren't published */
-			_n( 'The other %s isn’t published, so only the trip’s editors can see it.', 'The other %s aren’t published, so only the trip’s editors can see them.', $hidden, 'travel-steps' ),
+			_n( 'The other %s isn’t published, so only the trip’s editors can see it.', 'The other %s aren’t published, so only the trip’s editors can see them.', $hidden, 'travel-steps-storyteller' ),
 			number_format_i18n( $hidden )
 		);
 	}
@@ -115,21 +115,21 @@ class View {
 		$out   = [];
 		$days  = self::days( $trip_id );
 		if ( $days ) {
-			$out[ _n( 'day', 'days', $days, 'travel-steps' ) ] = number_format_i18n( $days );
+			$out[ _n( 'day', 'days', $days, 'travel-steps-storyteller' ) ] = number_format_i18n( $days );
 		}
 		if ( ! empty( $stats['distance_km'] ) ) {
-			$out[ __( 'km', 'travel-steps' ) ] = number_format_i18n( $stats['distance_km'] );
+			$out[ __( 'km', 'travel-steps-storyteller' ) ] = number_format_i18n( $stats['distance_km'] );
 		}
 		$steps = count( Trips::steps( $trip_id ) );
 		if ( $steps ) {
-			$out[ _n( 'step', 'steps', $steps, 'travel-steps' ) ] = number_format_i18n( $steps );
+			$out[ _n( 'step', 'steps', $steps, 'travel-steps-storyteller' ) ] = number_format_i18n( $steps );
 		}
 		if ( ! empty( $stats['photos'] ) ) {
-			$out[ _n( 'photo', 'photos', $stats['photos'], 'travel-steps' ) ] = number_format_i18n( $stats['photos'] );
+			$out[ _n( 'photo', 'photos', $stats['photos'], 'travel-steps-storyteller' ) ] = number_format_i18n( $stats['photos'] );
 		}
 		if ( ! empty( $stats['countries'] ) ) {
 			$count = count( $stats['countries'] );
-			$out[ _n( 'country', 'countries', $count, 'travel-steps' ) ] = number_format_i18n( $count );
+			$out[ _n( 'country', 'countries', $count, 'travel-steps-storyteller' ) ] = number_format_i18n( $count );
 		}
 		return $out;
 	}
@@ -278,7 +278,7 @@ class View {
 			fn( \WP_User $user ) => ! ( $trip_id ? user_can( $user, 'edit_post', $trip_id ) : $author === $user->ID || user_can( $user, 'edit_others_posts' ) )
 		);
 		if ( ! $users ) {
-			echo '<p class="ts-muted">' . esc_html__( 'Nobody else on this site can be added.', 'travel-steps' ) . '</p>';
+			echo '<p class="ts-muted">' . esc_html__( 'Nobody else on this site can be added.', 'travel-steps-storyteller' ) . '</p>';
 			return;
 		}
 		echo '<div class="ts-viewers">';
@@ -319,7 +319,7 @@ class View {
 			// When Immich can't list albums, the album id is typed beside the select.
 			$current = Trips::SOURCE_IMMICH;
 		}
-		$all_immich = __( 'All Immich photos taken during the trip', 'travel-steps' );
+		$all_immich = __( 'All Immich photos taken during the trip', 'travel-steps-storyteller' );
 		$choice     = fn( string $value, string $label, bool $disabled = false ) => [
 			'value'          => $value,
 			'label'          => $label,
@@ -329,7 +329,7 @@ class View {
 			'dates_optional' => Trips::SOURCE_IMMICH !== $value,
 		];
 
-		$choices = [ $choice( Trips::SOURCE_UPLOADS, __( 'Photos uploaded to this trip', 'travel-steps' ), ! $can_upload ) ];
+		$choices = [ $choice( Trips::SOURCE_UPLOADS, __( 'Photos uploaded to this trip', 'travel-steps-storyteller' ), ! $can_upload ) ];
 		if ( null === $albums ) {
 			// Without a key the author can't choose Immich, but saving the form mustn't
 			// switch an Immich trip to uploads.
@@ -339,7 +339,7 @@ class View {
 					Trips::SOURCE_IMMICH === $current
 						? $all_immich
 						/* translators: %s: Immich album id */
-						: sprintf( __( 'Immich album %s', 'travel-steps' ), $current )
+						: sprintf( __( 'Immich album %s', 'travel-steps-storyteller' ), $current )
 				);
 			}
 			return $choices;
@@ -350,7 +350,7 @@ class View {
 		// selected, so saving the form for something else doesn't drop it.
 		if ( $current === $saved_album && ! in_array( $saved_album, array_column( $listed, 'id' ), true ) ) {
 			/* translators: %s: Immich album id */
-			$choices[] = $choice( $saved_album, sprintf( __( 'Album not found in Immich (%s)', 'travel-steps' ), $saved_album ) );
+			$choices[] = $choice( $saved_album, sprintf( __( 'Album not found in Immich (%s)', 'travel-steps-storyteller' ), $saved_album ) );
 		}
 		foreach ( $listed as $album ) {
 			$choices[] = $choice( $album['id'], sprintf( '%s (%s)', $album['name'], number_format_i18n( $album['count'] ) ) );

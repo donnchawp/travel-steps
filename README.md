@@ -1,4 +1,4 @@
-# Travel Steps
+# Travel Steps Storyteller
 
 A travel journal for your own WordPress site, built with [WpApp](https://github.com/akirk/wp-app). Each day of a trip is a step, a post you write in the block editor. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip.
 

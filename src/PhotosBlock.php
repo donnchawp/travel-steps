@@ -29,8 +29,8 @@ class PhotosBlock {
 			Days::PHOTOS_BLOCK,
 			[
 				'api_version'           => 3,
-				'title'                 => __( 'Trip photos', 'travel-steps' ),
-				'description'           => __( 'Where this place’s photos appear on the trip page.', 'travel-steps' ),
+				'title'                 => __( 'Trip photos', 'travel-steps-storyteller' ),
+				'description'           => __( 'Where this place’s photos appear on the trip page.', 'travel-steps-storyteller' ),
 				'category'              => 'media',
 				'icon'                  => 'format-gallery',
 				// Only for the editor preview: the section the block sits in, as place start times.
@@ -69,8 +69,8 @@ class PhotosBlock {
 
 		if ( ! $photos ) {
 			$empty = Trips::uses_uploads( $trip->ID )
-				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps' )
-				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps' );
+				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps-storyteller' )
+				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps-storyteller' );
 			return '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
 		}
 		$html = '';
@@ -84,7 +84,7 @@ class PhotosBlock {
 		}
 		$note = sprintf(
 			/* translators: %s: number of photos */
-			_n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps' ),
+			_n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps-storyteller' ),
 			number_format_i18n( count( $photos ) )
 		);
 		return '<div class="ts-photos-block-grid">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';

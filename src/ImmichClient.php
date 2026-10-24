@@ -37,9 +37,9 @@ class ImmichClient {
 		return new \WP_Error(
 			'travel_steps_no_immich_key',
 			'' === $this->owner
-				? __( 'No Immich API key configured.', 'travel-steps' )
+				? __( 'No Immich API key configured.', 'travel-steps-storyteller' )
 				/* translators: %s: a user's name */
-				: sprintf( __( '%s hasn’t saved an Immich API key in Travel Steps settings.', 'travel-steps' ), $this->owner )
+				: sprintf( __( '%s hasn’t saved an Immich API key in Travel Steps settings.', 'travel-steps-storyteller' ), $this->owner )
 		);
 	}
 
@@ -69,11 +69,11 @@ class ImmichClient {
 		$code = wp_remote_retrieve_response_code( $response );
 		if ( in_array( $code, [ 401, 403 ], true ) && '' !== $this->owner ) {
 			/* translators: 1: a user's name, 2: HTTP status code */
-			return new \WP_Error( 'travel_steps_immich_key_refused', sprintf( __( 'Immich refused %1$s’s API key (HTTP %2$d).', 'travel-steps' ), $this->owner, $code ) );
+			return new \WP_Error( 'travel_steps_immich_key_refused', sprintf( __( 'Immich refused %1$s’s API key (HTTP %2$d).', 'travel-steps-storyteller' ), $this->owner, $code ) );
 		}
 		if ( $code < 200 || $code >= 300 ) {
 			/* translators: %d: HTTP status code */
-			return new \WP_Error( 'travel_steps_immich_error', sprintf( __( 'Immich returned HTTP %d.', 'travel-steps' ), $code ) );
+			return new \WP_Error( 'travel_steps_immich_error', sprintf( __( 'Immich returned HTTP %d.', 'travel-steps-storyteller' ), $code ) );
 		}
 		$json = json_decode( wp_remote_retrieve_body( $response ), true );
 		return is_array( $json ) ? $json : [];

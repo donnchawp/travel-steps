@@ -142,7 +142,7 @@ check( 'subscribe: an address that isn’t one gets the same answer, nothing sen
 $sb_lock = Subscriptions::signup_lock( $sb_pub, 'Racer@Example.org' );
 $to      = Lock::run( $sb_lock, fn() => $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'racer@example.org', 'ts_website' => '' ] ) );
 check( 'subscribe: a signup made while another for the address is under way gets the same answer, nothing sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
-check( '…and the lock is named by a hash of the address, not the address', $sb_lock === Subscriptions::signup_lock( $sb_pub, 'racer@example.org' ) && false === stripos( $sb_lock, 'racer' ) && strlen( $sb_lock ) <= 191, $sb_lock );
+check( '…and the lock is named by a hash of the address, not the address', $sb_lock === Subscriptions::signup_lock( $sb_pub, 'racer@example.org' ) && 1 === preg_match( '/^travel_steps_signup_lock_' . $sb_pub . '_[0-9a-f]{32}$/', $sb_lock ) && strlen( $sb_lock ) <= 191, $sb_lock );
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'racer@example.org', 'ts_website' => '' ] );
 check( '…and once it’s done, signing up works again', 1 === count( $sb_mails ) && 2 === count( $sb_subs( $sb_pub ) ), $sb_mails );
 foreach ( $sb_subs( $sb_pub ) as $sb_racer ) {

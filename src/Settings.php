@@ -26,6 +26,8 @@ class Settings {
 		'auto_pick'       => 8,
 		// Days after which cached photos are deleted, to be fetched again; 0 for never.
 		'cache_days'      => 0,
+		// The hour, in the site's timezone, trips' roundups are emailed to their subscribers.
+		'roundup_hour'    => 8,
 	];
 
 	const ACCOUNT_DEFAULTS = [

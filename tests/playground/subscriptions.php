@@ -37,7 +37,7 @@ $sb_trip = function ( string $title, string $password = '' ) use ( $sb_author, $
 	update_post_meta( $id, Trips::META_PHOTOS, wp_slash( wp_json_encode( array_slice( $sb_rows, 0, 2 ) ) ) );
 	$steps = [];
 	foreach ( [ [ '2025-05-01', 'publish', 'Alfama' ], [ '2025-05-02', 'draft', 'Draft day' ] ] as [ $day, $status, $name ] ) {
-		$steps[] = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $id, 'post_title' => $name, 'post_status' => $status, 'post_author' => $sb_author, 'post_date' => "$day 12:00:00", 'post_content' => '<!-- wp:paragraph --><p>Story</p><!-- /wp:paragraph -->' ] );
+		$steps[] = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $id, 'post_title' => $name, 'post_status' => $status, 'post_author' => $sb_author, 'post_date' => "$day 12:00:00", 'edit_date' => true, 'post_content' => '<!-- wp:paragraph --><p>Story</p><!-- /wp:paragraph -->' ] );
 	}
 	wp_set_current_user( 0 );
 	return [ $id, $steps ];
@@ -223,3 +223,87 @@ wp_update_post( [ 'ID' => $sb_pub, 'post_title' => 'Lisbon in May, again' ] );
 wp_update_post( [ 'ID' => $sb_pub, 'post_title' => 'Lisbon in May' ] );
 wp_set_current_user( 0 );
 check( 'password change: other edits keep subscriptions', count( $sb_subs( $sb_pub ) ) === $sb_page_before );
+
+// The daily roundup.
+$sb_run = function () use ( &$sb_mails ) {
+	$sb_mails = [];
+	Roundup::run();
+	return $sb_mails;
+};
+$sb_to   = fn( array $mails ) => array_column( $mails, 'to' );
+$sb_add_photos = function ( int $trip, array $rows ) {
+	update_post_meta( $trip, Trips::META_PHOTOS, wp_slash( wp_json_encode( array_merge( Trips::photos( $trip ), $rows ) ) ) );
+};
+[ $sb_rt, [ $sb_rt_day1, $sb_rt_day2 ] ] = $sb_trip( 'Roundup Lisbon' );
+$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'ana@example.org', 'ts_website' => '' ] );
+$sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
+$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unconfirmed@example.org', 'ts_website' => '' ] );
+wp_set_current_user( $sb_friend );
+$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', '_wpnonce' => wp_create_nonce( 'travel_steps_subscription_' . $sb_rt ) ] );
+wp_set_current_user( 0 );
+check( 'roundup: nothing is sent for what the trip had when they subscribed', [] === $sb_run() );
+
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_rt_day1, 'post_content' => '<!-- wp:paragraph --><p>Story, longer</p><!-- /wp:paragraph -->' ] );
+check( 'roundup: a day with only a text edit sends nothing', [] === $sb_run() );
+
+wp_update_post( [ 'ID' => $sb_rt_day2, 'post_title' => 'Belém', 'post_status' => 'publish' ] );
+$secret_draft = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $sb_rt, 'post_title' => 'Secret draft', 'post_status' => 'draft', 'post_date' => '2025-05-03 12:00:00', 'edit_date' => true ] );
+$scheduled    = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $sb_rt, 'post_title' => 'Scheduled day', 'post_status' => 'future', 'post_date' => gmdate( 'Y-m-d H:i:s', time() + WEEK_IN_SECONDS ), 'post_date_gmt' => gmdate( 'Y-m-d H:i:s', time() + WEEK_IN_SECONDS ) ] );
+wp_set_current_user( 0 );
+$mails = $sb_run();
+check( 'roundup: a published step sends one email to each confirmed subscriber', [ 'ana@example.org', 'friend@example.org' ] === $sb_to( $mails ), $sb_to( $mails ) );
+$ana  = $mails[0] ?? [ 'subject' => '', 'message' => '', 'headers' => [] ];
+$body = $ana['message'];
+check( '…its subject has the trip and what’s new', 'Roundup Lisbon: 1 new day' === $ana['subject'], $ana['subject'] );
+check( '…it lists the new day with its link', false !== strpos( $body, 'Belém' ) && false !== strpos( $body, Trips::url( get_post( $sb_rt ) ) . '#step-' . $sb_rt_day2 ), $body );
+check( '…and the earlier text edit under “Also updated”', 1 === preg_match( '/Also updated:\s+.*Alfama/s', $body ), $body );
+check( '…but no draft or scheduled step', false === strpos( $body, 'Secret draft' ) && false === strpos( $body, 'Scheduled day' ) );
+$ana_sub = current( wp_list_filter( $sb_subs( $sb_rt ), [ 'email' => 'ana@example.org' ] ) );
+check( '…with the recipient’s own unsubscribe link', false !== strpos( $body, Subscriptions::link( $ana_sub, 'unsubscribe' ) ) && false === strpos( $mails[1]['message'] ?? '', Subscriptions::link( $ana_sub, 'unsubscribe' ) ) );
+$headers = implode( "\n", (array) $ana['headers'] );
+check( '…and the one-click unsubscribe headers', false !== strpos( $headers, 'List-Unsubscribe: <' . Subscriptions::link( $ana_sub, 'unsubscribe' ) . '>' ) && false !== strpos( $headers, 'List-Unsubscribe-Post: List-Unsubscribe=One-Click' ), $headers );
+check( '…in plain text', false !== stripos( $headers, 'text/plain' ) && false === strpos( $body, '<' ), $headers );
+check( 'roundup: the next run, with nothing new, sends nothing', [] === $sb_run() );
+
+// New photos.
+$sb_hidden = row( 65, '2025-05-01', '15:00', 38.7, -9.1, 'Lisbon', true );
+$sb_add_photos( $sb_rt, [ $sb_hidden ] );
+update_post_meta( $sb_rt, Trips::META_HIDDEN, [ $sb_hidden['id'] ] );
+check( 'roundup: a hidden photo sends nothing', [] === $sb_run() );
+$sb_add_photos( $sb_rt, [ row( 66, '2025-05-03', '15:00', 38.7, -9.1, 'Lisbon', true ) ] );
+check( '…nor a photo on a draft step’s day', [] === $sb_run() );
+$sb_add_photos( $sb_rt, [ row( 67, '2025-05-01', '16:00', 38.7, -9.1, 'Lisbon', true ) ] );
+$mails = $sb_run();
+check( 'roundup: a new visible photo on a published step sends one', 2 === count( $mails ) && 1 === preg_match( '/New photos on:\s+.*Alfama/s', $mails[0]['message'] ?? '' ), $mails );
+check( '…saying so in the subject', 'Roundup Lisbon: new photos' === ( $mails[0]['subject'] ?? '' ), $mails[0]['subject'] ?? '' );
+update_post_meta( $sb_rt, Trips::META_HIDDEN, [] );
+check( 'roundup: unhiding a photo shows it, and sends it as new', 1 === preg_match( '/New photos on:/', $sb_run()[0]['message'] ?? '' ) );
+
+// A private trip sends nothing, and keeps its subscribers.
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_rt, 'post_status' => 'private' ] );
+wp_update_post( [ 'ID' => $secret_draft, 'post_status' => 'publish' ] );
+wp_set_current_user( 0 );
+check( 'roundup: a private trip sends nothing', [] === $sb_run() && 3 === count( $sb_subs( $sb_rt ) ) );
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_rt, 'post_status' => 'publish' ] );
+wp_set_current_user( 0 );
+check( '…and once published again, sends what was added meanwhile', 'Roundup Lisbon: 1 new day' === ( $sb_run()[0]['subject'] ?? '' ) );
+
+// A protected trip's links carry its share code, and a subscriber who lost access is skipped.
+$sb_enter( 'douro' );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '' ] );
+$sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
+$sb_enter( null );
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_prot_steps[1], 'post_status' => 'publish' ] );
+wp_set_current_user( 0 );
+$mails = $sb_run();
+check( 'roundup: a protected trip’s subscribers get it', [ 'friend@example.org', 'kin@example.org' ] === $sb_to( $mails ), $sb_to( $mails ) );
+check( '…with the share code in its links', false !== strpos( $mails[0]['message'] ?? '', Trips::share_url( get_post( $sb_prot ) ) . '#step-' . $sb_prot_steps[1] ), $mails[0]['message'] ?? '' );
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_prot, 'post_password' => 'mondego' ] );
+$sb_prot_day3 = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $sb_prot, 'post_title' => 'Day three', 'post_status' => 'publish', 'post_date' => '2025-05-03 12:00:00' ] );
+wp_set_current_user( 0 );
+check( 'roundup: after a password change the logged-in subscriber is skipped, and kept', [] === $sb_run() && 1 === count( $sb_subs( $sb_prot ) ) );

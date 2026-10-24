@@ -34,9 +34,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 		wp_unschedule_hook( TravelSteps\CacheFill::HOOK );
 		wp_unschedule_hook( TravelSteps\Roundup::HOOK );
 		// Subscriptions hold visitors' addresses: they go with the plugin.
-		foreach ( get_posts( [ 'post_type' => TravelSteps\Subscriptions::TYPE, 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'suppress_filters' => true ] ) as $subscription ) {
-			wp_delete_post( (int) $subscription, true );
-		}
+		TravelSteps\Subscriptions::delete_all();
 		$root = TravelSteps\RestController::cache_root();
 		// A cache folder that can't be read is kept, as a folder inside it is below.
 		if ( is_dir( $root ) && ! is_link( $root ) && is_readable( $root ) ) {

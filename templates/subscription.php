@@ -12,6 +12,7 @@ use TravelSteps\Subscriptions;
 nocache_headers();
 $result = Subscriptions::handle_link( wp_unslash( $_GET ) );
 $trip   = $result['trip'];
+$shown  = $trip && Subscriptions::offered( $trip );
 $texts  = [
 	'confirmed'    => [ __( 'You’re subscribed', 'travel-steps' ), __( 'You’ll get an email on days when new days or photos are added to this trip. Each one has a link to unsubscribe.', 'travel-steps' ) ],
 	'unsubscribed' => [ __( 'You’re unsubscribed', 'travel-steps' ), __( 'You won’t get any more emails about this trip.', 'travel-steps' ) ],
@@ -26,11 +27,11 @@ include __DIR__ . '/_header.php';
 ?>
 <div class="ts-page ts-narrow">
 	<h1><?php echo esc_html( $page_title ); ?></h1>
-	<?php if ( $trip && 'publish' === $trip->post_status ) : ?>
+	<?php if ( $shown ) : ?>
 		<p class="ts-muted"><?php echo esc_html( get_the_title( $trip ) ); ?></p>
 	<?php endif; ?>
 	<p><?php echo esc_html( $message ); ?></p>
-	<?php if ( $trip && 'publish' === $trip->post_status ) : ?>
+	<?php if ( $shown ) : ?>
 		<p><a class="ts-button" href="<?php echo esc_url( Roundup::trip_link( $trip ) ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps' ); ?></a></p>
 	<?php else : ?>
 		<p><a href="<?php echo esc_url( App::url() ); ?>"><?php esc_html_e( 'All trips', 'travel-steps' ); ?></a></p>

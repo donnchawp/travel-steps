@@ -68,18 +68,59 @@ class Subscriptions {
 	 * @return array<int, array{id: int, trip: int, status: string, email: string, user: int, token: string, mailed: int, share: string}>
 	 */
 	public static function for_trip( int $trip_id ): array {
-		$posts = get_posts(
+		$posts = self::query(
 			[
-				'post_type'        => self::TYPE,
-				'post_parent'      => $trip_id,
-				'post_status'      => 'private',
-				'numberposts'      => -1,
-				'orderby'          => 'ID',
-				'order'            => 'ASC',
-				'suppress_filters' => true,
+				'post_parent' => $trip_id,
+				'orderby'     => 'ID',
+				'order'       => 'ASC',
 			]
 		);
 		return array_map( [ self::class, 'row' ], $posts );
+	}
+
+	/**
+	 * A trip's oldest subscription with a meta value: an account's or an address's.
+	 *
+	 * @param string|int $value
+	 */
+	private static function find( int $trip_id, string $key, $value ): ?array {
+		$posts = self::query(
+			[
+				'post_parent' => $trip_id,
+				'numberposts' => 1,
+				'orderby'     => 'ID',
+				'order'       => 'ASC',
+				'meta_key'    => $key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Within one trip's subscriptions.
+				'meta_value'  => (string) $value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			]
+		);
+		return $posts ? self::row( $posts[0] ) : null;
+	}
+
+	/**
+	 * Subscription posts: every one, unless $args narrows them.
+	 *
+	 * @param array<string, mixed> $args get_posts() arguments.
+	 * @return \WP_Post[]|int[]
+	 */
+	private static function query( array $args ): array {
+		return get_posts(
+			$args + [
+				'post_type'        => self::TYPE,
+				'post_status'      => 'private',
+				'numberposts'      => -1,
+				'suppress_filters' => true,
+			]
+		);
+	}
+
+	/**
+	 * Every subscription on the site, when the plugin is deleted.
+	 */
+	public static function delete_all(): void {
+		foreach ( self::query( [ 'fields' => 'ids' ] ) as $id ) {
+			wp_delete_post( (int) $id, true );
+		}
 	}
 
 	/**
@@ -222,9 +263,10 @@ class Subscriptions {
 	public static function current( int $trip_id ): ?array {
 		$user = get_current_user_id();
 		if ( $user ) {
-			return current( wp_list_filter( self::for_trip( $trip_id ), [ 'user' => $user ] ) ) ?: null;
+			return self::find( $trip_id, self::META_USER, $user );
 		}
-		$cookie = isset( $_COOKIE[ self::cookie( $trip_id ) ] ) && is_string( $_COOKIE[ self::cookie( $trip_id ) ] ) ? sanitize_text_field( wp_unslash( $_COOKIE[ self::cookie( $trip_id ) ] ) ) : '';
+		$value  = $_COOKIE[ self::cookie( $trip_id ) ] ?? ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitised below.
+		$cookie = is_string( $value ) ? sanitize_text_field( wp_unslash( $value ) ) : '';
 		$parts  = explode( '.', $cookie, 2 );
 		if ( 2 !== count( $parts ) ) {
 			return null;
@@ -278,13 +320,13 @@ class Subscriptions {
 	 */
 	public static function signup( \WP_Post $trip, string $email ): void {
 		$email    = strtolower( $email );
-		$existing = current( wp_list_filter( self::for_trip( $trip->ID ), [ 'email' => $email ] ) );
+		$existing = self::find( $trip->ID, self::META_EMAIL, $email );
 		if ( $existing && ( self::CONFIRMED === $existing['status'] || $existing['mailed'] > time() - self::RESEND_S ) ) {
 			return;
 		}
 		if ( $existing ) {
 			update_post_meta( $existing['id'], self::META_MAILED, time() );
-			$sub = self::get( $existing['id'] );
+			$sub = $existing;
 		} else {
 			$sub = self::get(
 				self::add(
@@ -411,15 +453,11 @@ class Subscriptions {
 	 * Drops pending subscriptions whose confirmation email went out too long ago.
 	 */
 	public static function expire_pending(): void {
-		$old = get_posts(
+		$old = self::query(
 			[
-				'post_type'        => self::TYPE,
-				'post_status'      => 'private',
-				'numberposts'      => -1,
-				'fields'           => 'ids',
-				'suppress_filters' => true,
+				'fields'     => 'ids',
 				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Once a day, on a small table.
-				'meta_query'       => [
+				'meta_query' => [
 					[
 						'key'   => self::META_STATUS,
 						'value' => self::PENDING,
@@ -462,24 +500,19 @@ class Subscriptions {
 	public static function for_address( string $email ): array {
 		$email = strtolower( trim( $email ) );
 		$user  = '' === $email ? false : get_user_by( 'email', $email );
-		$ids   = [];
+		$subs  = [];
 		foreach ( array_filter( [ self::META_EMAIL => $email, self::META_USER => $user ? $user->ID : 0 ] ) as $key => $value ) {
-			$ids = array_merge(
-				$ids,
-				get_posts(
-					[
-						'post_type'        => self::TYPE,
-						'post_status'      => 'private',
-						'numberposts'      => -1,
-						'fields'           => 'ids',
-						'suppress_filters' => true,
-						'meta_key'         => $key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Only for personal data requests.
-						'meta_value'       => (string) $value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-					]
-				)
+			$posts = self::query(
+				[
+					'meta_key'   => $key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Only for personal data requests.
+					'meta_value' => (string) $value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				]
 			);
+			foreach ( $posts as $post ) {
+				$subs[ $post->ID ] ??= self::row( $post );
+			}
 		}
-		return array_values( array_filter( array_map( fn( $id ) => self::get( (int) $id ), array_unique( $ids ) ) ) );
+		return array_values( $subs );
 	}
 
 	public static function register_exporter( array $exporters ): array {

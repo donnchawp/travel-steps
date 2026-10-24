@@ -449,14 +449,16 @@ class Trips {
 	}
 
 	/**
-	 * Whether the current user may see a protected trip without typing its password: they
-	 * can edit it, or they're logged in and on its author's viewer list or its own.
+	 * Whether the current user, or $user_id, may see a protected trip without typing its
+	 * password: they can edit it, or they're logged in and on its author's viewer list or
+	 * its own.
 	 */
-	public static function skips_password( \WP_Post $trip ): bool {
-		if ( current_user_can( 'edit_post', $trip->ID ) ) {
+	public static function skips_password( \WP_Post $trip, ?int $user_id = null ): bool {
+		$can_edit = null === $user_id ? current_user_can( 'edit_post', $trip->ID ) : user_can( $user_id, 'edit_post', $trip->ID );
+		if ( $can_edit ) {
 			return true;
 		}
-		$user = get_current_user_id();
+		$user = $user_id ?? get_current_user_id();
 		return $user && in_array( $user, array_merge( Settings::viewers( (int) $trip->post_author ), self::viewers( $trip->ID ) ), true );
 	}
 
@@ -699,7 +701,7 @@ class Trips {
 	 * @return array<string, true>
 	 */
 	public static function visible_photo_ids( int $trip_id, array $steps ): array {
-		$ids = array_fill_keys( array_merge( [], ...array_values( self::visible_photos_by_step( $trip_id, $steps ) ) ), true );
+		$ids = self::photo_id_set( self::visible_photos_by_step( $trip_id, $steps ) );
 		// The chosen cover is public with the trip, whichever step it's from.
 		$cover = self::cover( $trip_id );
 		if ( '' !== $cover ) {
@@ -717,6 +719,16 @@ class Trips {
 	 */
 	public static function visible_photos_by_step( int $trip_id, array $steps ): array {
 		return array_map( fn( $groups ) => array_column( array_merge( $groups['shown'], $groups['rest'] ), 'id' ), self::photos_by_step( $trip_id, $steps ) );
+	}
+
+	/**
+	 * Every asset id in a map of step id to asset ids, as a set.
+	 *
+	 * @param array<int, string[]> $by_step
+	 * @return array<string, true>
+	 */
+	public static function photo_id_set( array $by_step ): array {
+		return array_fill_keys( array_merge( [], ...array_values( $by_step ) ), true );
 	}
 
 	private function trip_from_request(): \WP_Post {

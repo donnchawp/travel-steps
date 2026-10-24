@@ -45,7 +45,7 @@ class Roundup {
 	 */
 	public static function next_time( ?int $now = null ): int {
 		$now  = $now ?? time();
-		$hour = min( 23, max( 0, (int) Settings::get( 'roundup_hour' ) ) );
+		$hour = (int) Settings::get( 'roundup_hour' ); // Settings::sanitize_site() keeps it to 0-23.
 		$day  = ( new \DateTimeImmutable( '@' . $now ) )->setTimezone( wp_timezone() );
 		$at   = $day->setTime( $hour, 0 );
 		if ( $at->getTimestamp() <= $now ) {
@@ -75,18 +75,14 @@ class Roundup {
 				'post_type'        => Trips::TRIP,
 				'post_status'      => 'publish',
 				'numberposts'      => -1,
-				'fields'           => 'ids',
 				'orderby'          => 'ID',
 				'order'            => 'ASC',
 				'suppress_filters' => true,
 				'meta_key'         => self::META_STATE, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Once a day.
 			]
 		);
-		foreach ( $trips as $trip_id ) {
-			$trip = get_post( (int) $trip_id );
-			if ( $trip ) {
-				self::send( $trip );
-			}
+		foreach ( $trips as $trip ) {
+			self::send( $trip );
 		}
 	}
 
@@ -109,7 +105,7 @@ class Roundup {
 	public static function state( int $trip_id ): array {
 		$steps = Trips::steps( $trip_id );
 		return [
-			'steps'  => array_column( array_map( fn( $step ) => [ $step->ID, $step->post_modified_gmt ], $steps ), 1, 0 ),
+			'steps'  => wp_list_pluck( $steps, 'post_modified_gmt', 'ID' ),
 			'photos' => Trips::visible_photos_by_step( $trip_id, $steps ),
 		];
 	}
@@ -122,7 +118,7 @@ class Roundup {
 	 * @return array{days: int[], photos: int[], updated: int[]}
 	 */
 	public static function changes( array $before, array $now ): array {
-		$seen    = array_fill_keys( array_merge( [], ...array_values( (array) ( $before['photos'] ?? [] ) ) ), true );
+		$seen    = Trips::photo_id_set( (array) ( $before['photos'] ?? [] ) );
 		$changes = [
 			'days'    => [],
 			'photos'  => [],
@@ -213,11 +209,9 @@ class Roundup {
 	}
 
 	private static function subject( \WP_Post $trip, array $changes ): string {
-		$days  = count( $changes['days'] );
 		$parts = [];
-		if ( $days ) {
-			/* translators: %s: number of days */
-			$parts[] = sprintf( _n( '%s new day', '%s new days', $days, 'travel-steps' ), number_format_i18n( $days ) );
+		if ( $changes['days'] ) {
+			$parts[] = self::new_days( count( $changes['days'] ) );
 		}
 		if ( $changes['photos'] ) {
 			$parts[] = __( 'new photos', 'travel-steps' );
@@ -226,9 +220,47 @@ class Roundup {
 		return sprintf( __( '%1$s: %2$s', 'travel-steps' ), Subscriptions::plain( get_the_title( $trip ) ), implode( __( ' and ', 'travel-steps' ), $parts ) );
 	}
 
+	/**
+	 * "2 new days", as a roundup's subject and the edit page say it.
+	 */
+	private static function new_days( int $days ): string {
+		/* translators: %s: number of days */
+		return sprintf( _n( '%s new day', '%s new days', $days, 'travel-steps' ), number_format_i18n( $days ) );
+	}
+
+	/**
+	 * What the last roundup sent listed, for the trip's edit page: "2 new days", "new
+	 * photos on 1 day" and so on. Empty if none has been sent.
+	 *
+	 * @return string[]
+	 */
+	public static function last_listed( int $trip_id ): array {
+		$last = get_post_meta( $trip_id, self::META_LAST, true );
+		if ( ! is_array( $last ) || empty( $last['time'] ) ) {
+			return [];
+		}
+		$listed = [];
+		$days   = (int) ( $last['days'] ?? 0 );
+		$photos = (int) ( $last['photos'] ?? 0 );
+		$edited = (int) ( $last['updated'] ?? 0 );
+		if ( $days ) {
+			$listed[] = self::new_days( $days );
+		}
+		if ( $photos ) {
+			/* translators: %s: number of days */
+			$listed[] = sprintf( _n( 'new photos on %s day', 'new photos on %s days', $photos, 'travel-steps' ), number_format_i18n( $photos ) );
+		}
+		if ( $edited ) {
+			/* translators: %s: number of days */
+			$listed[] = sprintf( _n( '%s updated day', '%s updated days', $edited, 'travel-steps' ), number_format_i18n( $edited ) );
+		}
+		return $listed;
+	}
+
 	private static function body( \WP_Post $trip, array $changes ): string {
 		/* translators: %s: trip title */
 		$body     = sprintf( __( 'What’s new on “%s”:', 'travel-steps' ), Subscriptions::plain( get_the_title( $trip ) ) ) . "\n";
+		$format   = get_option( 'date_format' );
 		$sections = [
 			'days'    => __( 'New days:', 'travel-steps' ),
 			'photos'  => __( 'New photos on:', 'travel-steps' ),
@@ -245,7 +277,7 @@ class Roundup {
 					continue;
 				}
 				$day   = Trips::day_of_trip( $trip->ID, $step );
-				$date  = mysql2date( get_option( 'date_format' ), $step->post_date );
+				$date  = mysql2date( $format, $step->post_date );
 				$when  = $day > 0 ? sprintf( /* translators: 1: day number of the trip, 2: date */ __( 'Day %1$d, %2$s', 'travel-steps' ), $day, $date ) : $date;
 				$body .= '- ' . $when . ': ' . Subscriptions::plain( get_the_title( $step ) ) . "\n  " . self::trip_link( $trip, $step_id ) . "\n";
 			}
@@ -254,12 +286,12 @@ class Roundup {
 	}
 
 	/**
-	 * Whether a subscription gets the trip's roundup: it's confirmed, and a logged-in
-	 * visitor's account still sees the trip, by its login or with the password it had
-	 * when they subscribed.
+	 * Whether a subscription gets a published trip's roundup: it's confirmed, and a
+	 * logged-in visitor's account still sees the trip, by its login or with the password
+	 * it had when they subscribed. Callers check the trip is published.
 	 */
 	public static function reaches( \WP_Post $trip, array $sub ): bool {
-		if ( Subscriptions::CONFIRMED !== $sub['status'] || 'publish' !== $trip->post_status ) {
+		if ( Subscriptions::CONFIRMED !== $sub['status'] ) {
 			return false;
 		}
 		if ( ! $sub['user'] ) {
@@ -272,14 +304,7 @@ class Roundup {
 		if ( ! Trips::is_protected( $trip ) ) {
 			return true;
 		}
-		if ( '' !== $sub['share'] && hash_equals( Trips::share_code( $trip ), $sub['share'] ) ) {
-			return true;
-		}
-		$was = get_current_user_id();
-		wp_set_current_user( $sub['user'] );
-		$skips = Trips::skips_password( $trip );
-		wp_set_current_user( $was );
-		return $skips;
+		return Trips::share_matches( $trip, $sub['share'] ) || Trips::skips_password( $trip, $sub['user'] );
 	}
 
 	/**

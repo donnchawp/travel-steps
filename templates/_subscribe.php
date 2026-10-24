@@ -15,10 +15,7 @@ use TravelSteps\Trips;
 $subscription = Subscriptions::current( $trip->ID );
 // A logged-in subscriber who no longer gets the roundup (the password changed) may subscribe again.
 $subscribed = $subscription && Roundup::reaches( $trip, $subscription );
-if ( $subscription && ! is_user_logged_in() ) {
-	// What this visitor is shown differs from what others are: no page cache may keep it.
-	nocache_headers();
-}
+
 $notice  = isset( $_GET[ Subscriptions::NOTICE_ARG ] ) && is_string( $_GET[ Subscriptions::NOTICE_ARG ] ) ? sanitize_key( $_GET[ Subscriptions::NOTICE_ARG ] ) : '';
 $notices = [
 	'check'        => __( 'Thanks. Check your email for a link to confirm your subscription. If you were subscribed already, nothing changes.', 'travel-steps' ),

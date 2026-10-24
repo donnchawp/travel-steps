@@ -25,3 +25,10 @@
 	border: 1px dashed #ccc;
 	text-align: center;
 }
+
+/* Photos taken before the first place heading, shown in the first block. */
+.ts-photos-block-lead {
+	margin-bottom: 12px;
+	padding-bottom: 12px;
+	border-bottom: 1px dashed #ccc;
+}

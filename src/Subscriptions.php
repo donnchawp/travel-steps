@@ -330,14 +330,16 @@ class Subscriptions {
 	 * there's nothing to handle.
 	 */
 	public static function handle_post( \WP_Post $trip ): void {
-		// phpcs:disable WordPress.Security.NonceVerification.Missing -- A visitor's form has no nonce: a page cache would keep it. A logged-in visitor's is checked below.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- A public trip's form has no nonce for visitors: a page cache would keep it. needs_nonce() says when it's checked.
 		$action = isset( $_POST['ts_subscription'] ) && is_string( $_POST['ts_subscription'] ) ? sanitize_key( $_POST['ts_subscription'] ) : '';
-		if ( ! in_array( $action, [ 'subscribe', 'unsubscribe' ], true ) || ! self::offered( $trip ) ) {
+		if ( ! in_array( $action, [ 'subscribe', 'unsubscribe' ], true ) || ! self::offered( $trip ) || self::cross_site() ) {
 			return;
+		}
+		if ( self::needs_nonce( $trip ) ) {
+			check_admin_referer( 'travel_steps_subscription_' . $trip->ID, self::NONCE_FIELD );
 		}
 		$notice = 'check';
 		if ( is_user_logged_in() ) {
-			check_admin_referer( 'travel_steps_subscription_' . $trip->ID, self::NONCE_FIELD );
 			$notice = 'subscribe' === $action ? self::subscribe_user( $trip ) : self::unsubscribe_current( $trip );
 		} elseif ( 'unsubscribe' === $action ) {
 			$notice = self::unsubscribe_current( $trip );
@@ -352,6 +354,35 @@ class Subscriptions {
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		wp_safe_redirect( add_query_arg( self::NOTICE_ARG, $notice, Trips::url( $trip ) ) );
 		exit;
+	}
+
+	/**
+	 * Whether the subscribe form carries a nonce that's checked: for a logged-in visitor,
+	 * and on a protected trip, whose page no cache keeps. There the visitor's way in is a
+	 * password cookie, which browsers can send with another site's form (#123).
+	 */
+	public static function needs_nonce( \WP_Post $trip ): bool {
+		return is_user_logged_in() || Trips::is_protected( $trip );
+	}
+
+	/**
+	 * Whether the request came from another site's page, as the browser tells it: by
+	 * Sec-Fetch-Site, else by Origin. A request with neither is let through.
+	 */
+	private static function cross_site(): bool {
+		$fetch = isset( $_SERVER['HTTP_SEC_FETCH_SITE'] ) && is_string( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_SEC_FETCH_SITE'] ) ) : '';
+		if ( '' !== $fetch ) {
+			return ! in_array( $fetch, [ 'same-origin', 'none' ], true );
+		}
+		$origin = isset( $_SERVER['HTTP_ORIGIN'] ) && is_string( $_SERVER['HTTP_ORIGIN'] ) ? wp_unslash( $_SERVER['HTTP_ORIGIN'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only compared.
+		if ( '' === $origin ) {
+			return false;
+		}
+		$from = wp_parse_url( $origin );
+		$home = wp_parse_url( home_url() );
+		$part = fn( $url, $key, $default = '' ) => is_array( $url ) && isset( $url[ $key ] ) ? strtolower( (string) $url[ $key ] ) : $default;
+		$port = fn( $url ) => $part( $url, 'port', 'https' === $part( $url, 'scheme' ) ? '443' : '80' );
+		return [ $part( $from, 'scheme' ), $part( $from, 'host' ), $port( $from ) ] !== [ $part( $home, 'scheme' ), $part( $home, 'host' ), $port( $home ) ];
 	}
 
 	/**

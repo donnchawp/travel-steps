@@ -73,6 +73,20 @@ Photos are picked when the page loads, so pin and hide take effect at once. New 
 
 To add a step by hand, click **Add step**, set its date in the block editor and write it up. It shows that day's photos, and the next sync places it on the map.
 
+## Subscribing to a trip
+
+A published trip's page ends with a form to subscribe to it. A visitor enters an email address and confirms from the link emailed to them. Someone logged in gets a Subscribe button that subscribes their account at once, and the email goes to its current address. Subscribers see an Unsubscribe button there instead: logged-in ones by their account, others by a cookie set when they confirm, so on another browser they see the form again. On a protected trip, only people who can see the trip get the form.
+
+Once a day, at the hour set on the settings page (08:00 site time unless an administrator changes it), each trip with something new emails its subscribers one plain-text roundup each, through `wp_mail()`. Something new means a newly published step, a scheduled one going live included, or photos visitors couldn't see at the last roundup on a published step. Text edits to published steps are listed under "Also updated", but only in a roundup one of those caused. Changes to the cover, pinned photos, title, dates, intro or route send nothing. A trip that's private or a draft sends nothing and keeps its subscribers. The first roundup a trip sends covers only what came after its first subscriber.
+
+A protected trip's roundup links carry its share code. Changing its password deletes its email-only subscriptions. Logged-in subscribers stay, but get nothing while they can't see the trip. If they enter the new password, the page offers them Subscribe again, which brings their subscription back.
+
+Every email has a one-click unsubscribe link, and `List-Unsubscribe` headers so mail clients can show their own button. The form answers the same whether an address is new, waiting to confirm or subscribed already, and sends an address at most one confirmation email per trip a day. A hidden field catches bots. An unconfirmed signup is deleted after 7 days.
+
+The trip's edit page lists its subscribers with a Remove button each, and says when the last roundup went and what it listed. Subscriptions are `ts_subscription` posts under the trip, out of wp-admin, REST and XML-RPC. WordPress's personal data export and erase tools find them by email address. Deleting a trip deletes its subscriptions, and deleting the plugin deletes them all.
+
+On a site whose cron only runs on page loads, roundups go out with the first visit after the hour.
+
 ## Privacy
 
 Authors and up can make trips (the `publish_posts` capability). Contributors can't. Each person enters their own Immich and Dawarich API keys and home on the settings page. A trip always uses its author's keys, when it syncs, when its edit page lists albums, and when the photo proxy fetches a photo for a visitor. Nobody sees or changes anyone else's keys or home, administrators included. Keys are stored as user options (per site on multisite). They're never printed back and aren't in REST.
@@ -139,7 +153,8 @@ The place names used offline ship in `data/geonames/`. They're towns of 500 peop
 | `/travel-steps/` | Everyone: published trips (editors also see drafts, and password-protected trips are listed only to their editors and viewer lists) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox, or a password form for a protected trip. Editors can pin and hide photos. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, photos (Immich or uploads), visibility, sync, step list |
-| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius, photos to pick and how long cached photos are kept |
+| `/travel-steps/subscription` | Anyone with a link from a subscription email: confirms or ends that subscription |
+| `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius, photos to pick, how long cached photos are kept and the hour roundups go out |
 
 ## Setup
 
@@ -206,4 +221,4 @@ If an authentication proxy guards the whole site, trips aren't public until it l
 - `/wp-json/travel-steps/v1/*`, the map data, checked against the trip's visibility.
 - `/wp-content/plugins/travel-steps/*`, the scripts, styles and Leaflet.
 
-Photos come from `/travel-steps/photo/{trip id}/{asset}/{size}`, the same URL for everyone. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them for 5 minutes. Photos only some people may see, and every photo an editor fetches, are `private`, and a refused photo is a `no-store` 404. So don't let a CDN cache these URLs whatever the origin says, such as with Cloudflare's "Cache Everything". The old `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}` URLs redirect there. Like the trip pages, photos need pretty permalinks. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users, or for visitors with a `wp-postpass_` cookie. Editors see drafts and editing tools, and a protected trip's page shows the whole trip once its password is entered.
+Photos come from `/travel-steps/photo/{trip id}/{asset}/{size}`, the same URL for everyone. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them for 5 minutes. Photos only some people may see, and every photo an editor fetches, are `private`, and a refused photo is a `no-store` 404. So don't let a CDN cache these URLs whatever the origin says, such as with Cloudflare's "Cache Everything". The old `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}` URLs redirect there. Like the trip pages, photos need pretty permalinks. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users, or for visitors with a `wp-postpass_` cookie. Editors see drafts and editing tools, and a protected trip's page shows the whole trip once its password is entered. A subscriber's page shows them an Unsubscribe button, and is sent with no-cache headers. The subscribe form posts to the trip page, so POSTs to `/travel-steps/trip/*` must reach WordPress.

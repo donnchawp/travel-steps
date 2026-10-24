@@ -185,17 +185,33 @@ class Trips {
 		return $data;
 	}
 
+	/**
+	 * Core makes a slug unique only once a trip is published, private or scheduled, so
+	 * drafts can share one with such a trip, or with each other. That trip keeps its URL,
+	 * then comes a trip the visitor may edit, then the oldest.
+	 */
 	public static function find_by_slug( string $slug ): ?\WP_Post {
 		$posts = get_posts(
 			[
 				'post_type'      => self::TRIP,
 				'name'           => sanitize_title( $slug ),
 				'post_status'    => [ 'publish', 'draft', 'private', 'pending', 'future' ],
-				'posts_per_page' => 1,
+				'posts_per_page' => -1,
+				'orderby'        => 'ID',
+				'order'          => 'ASC',
 			]
 		);
-		if ( $posts ) {
-			return $posts[0];
+		$picks = [
+			fn( \WP_Post $post ) => ! in_array( $post->post_status, [ 'draft', 'pending' ], true ),
+			fn( \WP_Post $post ) => current_user_can( 'edit_post', $post->ID ),
+			'__return_true',
+		];
+		foreach ( $picks as $pick ) {
+			foreach ( $posts as $post ) {
+				if ( $pick( $post ) ) {
+					return $post;
+				}
+			}
 		}
 		// A trip without a slug has its post ID in its URL. New slugs are never all
 		// digits (see unique_slug()), but ones saved earlier might be, so they win.

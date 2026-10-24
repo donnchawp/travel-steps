@@ -482,6 +482,13 @@ $rendered = $res->get_data()['rendered'] ?? '';
 check( 'preview: Sintra block shows the Sintra favourite', 200 === $res->get_status() && false !== strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ) && false === strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ), [ $res->get_status(), $rendered ] );
 $rendered = $preview( [ 'start' => 0, 'end' => $sintra_t ] )->get_data()['rendered'] ?? '';
 check( 'preview: first block shows the Lisbon favourite', false !== strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ) && false === strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ), $rendered );
+// No block above the first heading (here Sintra's): the first block also shows the photos
+// taken before it, which the trip page puts above that heading (#128).
+$res      = $preview( [ 'start' => $sintra_t, 'lead' => $sintra_t ] );
+$rendered = $res->get_data()['rendered'] ?? '';
+$lead_at  = strpos( $rendered, 'ts-photos-block-lead' );
+check( 'preview: the first block also shows the photos above the first heading, as their own group first', 200 === $res->get_status() && false !== $lead_at && $lead_at < (int) strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ) && strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ) < strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ), [ $res->get_status(), $rendered ] );
+check( '…and a block without that group shows none', false === strpos( $preview( [ 'start' => $sintra_t ] )->get_data()['rendered'] ?? '', 'ts-photos-block-lead' ) );
 $GLOBALS['post'] = get_post( $d1->ID );
 wp_set_current_user( 0 );
 check( 'photos block renders nothing for visitors outside the trip page', '' === trim( render_block( [ 'blockName' => Days::PHOTOS_BLOCK, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => [] ] ) ) );

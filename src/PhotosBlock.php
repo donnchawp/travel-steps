@@ -33,10 +33,13 @@ class PhotosBlock {
 				'description'           => __( 'Where this place’s photos appear on the trip page.', 'travel-steps' ),
 				'category'              => 'media',
 				'icon'                  => 'format-gallery',
-				// Only for the editor preview: the section the block sits in, as place start times.
+				// Only for the editor preview: the section the block sits in, as place start
+				// times, and for the first block when none sits above the first place heading,
+				// that heading's time (lead): the trip page puts photos before it above it.
 				'attributes'            => [
 					'start' => [ 'type' => 'integer' ],
 					'end'   => [ 'type' => 'integer' ],
+					'lead'  => [ 'type' => 'integer' ],
 				],
 				'supports'              => [
 					'html'     => false,
@@ -50,8 +53,9 @@ class PhotosBlock {
 	}
 
 	/**
-	 * The editor preview: the step's shown photos taken from start until end. Anywhere
-	 * else it renders nothing; the trip page places the real photos itself.
+	 * The editor preview: the step's shown photos taken from start until end, after any
+	 * taken before lead. Anywhere else it renders nothing; the trip page places the real
+	 * photos itself.
 	 */
 	public static function render( array $attributes ): string {
 		$step = get_post();
@@ -65,28 +69,44 @@ class PhotosBlock {
 		$groups = Trips::photos_by_step( $trip->ID, Trips::timeline_steps( $trip, true ) )[ $step->ID ] ?? [ 'shown' => [] ];
 		$start  = (int) ( $attributes['start'] ?? 0 );
 		$end    = (int) ( $attributes['end'] ?? 0 );
+		$lead   = (int) ( $attributes['lead'] ?? 0 );
 		$photos = array_filter( $groups['shown'], fn( $p ) => $p['t'] >= $start && ( ! $end || $p['t'] < $end ) );
+		$before = $lead ? array_filter( $groups['shown'], fn( $p ) => $p['t'] < $lead ) : [];
 
+		$html = '';
+		if ( $before ) {
+			$html .= '<div class="ts-photos-block-lead">' . self::grid( $trip->ID, $before ) . '<p class="ts-photos-block-note">' . esc_html(
+				sprintf(
+					/* translators: %s: number of photos */
+					_n( '%s photo taken before the first heading. The trip page shows it above that heading. Add a Trip photos block there to place it.', '%s photos taken before the first heading. The trip page shows them above that heading. Add a Trip photos block there to place them.', count( $before ), 'travel-steps' ),
+					number_format_i18n( count( $before ) )
+				)
+			) . '</p></div>';
+		}
 		if ( ! $photos ) {
 			$empty = Trips::uses_uploads( $trip->ID )
 				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps' )
 				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps' );
-			return '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
-		}
-		$html = '';
-		foreach ( $photos as $photo ) {
-			$html .= sprintf(
-				'<img src="%s" alt="%s" data-asset="%s" loading="lazy">',
-				esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'thumbnail' ) ),
-				esc_attr( $photo['caption'] ?? '' ),
-				esc_attr( $photo['id'] )
-			);
+			return $html . '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
 		}
 		$note = sprintf(
 			/* translators: %s: number of photos */
 			_n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps' ),
 			number_format_i18n( count( $photos ) )
 		);
-		return '<div class="ts-photos-block-grid">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
+		return $html . self::grid( $trip->ID, $photos ) . '<p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
+	}
+
+	private static function grid( int $trip_id, array $photos ): string {
+		$html = '';
+		foreach ( $photos as $photo ) {
+			$html .= sprintf(
+				'<img src="%s" alt="%s" data-asset="%s" loading="lazy">',
+				esc_url( RestController::photo_url( $trip_id, $photo['id'], 'thumbnail' ) ),
+				esc_attr( $photo['caption'] ?? '' ),
+				esc_attr( $photo['id'] )
+			);
+		}
+		return '<div class="ts-photos-block-grid">' . $html . '</div>';
 	}
 }

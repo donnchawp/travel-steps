@@ -18,19 +18,19 @@ $trips      = get_posts(
 $trips      = array_values( array_filter( $trips, [ Trips::class, 'listed' ] ) );
 // Oldest trip first; undated drafts on top.
 usort( $trips, fn( $a, $b ) => strcmp( get_post_meta( $a->ID, Trips::META_START, true ) ?: '0000', get_post_meta( $b->ID, Trips::META_START, true ) ?: '0000' ) );
-$page_title = __( 'Trips', 'travel-steps' );
+$page_title = __( 'Trips', 'travel-steps-storyteller' );
 include __DIR__ . '/_header.php';
 ?>
 <div class="ts-page">
 	<div class="ts-page-head">
-		<h1><?php esc_html_e( 'Trips', 'travel-steps' ); ?></h1>
+		<h1><?php esc_html_e( 'Trips', 'travel-steps-storyteller' ); ?></h1>
 		<?php if ( current_user_can( Trips::capability() ) ) : ?>
-			<a class="ts-button" href="<?php echo esc_url( App::url( 'new' ) ); ?>"><?php esc_html_e( 'New trip', 'travel-steps' ); ?></a>
+			<a class="ts-button" href="<?php echo esc_url( App::url( 'new' ) ); ?>"><?php esc_html_e( 'New trip', 'travel-steps-storyteller' ); ?></a>
 		<?php endif; ?>
 	</div>
 
 	<?php if ( ! $trips ) : ?>
-		<p class="ts-empty"><?php esc_html_e( 'No trips yet.', 'travel-steps' ); ?></p>
+		<p class="ts-empty"><?php esc_html_e( 'No trips yet.', 'travel-steps-storyteller' ); ?></p>
 	<?php endif; ?>
 
 	<div class="ts-cards">
@@ -45,7 +45,7 @@ include __DIR__ . '/_header.php';
 					$badges = array_filter(
 						[
 							'publish' !== $trip->post_status ? ( get_post_status_object( $trip->post_status )->label ?? $trip->post_status ) : '',
-							Trips::is_protected( $trip ) && current_user_can( 'edit_post', $trip->ID ) ? __( 'Password protected', 'travel-steps' ) : '',
+							Trips::is_protected( $trip ) && current_user_can( 'edit_post', $trip->ID ) ? __( 'Password protected', 'travel-steps-storyteller' ) : '',
 						]
 					);
 					?>

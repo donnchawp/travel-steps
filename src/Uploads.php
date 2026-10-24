@@ -94,12 +94,12 @@ class Uploads {
 	public static function prefilter( array $file ): array {
 		$trip_id = self::upload_trip();
 		if ( null === $trip_id ) {
-			$file['error'] = __( 'You can’t add photos to this trip.', 'travel-steps' );
+			$file['error'] = __( 'You can’t add photos to this trip.', 'travel-steps-storyteller' );
 		} elseif ( $trip_id && ! self::available() ) {
-			$file['error'] = __( 'Photos can’t be added to trips on this site: its PHP has no exif extension, which reads when and where they were taken.', 'travel-steps' );
+			$file['error'] = __( 'Photos can’t be added to trips on this site: its PHP has no exif extension, which reads when and where they were taken.', 'travel-steps-storyteller' );
 		} elseif ( $trip_id && ! in_array( wp_get_image_mime( (string) $file['tmp_name'] ), self::PHOTO_TYPES, true ) ) {
 			// Read from its content, not its name: Imagick opens PDFs, videos, PSDs and more.
-			$file['error'] = __( 'Only photos can be added to a trip.', 'travel-steps' );
+			$file['error'] = __( 'Only photos can be added to a trip.', 'travel-steps-storyteller' );
 		} elseif ( $trip_id ) {
 			self::$photo_id    = wp_generate_uuid4();
 			self::$uploaded_as = pathinfo( (string) $file['name'], PATHINFO_FILENAME );
@@ -396,7 +396,7 @@ class Uploads {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Core checks nothing more for this form; this only refuses it.
 		$attachment_id = isset( $_REQUEST['attachment_id'] ) ? absint( $_REQUEST['attachment_id'] ) : 0;
 		if ( $attachment_id && ! empty( $_REQUEST['fetch'] ) && '' !== self::photo_id( $attachment_id ) ) {
-			wp_die( esc_html__( 'Trip photos are managed on their trip’s page.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Trip photos are managed on their trip’s page.', 'travel-steps-storyteller' ), 403 );
 		}
 		// phpcs:enable
 	}

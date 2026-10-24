@@ -103,7 +103,7 @@ class Settings {
 	 */
 	public static function handle_save_account(): void {
 		if ( ! current_user_can( Trips::capability() ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'travel-steps-storyteller' ), 403 );
 		}
 		check_admin_referer( 'travel_steps_account' );
 
@@ -120,7 +120,7 @@ class Settings {
 	 */
 	public static function handle_save_site(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'travel-steps-storyteller' ), 403 );
 		}
 		check_admin_referer( 'travel_steps_settings' );
 

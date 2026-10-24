@@ -198,6 +198,18 @@ class Trips {
 	}
 
 	/**
+	 * Steps have no password of their own: a trip's password covers its steps, and the
+	 * trip page, its map data and its photos never ask about a step's. Core's editor
+	 * offers one for any post, so it's dropped whoever saves it.
+	 */
+	public static function step_password( array $data ): array {
+		if ( self::STEP === $data['post_type'] ) {
+			$data['post_password'] = '';
+		}
+		return $data;
+	}
+
+	/**
 	 * Trips saved before draft_slug() may share a slug: a published, private or scheduled
 	 * one keeps its URL, then comes a trip the visitor may edit, then the oldest.
 	 */

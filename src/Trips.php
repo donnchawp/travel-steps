@@ -186,9 +186,20 @@ class Trips {
 	}
 
 	/**
-	 * Core makes a slug unique only once a trip is published, private or scheduled, so
-	 * drafts can share one with such a trip, or with each other. That trip keeps its URL,
-	 * then comes a trip the visitor may edit, then the oldest.
+	 * Core makes a slug unique only once a post is published, private or scheduled, so a
+	 * draft trip could be saved with another trip's slug and take over its URL. A trip's
+	 * slug is its URL from the start, so it's made unique whatever the status.
+	 */
+	public static function draft_slug( array $data, array $postarr ): array {
+		if ( self::TRIP === $data['post_type'] && '' !== $data['post_name'] && in_array( $data['post_status'], [ 'draft', 'pending' ], true ) ) {
+			$data['post_name'] = wp_unique_post_slug( $data['post_name'], (int) ( $postarr['ID'] ?? 0 ), 'publish', self::TRIP, 0 );
+		}
+		return $data;
+	}
+
+	/**
+	 * Trips saved before draft_slug() may share a slug: a published, private or scheduled
+	 * one keeps its URL, then comes a trip the visitor may edit, then the oldest.
 	 */
 	public static function find_by_slug( string $slug ): ?\WP_Post {
 		$posts = get_posts(

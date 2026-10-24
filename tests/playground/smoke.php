@@ -761,24 +761,36 @@ $rest_post = function ( $route, $params ) {
 $own_photo = '00000000-0000-4000-8000-000000000001';
 check( 'contributor cannot pin, hide or choose the cover of their trip', 403 === $rest_post( "/travel-steps/v1/trips/$own_trip/photo-state", [ 'asset' => $own_photo, 'state' => 'hidden' ] )->get_status() && 403 === $rest_post( "/travel-steps/v1/trips/$own_trip/cover", [ 'asset' => '' ] )->get_status() );
 check( 'contributor’s trip page offers no Edit trip button', false === strpos( $render( 'trip.php', (string) $own_trip ), 'Edit trip' ) );
-// Core gives a draft whatever slug it's sent, so one can share a published trip's.
+// Core makes only a published, private or scheduled post's slug unique, so a draft
+// could take another trip's.
 wp_set_current_user( 1 );
 $slugged = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Slugged', 'post_name' => 'slugged', 'post_status' => 'publish' ] );
 wp_set_current_user( $contributor );
 $shadow = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Shadow', 'post_name' => 'slugged', 'post_status' => 'draft', 'post_author' => $contributor ] );
-check( 'a draft can share a published trip’s slug', 'slugged' === get_post( $shadow )->post_name && 'slugged' === get_post( $slugged )->post_name );
-check( '…but the published trip keeps its URL, for the draft’s author too', $slugged === Trips::find_by_slug( 'slugged' )?->ID );
+check( 'a draft saved with a published trip’s slug gets its own', 'slugged' !== get_post( $shadow )->post_name && 'slugged' === get_post( $slugged )->post_name, get_post( $shadow )->post_name );
+check( '…so its URL is its own', $shadow === Trips::find_by_slug( basename( Trips::url( get_post( $shadow ) ) ) )?->ID );
+wp_update_post( [ 'ID' => $shadow, 'post_name' => 'slugged' ] );
+check( '…and so is a later change to it', 'slugged' !== get_post( $shadow )->post_name, get_post( $shadow )->post_name );
 wp_set_current_user( 0 );
-check( '…and for visitors, who get its page', $slugged === Trips::find_by_slug( 'slugged' )?->ID && false !== strpos( $render( 'trip.php', 'slugged' ), 'Slugged' ) );
+check( '…and the published trip keeps its URL', $slugged === Trips::find_by_slug( 'slugged' )?->ID && false !== strpos( $render( 'trip.php', 'slugged' ), 'Slugged' ) );
+wp_set_current_user( $contributor );
+$digits = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Digits', 'post_name' => (string) $slugged, 'post_status' => 'draft', 'post_author' => $contributor ] );
+check( 'a draft saved with a post ID as its slug gets one that isn’t', ! ctype_digit( get_post( $digits )->post_name ), get_post( $digits )->post_name );
+// Slugs saved before that: the published trip still wins, then a trip the visitor may edit.
+$wpdb->update( $wpdb->posts, [ 'post_name' => 'slugged' ], [ 'ID' => $shadow ] );
+clean_post_cache( $shadow );
+check( 'an old draft sharing a published trip’s slug doesn’t take its URL, even for the draft’s author', $slugged === Trips::find_by_slug( 'slugged' )?->ID );
 wp_set_current_user( 1 );
 $own_draft = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Own draft', 'post_name' => 'two-drafts', 'post_status' => 'draft' ] );
 wp_set_current_user( $contributor );
-$their_draft = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Their draft', 'post_name' => 'two-drafts', 'post_status' => 'draft', 'post_author' => $contributor ] );
-check( 'two drafts with one slug: each author gets their own', $their_draft === Trips::find_by_slug( 'two-drafts' )?->ID );
+$their_draft = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Their draft', 'post_status' => 'draft', 'post_author' => $contributor ] );
+$wpdb->update( $wpdb->posts, [ 'post_name' => 'two-drafts' ], [ 'ID' => $their_draft ] );
+clean_post_cache( $their_draft );
+check( 'two old drafts with one slug: each author gets their own', $their_draft === Trips::find_by_slug( 'two-drafts' )?->ID );
 wp_set_current_user( 1 );
 check( '…and someone who can edit both, the older', $own_draft === Trips::find_by_slug( 'two-drafts' )?->ID );
 wp_set_current_user( $contributor );
-foreach ( [ $slugged, $shadow, $own_draft, $their_draft ] as $id ) {
+foreach ( [ $slugged, $shadow, $digits, $own_draft, $their_draft ] as $id ) {
 	wp_delete_post( $id, true );
 }
 $_POST = $_REQUEST = [];

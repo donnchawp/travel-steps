@@ -59,6 +59,11 @@ class App extends BaseApp {
 		add_action( CacheFill::HOOK, [ CacheFill::class, 'run' ] );
 		add_action( CacheSweep::HOOK, [ CacheSweep::class, 'run' ] );
 		CacheSweep::schedule();
+		add_action( Roundup::HOOK, [ Roundup::class, 'run' ] );
+		Roundup::schedule();
+		add_action( 'admin_post_travel_steps_remove_subscriber', [ Subscriptions::class, 'handle_remove' ] );
+		add_filter( 'wp_privacy_personal_data_exporters', [ Subscriptions::class, 'register_exporter' ] );
+		add_filter( 'wp_privacy_personal_data_erasers', [ Subscriptions::class, 'register_eraser' ] );
 		add_filter( 'wp_unique_post_slug', [ Trips::class, 'unique_slug' ], 10, 5 );
 		add_filter( 'wp_insert_post_data', [ Trips::class, 'step_parent' ], 10, 2 );
 		add_filter( 'protected_title_format', [ Trips::class, 'protected_title_format' ], 10, 2 );
@@ -87,6 +92,7 @@ class App extends BaseApp {
 			'<a href="https://osmfoundation.org/wiki/Privacy_Policy">https://osmfoundation.org/wiki/Privacy_Policy</a>'
 		) . '</p>';
 		$text .= '<p>' . esc_html__( 'Photos on trip pages are served by this site. Published trips show the route travelled, with the area around the author’s home left out.', 'travel-steps' ) . '</p>';
+		$text .= '<p>' . esc_html__( 'Visitors can subscribe to a trip to get an email on days when something is added to it. This site keeps their email address, or for a logged-in visitor their account, until they unsubscribe or the trip’s author removes them, and sends the emails through this site’s own mail setup. A subscription that isn’t confirmed from the emailed link is deleted after 7 days, and changing a trip’s password deletes the subscriptions made with an email address.', 'travel-steps' ) . '</p>';
 		$text .= '<p>' . esc_html__( 'People who make trips store their own Immich and Dawarich API keys and home location on this site. They are used only to fetch that person’s photos and location history for their trips, and nobody else can see them.', 'travel-steps' ) . '</p>';
 		wp_add_privacy_policy_content( __( 'Travel Steps', 'travel-steps' ), wp_kses_post( $text ) );
 	}

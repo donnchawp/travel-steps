@@ -147,6 +147,16 @@ include __DIR__ . '/_header.php';
 			</label>
 		</fieldset>
 
+		<fieldset>
+			<legend><?php esc_html_e( 'Subscriptions', 'travel-steps' ); ?></legend>
+			<p class="ts-muted"><?php esc_html_e( 'Visitors can subscribe to a published trip. Once a day, each trip with new days or photos emails its subscribers a list of them, through this site’s mail setup.', 'travel-steps' ); ?></p>
+			<label>
+				<span><?php esc_html_e( 'Send at (hour of the day, site time)', 'travel-steps' ); ?></span>
+				<input type="number" min="0" max="23" step="1" name="roundup_hour" value="<?php echo esc_attr( $settings['roundup_hour'] ); ?>">
+				<small class="ts-muted"><?php esc_html_e( 'From 0 to 23. On a site whose scheduled tasks only run when someone visits, the emails may go later.', 'travel-steps' ); ?></small>
+			</label>
+		</fieldset>
+
 		<div class="ts-form-actions">
 			<button type="submit" class="ts-button"><?php esc_html_e( 'Save site settings', 'travel-steps' ); ?></button>
 		</div>

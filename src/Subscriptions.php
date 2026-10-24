@@ -35,6 +35,8 @@ class Subscriptions {
 
 	// The query argument the trip page's notices come in.
 	const NOTICE_ARG = 'subscription';
+	// The logged-in form's nonce field: not _wpnonce, which the trip page's photo URLs must never carry.
+	const NONCE_FIELD = 'ts_subscription_nonce';
 
 	public static function register(): void {
 		// Nobody, administrators included, reaches them through wp-admin, REST or XML-RPC:
@@ -252,7 +254,7 @@ class Subscriptions {
 		}
 		$notice = 'check';
 		if ( is_user_logged_in() ) {
-			check_admin_referer( 'travel_steps_subscription_' . $trip->ID );
+			check_admin_referer( 'travel_steps_subscription_' . $trip->ID, self::NONCE_FIELD );
 			$notice = 'subscribe' === $action ? self::subscribe_user( $trip ) : self::unsubscribe_current( $trip );
 		} elseif ( 'unsubscribe' === $action ) {
 			$notice = self::unsubscribe_current( $trip );
@@ -434,5 +436,117 @@ class Subscriptions {
 		foreach ( $old as $id ) {
 			wp_delete_post( (int) $id, true );
 		}
+	}
+
+	/**
+	 * The edit page's Remove button: someone who can edit the trip takes a subscriber off it.
+	 */
+	public static function handle_remove(): void {
+		check_admin_referer( 'travel_steps_remove_subscriber' );
+		$sub  = self::get( absint( $_POST['subscription'] ?? 0 ) );
+		$trip = $sub ? get_post( $sub['trip'] ) : null;
+		if ( ! $sub || ! $trip || ! Trips::can_edit_trip( $trip->ID ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps' ), 403 );
+		}
+		self::delete( $sub['id'] );
+		wp_safe_redirect( add_query_arg( 'removed', '1', Trips::url( $trip, 'edit' ) ) . '#ts-subscribers' );
+		exit;
+	}
+
+	/**
+	 * The subscriptions of an email address: those made with it, and those of the account
+	 * that has it.
+	 *
+	 * @return array[]
+	 */
+	public static function for_address( string $email ): array {
+		$email = strtolower( trim( $email ) );
+		$user  = '' === $email ? false : get_user_by( 'email', $email );
+		$ids   = [];
+		foreach ( array_filter( [ self::META_EMAIL => $email, self::META_USER => $user ? $user->ID : 0 ] ) as $key => $value ) {
+			$ids = array_merge(
+				$ids,
+				get_posts(
+					[
+						'post_type'        => self::TYPE,
+						'post_status'      => 'private',
+						'numberposts'      => -1,
+						'fields'           => 'ids',
+						'suppress_filters' => true,
+						'meta_key'         => $key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Only for personal data requests.
+						'meta_value'       => (string) $value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+					]
+				)
+			);
+		}
+		return array_values( array_filter( array_map( fn( $id ) => self::get( (int) $id ), array_unique( $ids ) ) ) );
+	}
+
+	public static function register_exporter( array $exporters ): array {
+		$exporters['travel-steps-subscriptions'] = [
+			'exporter_friendly_name' => __( 'Travel Steps trip subscriptions', 'travel-steps' ),
+			'callback'               => [ self::class, 'export' ],
+		];
+		return $exporters;
+	}
+
+	public static function register_eraser( array $erasers ): array {
+		$erasers['travel-steps-subscriptions'] = [
+			'eraser_friendly_name' => __( 'Travel Steps trip subscriptions', 'travel-steps' ),
+			'callback'             => [ self::class, 'erase' ],
+		];
+		return $erasers;
+	}
+
+	/**
+	 * The personal data exporter: each subscription of the address, with its trip.
+	 */
+	public static function export( string $email, int $page = 1 ): array {
+		$data = [];
+		foreach ( self::for_address( $email ) as $sub ) {
+			$data[] = [
+				'group_id'    => 'travel-steps-subscriptions',
+				'group_label' => __( 'Trip subscriptions', 'travel-steps' ),
+				'item_id'     => 'travel-steps-subscription-' . $sub['id'],
+				'data'        => [
+					[
+						'name'  => __( 'Trip', 'travel-steps' ),
+						'value' => self::plain( get_the_title( $sub['trip'] ) ),
+					],
+					[
+						'name'  => __( 'Email address', 'travel-steps' ),
+						'value' => $sub['email'] ? $sub['email'] : __( 'Your account’s', 'travel-steps' ),
+					],
+					[
+						'name'  => __( 'Status', 'travel-steps' ),
+						'value' => self::CONFIRMED === $sub['status'] ? __( 'Confirmed', 'travel-steps' ) : __( 'Pending', 'travel-steps' ),
+					],
+					[
+						'name'  => __( 'Subscribed', 'travel-steps' ),
+						'value' => (string) get_post_field( 'post_date', $sub['id'] ),
+					],
+				],
+			];
+		}
+		return [
+			'data' => $data,
+			'done' => true,
+		];
+	}
+
+	/**
+	 * The personal data eraser: deletes each subscription of the address.
+	 */
+	public static function erase( string $email, int $page = 1 ): array {
+		$subs = self::for_address( $email );
+		foreach ( $subs as $sub ) {
+			wp_delete_post( $sub['id'], true );
+		}
+		return [
+			'items_removed'  => count( $subs ),
+			'items_retained' => false,
+			'messages'       => [],
+			'done'           => true,
+		];
 	}
 }

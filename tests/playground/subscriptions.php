@@ -82,26 +82,28 @@ $sb_page = function ( int $trip, array $post = [], array $get = [], array $heade
 	return $to ?? $page;
 };
 // The page a link in an email opens, given its URL; or, with a POST, the page its
-// button leads to ($post is the body: none from the button, RFC 8058's from a mail client).
-$sb_link = function ( string $url, string $method = 'GET', array $post = [] ) use ( $render ) {
+// button or a mail client's one-click unsubscribe leads to. Only the method matters.
+$sb_link = function ( string $url, string $method = 'GET' ) use ( $render ) {
 	wp_parse_str( (string) wp_parse_url( html_entity_decode( $url ), PHP_URL_QUERY ), $query );
 	$_GET                      = $query;
-	$_POST                     = $post;
 	$_SERVER['REQUEST_METHOD'] = $method;
 	$page                      = $render( 'subscription.php', '' );
 	$_GET                      = [];
-	$_POST                     = [];
 	$_SERVER['REQUEST_METHOD'] = 'GET';
 	return $page;
 };
-// Opening a link in an email and pressing its button.
+// Pressing a link's button, or a mail client's one-click unsubscribe: a POST to the link.
 $sb_press = fn( string $url ) => $sb_link( $url, 'POST' );
-// The form on a link's page, if it has one: [ action, method, button text ].
+// The POST form on a link's page, if it has one: its action (null when it has none, so
+// it posts back to the link itself) and its button text.
 $sb_form = function ( string $page ) {
-	if ( ! preg_match( '#<form[^>]*method="post"[^>]*action="([^"]*)"[^>]*>.*?<button[^>]*>(.*?)</button>.*?</form>#s', $page, $m ) ) {
+	if ( ! preg_match( '#<form([^>]*method="post"[^>]*)>.*?<button[^>]*>(.*?)</button>.*?</form>#s', $page, $m ) ) {
 		return null;
 	}
-	return [ html_entity_decode( $m[1] ), 'post', trim( wp_strip_all_tags( $m[2] ) ) ];
+	return [
+		'action' => preg_match( '#action="([^"]*)"#', $m[1], $a ) ? html_entity_decode( $a[1] ) : null,
+		'button' => trim( wp_strip_all_tags( $m[2] ) ),
+	];
 };
 $sb_subs   = fn( int $trip, string $status = '' ) => array_values(
 	array_filter(
@@ -141,7 +143,7 @@ $page = $sb_link( $confirm );
 check( 'confirm: opening the link leaves the subscription pending', 'pending' === ( $sb_subs( $sb_pub )[0]['status'] ?? '' ), $sb_subs( $sb_pub ) );
 check( '…sets no cookie', empty( $_COOKIE[ Subscriptions::cookie( $sb_pub ) ] ) );
 $form = $sb_form( (string) $page );
-check( '…and shows a Confirm subscription button that posts back to the link', $form && html_entity_decode( $confirm ) === $form[0] && 'Confirm subscription' === $form[2], [ $form, substr( (string) $page, 0, 600 ) ] );
+check( '…and shows a Confirm subscription button that posts back to the link', $form && null === $form['action'] && 'Confirm subscription' === $form['button'], [ $form, substr( (string) $page, 0, 600 ) ] );
 $page = $sb_press( $confirm );
 check( 'confirm: the button confirms the subscription', 'confirmed' === ( $sb_subs( $sb_pub )[0]['status'] ?? '' ) && false !== stripos( $page, 'subscribed' ), [ $sb_subs( $sb_pub ), substr( wp_strip_all_tags( $page ), 0, 300 ) ] );
 check( '…and sets a cookie that recognises the subscriber on this browser', ! empty( $_COOKIE[ Subscriptions::cookie( $sb_pub ) ] ) );
@@ -153,10 +155,12 @@ check( 'subscribe: an address already subscribed gets the same answer, and no em
 $bad = preg_replace( '/key=[^&]+/', 'key=wrong', $confirm );
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'jo@example.org', 'ts_website' => '' ] );
 $jo_confirm = $sb_url_in( end( $sb_mails )['message'] ?? '', 'confirm' );
-$page = $sb_link( preg_replace( '/key=[^&]+/', 'key=wrong', $jo_confirm ) );
+$jo_bad = preg_replace( '/key=[^&]+/', 'key=wrong', $jo_confirm );
+$page   = $sb_link( $jo_bad );
 check( 'confirm: opening a link with a wrong key says it doesn’t work, with no button', false !== stripos( (string) $page, 'doesn’t work' ) && null === $sb_form( (string) $page ) );
-$sb_press( preg_replace( '/key=[^&]+/', 'key=wrong', $jo_confirm ) );
-check( 'confirm: a wrong key confirms nothing, opened or pressed', 'pending' === ( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'jo@example.org' ] ) ? array_values( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'jo@example.org' ] ) )[0]['status'] : '' ) );
+$sb_press( $jo_bad );
+$jo = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'jo@example.org' ] ) );
+check( 'confirm: a wrong key confirms nothing, opened or pressed', 'pending' === ( $jo['status'] ?? '' ), $jo );
 
 // Unsubscribing with the button, as the visitor the cookie names.
 $to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe' ] );
@@ -186,14 +190,14 @@ $sb_unsub  = Subscriptions::link( $link_sub, 'unsubscribe' );
 $page      = $sb_link( $sb_unsub );
 check( 'unsubscribe link: opening it keeps the subscription', (bool) wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) && false === stripos( $page, 'unsubscribed' ), $sb_subs( $sb_pub ) );
 $form = $sb_form( (string) $page );
-check( '…and shows an Unsubscribe button that posts back to the link', $form && $sb_unsub === $form[0] && 'Unsubscribe' === $form[2], $form );
+check( '…and shows an Unsubscribe button that posts back to the link', $form && null === $form['action'] && 'Unsubscribe' === $form['button'], $form );
 $page = $sb_press( $sb_unsub );
 check( 'unsubscribe link: the button ends the subscription', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) && false !== stripos( $page, 'unsubscribed' ) );
 $page = $sb_link( $sb_unsub );
 check( '…and opening the link again says it doesn’t work', false !== stripos( $page, 'doesn’t work' ) && null === $sb_form( (string) $page ) );
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'post@example.org', 'ts_website' => '' ] );
 $post_sub = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
-$sb_link( Subscriptions::link( $post_sub, 'unsubscribe' ), 'POST', [ 'List-Unsubscribe' => 'One-Click' ] );
+$sb_press( Subscriptions::link( $post_sub, 'unsubscribe' ) );
 check( 'unsubscribe link: a mail client’s one-click POST ends it too', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
 
 // A pending subscription expires after 7 days.
@@ -382,12 +386,13 @@ $sb_enter( 'douro' );
 $sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 $sb_kin_confirm = $sb_url_in( end( $sb_mails )['message'], 'confirm' );
 $sb_enter( null );
-$page = $sb_link( $sb_kin_confirm );
-check( 'protected: opening a confirm link shows no share code', null !== $sb_form( (string) $page ) && false === strpos( (string) $page, Trips::share_code( get_post( $sb_prot ) ) ), $page );
+$sb_code = Trips::share_code( get_post( $sb_prot ) );
+$page    = $sb_link( $sb_kin_confirm );
+check( 'protected: opening a confirm link shows no share code', null !== $sb_form( (string) $page ) && false === strpos( (string) $page, $sb_code ), $page );
 $page = $sb_press( $sb_kin_confirm );
-check( '…while pressing its button leads to the trip with it', false !== strpos( (string) $page, Trips::share_code( get_post( $sb_prot ) ) ), $page );
+check( '…while pressing its button leads to the trip with it', false !== strpos( (string) $page, $sb_code ), $page );
 $page = $sb_link( $sb_kin_confirm );
-check( '…and opening it again, once confirmed, still shows none', null !== $sb_form( (string) $page ) && false === strpos( (string) $page, Trips::share_code( get_post( $sb_prot ) ) ), $page );
+check( '…and opening it again, once confirmed, still shows none', null !== $sb_form( (string) $page ) && false === strpos( (string) $page, $sb_code ), $page );
 $sb_enter( null );
 wp_set_current_user( 1 );
 wp_update_post( [ 'ID' => $sb_prot_steps[1], 'post_status' => 'publish' ] );
@@ -439,7 +444,7 @@ check( 'one address: the logged-in Unsubscribe button ends both too', [] === $sb
 $sb_new_day( 'Cascais', '2025-05-04' );
 check( '…so the next roundup goes to nobody', [] === $sb_run() );
 $sb_both();
-$sb_link( Subscriptions::link( $sb_subs( $sb_two )[0], 'unsubscribe' ), 'POST', [ 'List-Unsubscribe' => 'One-Click' ] );
+$sb_press( Subscriptions::link( $sb_subs( $sb_two )[0], 'unsubscribe' ) );
 check( 'one address: a mail client’s one-click unsubscribe ends both too', [] === $sb_subs( $sb_two ), $sb_subs( $sb_two ) );
 
 // Deleting a user deletes their account's subscriptions.

@@ -22,6 +22,8 @@ Only published steps of published trips are public. Your home is kept off every 
 
 A trip can also have a password. Logged-in users on its viewer lists see it without one.
 
+Visitors can subscribe to a trip. Once a day, if new days or photos were published, they get one plain-text email listing them, with a link to unsubscribe.
+
 Photos come from an Immich server your WordPress server can reach, or are uploaded to each trip, which needs PHP's exif extension. Dawarich is optional. Authors and up can make trips, each with their own Immich and Dawarich API keys and home location. A trip always uses its author's keys.
 
 == Installation ==

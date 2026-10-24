@@ -452,7 +452,7 @@ class Subscriptions {
 	 * mail client's one-click unsubscribe, a POST to the same link.
 	 *
 	 * @param array<string, mixed> $query The link's query arguments.
-	 * @return array{state: string, trip: ?\WP_Post}
+	 * @return array{state: string, trip: ?\WP_Post, sub: int}
 	 */
 	public static function handle_link( array $query ): array {
 		$do  = is_string( $query['do'] ?? null ) ? $query['do'] : '';
@@ -462,6 +462,7 @@ class Subscriptions {
 			return [
 				'state' => 'invalid',
 				'trip'  => null,
+				'sub'   => 0,
 			];
 		}
 		$trip = get_post( $sub['trip'] );
@@ -488,6 +489,7 @@ class Subscriptions {
 		return [
 			'state' => $state,
 			'trip'  => $trip,
+			'sub'   => $sub['id'],
 		];
 	}
 

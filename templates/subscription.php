@@ -7,12 +7,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 use TravelSteps\App;
 use TravelSteps\Roundup;
 use TravelSteps\Subscriptions;
+use TravelSteps\Trips;
 
 // Each visit acts, so no cache may keep the answer.
 nocache_headers();
 $result = Subscriptions::handle_link( wp_unslash( $_GET ) );
 $trip   = $result['trip'];
 $shown  = $trip && Subscriptions::offered( $trip );
+// The share code only for a subscription that still gets the roundup: a logged-in
+// subscriber cut off by a password change keeps the links in their old emails.
+$sub    = 'confirmed' === $result['state'] ? Subscriptions::get( $result['sub'] ) : null;
+$link   = $shown && $sub && Roundup::reaches( $trip, $sub ) ? Roundup::trip_link( $trip ) : ( $shown ? Trips::url( $trip ) : '' );
 $texts  = [
 	'confirmed'    => [ __( 'You’re subscribed', 'travel-steps' ), __( 'You’ll get an email on days when new days or photos are added to this trip. Each one has a link to unsubscribe.', 'travel-steps' ) ],
 	'unsubscribed' => [ __( 'You’re unsubscribed', 'travel-steps' ), __( 'You won’t get any more emails about this trip.', 'travel-steps' ) ],
@@ -32,7 +37,7 @@ include __DIR__ . '/_header.php';
 	<?php endif; ?>
 	<p><?php echo esc_html( $message ); ?></p>
 	<?php if ( $shown ) : ?>
-		<p><a class="ts-button" href="<?php echo esc_url( Roundup::trip_link( $trip ) ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps' ); ?></a></p>
+		<p><a class="ts-button" href="<?php echo esc_url( $link ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps' ); ?></a></p>
 	<?php else : ?>
 		<p><a href="<?php echo esc_url( App::url() ); ?>"><?php esc_html_e( 'All trips', 'travel-steps' ); ?></a></p>
 	<?php endif; ?>

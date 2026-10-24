@@ -63,6 +63,8 @@ class App extends BaseApp {
 		add_filter( 'wp_insert_post_data', [ Trips::class, 'step_parent' ], 10, 2 );
 		add_filter( 'protected_title_format', [ Trips::class, 'protected_title_format' ], 10, 2 );
 		add_action( 'admin_init', [ self::class, 'suggest_privacy_policy' ] );
+		add_action( 'post_updated', [ Subscriptions::class, 'password_changed' ], 10, 3 );
+		add_action( 'before_delete_post', [ Subscriptions::class, 'delete_for_trip' ] );
 
 		parent::init();
 

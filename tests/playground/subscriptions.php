@@ -46,13 +46,19 @@ $sb_trip = function ( string $title, string $password = '' ) use ( $sb_author, $
 $sb_page = function ( int $trip, array $post = [], array $get = [] ) use ( $render ) {
 	$_POST                     = $post;
 	$_GET                      = $get;
+	$_REQUEST                  = $post + $get;
 	$_SERVER['REQUEST_METHOD'] = $post ? 'POST' : 'GET';
 	$to                        = null;
+	$die                       = fn() => function () use ( &$to ) {
+		$to = 'die';
+		throw new RuntimeException( 'die' );
+	};
 	$catch                     = function ( $location ) use ( &$to ) {
 		$to = $location;
 		throw new RuntimeException( 'redirect' );
 	};
 	add_filter( 'wp_redirect', $catch );
+	add_filter( 'wp_die_handler', $die );
 	$level = ob_get_level();
 	try {
 		$page = $render( 'trip.php', (string) $trip );
@@ -63,8 +69,10 @@ $sb_page = function ( int $trip, array $post = [], array $get = [] ) use ( $rend
 		ob_end_clean();
 	}
 	remove_filter( 'wp_redirect', $catch );
+	remove_filter( 'wp_die_handler', $die );
 	$_POST                     = [];
 	$_GET                      = [];
+	$_REQUEST                  = [];
 	$_SERVER['REQUEST_METHOD'] = 'GET';
 	return $to ?? $page;
 };
@@ -130,3 +138,88 @@ check( 'confirm: a wrong key confirms nothing', 'pending' === ( wp_list_filter( 
 $to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe' ] );
 check( 'unsubscribe: the button drops the subscription the cookie names', false !== strpos( (string) $to, 'subscription=unsubscribed' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'mary@example.org' ] ), [ $to, $sb_subs( $sb_pub ) ] );
 check( '…and the page has the form again', false !== strpos( $sb_page( $sb_pub ), 'name="ts_email"' ) );
+
+// Logged-in visitors subscribe their account with a button.
+wp_set_current_user( $sb_friend );
+$page = $sb_page( $sb_pub );
+check( 'logged in: the page has a Subscribe button and no address field', false !== strpos( $page, 'value="subscribe"' ) && false === strpos( $page, 'name="ts_email"' ) );
+$sb_mails = [];
+$nonce    = wp_create_nonce( 'travel_steps_subscription_' . $sb_pub );
+$to       = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', '_wpnonce' => $nonce ] );
+$mine     = wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] );
+check( 'logged in: Subscribe subscribes the account at once, with no email', false !== strpos( (string) $to, 'subscription=subscribed' ) && 1 === count( $mine ) && 'confirmed' === current( $mine )['status'] && [] === $sb_mails, [ $to, $mine, $sb_mails ] );
+check( '…and the page then offers Unsubscribe', false !== strpos( $sb_page( $sb_pub ), 'value="unsubscribe"' ) );
+$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe', '_wpnonce' => $nonce ] );
+check( 'logged in: Unsubscribe ends it', false !== strpos( (string) $to, 'subscription=unsubscribed' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] ) );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', '_wpnonce' => $nonce ] );
+wp_set_current_user( 0 );
+
+// The unsubscribe link in an email, opened or posted by a mail client's button.
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'link@example.org', 'ts_website' => '' ] );
+$sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
+$link_sub = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) );
+$page     = $sb_link( Subscriptions::link( $link_sub, 'unsubscribe' ) );
+check( 'unsubscribe link: one click ends the subscription', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) && false !== stripos( $page, 'unsubscribed' ) );
+$page = $sb_link( Subscriptions::link( $link_sub, 'unsubscribe' ) );
+check( '…and a second click says the link doesn’t work', false !== stripos( $page, 'doesn’t work' ) );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'post@example.org', 'ts_website' => '' ] );
+$post_sub = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
+$sb_link( Subscriptions::link( $post_sub, 'unsubscribe' ), 'POST' );
+check( 'unsubscribe link: a mail client’s one-click POST ends it too', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
+
+// A pending subscription expires after 7 days.
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'late@example.org', 'ts_website' => '' ] );
+$late = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'late@example.org' ] ) );
+update_post_meta( $late['id'], Subscriptions::META_MAILED, time() - 8 * DAY_IN_SECONDS );
+$page = $sb_link( Subscriptions::link( $late, 'confirm' ) );
+check( 'confirm: a link older than 7 days has expired, and the signup is gone', false !== stripos( $page, 'expired' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'late@example.org' ] ) );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'later@example.org', 'ts_website' => '' ] );
+$later = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'later@example.org' ] ) );
+update_post_meta( $later['id'], Subscriptions::META_MAILED, time() - 8 * DAY_IN_SECONDS );
+Subscriptions::expire_pending();
+check( '…and the daily run drops expired signups nobody confirmed', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'later@example.org' ] ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'jo@example.org' ] ) );
+
+// Protected trips.
+$sb_enter = function ( ?string $password ) {
+	unset( $_COOKIE[ Trips::password_cookie() ] );
+	if ( null !== $password ) {
+		$_COOKIE[ Trips::password_cookie() ] = ( new PasswordHash( 8, true ) )->HashPassword( $password );
+	}
+};
+[ $sb_prot, $sb_prot_steps ] = $sb_trip( 'Secret Lisbon', 'tagus' );
+$sb_enter( null );
+$page = $sb_page( $sb_prot );
+check( 'protected: without the password there’s no form', false === strpos( (string) $page, 'name="ts_email"' ) && false !== strpos( (string) $page, 'name="post_password"' ) );
+$sb_mails = [];
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'sneaky@example.org', 'ts_website' => '' ] );
+check( '…and posting to it subscribes nobody', [] === $sb_subs( $sb_prot ) && [] === $sb_mails );
+$sb_enter( 'tagus' );
+check( 'protected: with the password there’s the form', false !== strpos( $sb_page( $sb_prot ), 'name="ts_email"' ) );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '' ] );
+$sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'pending@example.org', 'ts_website' => '' ] );
+wp_set_current_user( $sb_friend );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', '_wpnonce' => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+wp_set_current_user( 0 );
+check( 'protected: visitors with the password subscribe', 3 === count( $sb_subs( $sb_prot ) ), $sb_subs( $sb_prot ) );
+
+// Changing the password drops email-only subscriptions, from any editor.
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_prot, 'post_password' => 'douro' ] );
+wp_set_current_user( 0 );
+$left = $sb_subs( $sb_prot );
+check( 'password change: email-only subscriptions are deleted, the account’s kept', 1 === count( $left ) && $sb_friend === $left[0]['user'], $left );
+check( '…and the logged-in subscriber no longer gets the roundup', ! Roundup::reaches( get_post( $sb_prot ), $left[0] ) );
+wp_set_current_user( $sb_friend );
+$sb_enter( 'douro' );
+check( '…so they’re offered Subscribe again', false !== strpos( $sb_page( $sb_prot ), 'value="subscribe"' ) );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', '_wpnonce' => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+check( '…which brings it back', 1 === count( $sb_subs( $sb_prot ) ) && Roundup::reaches( get_post( $sb_prot ), $sb_subs( $sb_prot )[0] ) );
+wp_set_current_user( 0 );
+$sb_enter( null );
+$sb_page_before = count( $sb_subs( $sb_pub ) );
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_pub, 'post_title' => 'Lisbon in May, again' ] );
+wp_update_post( [ 'ID' => $sb_pub, 'post_title' => 'Lisbon in May' ] );
+wp_set_current_user( 0 );
+check( 'password change: other edits keep subscriptions', count( $sb_subs( $sb_pub ) ) === $sb_page_before );

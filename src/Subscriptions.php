@@ -145,6 +145,24 @@ class Subscriptions {
 	}
 
 	/**
+	 * Drops a trip's email-only subscriptions when it gets a new password, wherever it's
+	 * changed (the plugin's form, the block editor, wp-admin, REST): changing it is how
+	 * access is revoked, so it stops the emails too. Logged-in subscribers are kept, and
+	 * skipped while they can't see the trip (see Roundup::reaches()). Taking the password
+	 * off revokes nobody, so it keeps them all.
+	 */
+	public static function password_changed( int $post_id, \WP_Post $after, \WP_Post $before ): void {
+		if ( Trips::TRIP !== $after->post_type || $after->post_password === $before->post_password || ! Trips::is_protected( $after ) ) {
+			return;
+		}
+		foreach ( self::for_trip( $post_id ) as $sub ) {
+			if ( ! $sub['user'] ) {
+				wp_delete_post( $sub['id'], true );
+			}
+		}
+	}
+
+	/**
 	 * The link that confirms ($do 'confirm') or ends ('unsubscribe') a subscription.
 	 */
 	public static function link( array $sub, string $do ): string {

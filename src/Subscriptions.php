@@ -391,7 +391,20 @@ class Subscriptions {
 	 * the same either way, so the form can't show who follows a trip.
 	 */
 	public static function signup( \WP_Post $trip, string $email ): void {
-		$email    = strtolower( $email );
+		// Two signups for the address at once would both find none and both send an email.
+		// The one that finds the lock taken sends nothing.
+		Lock::run( self::signup_lock( $trip->ID, $email ), fn() => self::signup_now( $trip, strtolower( trim( $email ) ) ) );
+	}
+
+	/**
+	 * The lock a signup for the address holds. Named by a keyed hash, so the address
+	 * isn't in the options table.
+	 */
+	public static function signup_lock( int $trip_id, string $email ): string {
+		return 'travel_steps_signup_lock_' . $trip_id . '_' . wp_hash( strtolower( trim( $email ) ) );
+	}
+
+	private static function signup_now( \WP_Post $trip, string $email ): void {
 		$existing = self::find( $trip->ID, self::META_EMAIL, $email );
 		if ( $existing && ( self::CONFIRMED === $existing['status'] || $existing['mailed'] > time() - self::RESEND_S ) ) {
 			return;

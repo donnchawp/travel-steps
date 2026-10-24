@@ -1228,6 +1228,20 @@ check( '…but the trip’s author can', $bobs === $step_parent( $bob, [ 'post_p
 check( '…and so can an editor who can edit the trip', $bobs === $step_parent( $eddie, [ 'post_parent' => $bobs ] ) );
 check( '…and moving a step out of a trip is allowed', 0 === $step_parent( $alice, [ 'ID' => $alice_step, 'post_parent' => 0 ] ) );
 
+// The trip page, its map data and its photos would show a step whatever its password said.
+$locked_step = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_title' => 'Locked', 'post_status' => 'publish', 'post_parent' => $alices, 'post_password' => 'secret' ] );
+check( 'a step saved with a password has none', '' === get_post( $locked_step )->post_password );
+wp_update_post( [ 'ID' => $locked_step, 'post_password' => 'secret' ] );
+check( '…nor when one is added later', '' === get_post( $locked_step )->post_password );
+$req = new WP_REST_Request( 'POST', '/wp/v2/ts_step/' . $locked_step );
+$req->set_param( 'password', 'secret' );
+$res = rest_do_request( $req );
+check( '…nor when the block editor sends one', 200 === $res->get_status() && '' === get_post( $locked_step )->post_password, [ $res->get_status(), get_post( $locked_step )->post_password ] );
+$locked_trip = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Locked trip', 'post_status' => 'publish', 'post_password' => 'secret' ] );
+check( '…but a trip keeps its password', 'secret' === get_post( $locked_trip )->post_password );
+wp_delete_post( $locked_step, true );
+wp_delete_post( $locked_trip, true );
+
 // The app's pages have one-click controls (viewers, pin, hide), so only the site may frame them.
 $framed = function ( string $app_path ): bool {
 	header_remove( 'X-Frame-Options' );

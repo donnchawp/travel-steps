@@ -2,9 +2,10 @@
 /**
  * Subscriptions to a trip and the daily roundup emailed to them: signing up from the trip
  * page, confirming and unsubscribing by link, what a roundup lists and who gets it.
- * Required at the end of smoke.php, in its scope: uses check() and $render.
+ * Required at the end of smoke.php, in its scope: uses check(), row(), $render and $stopped.
  */
 use TravelSteps\Roundup;
+use TravelSteps\Settings;
 use TravelSteps\Subscriptions;
 use TravelSteps\Trips;
 
@@ -145,13 +146,13 @@ $page = $sb_page( $sb_pub );
 check( 'logged in: the page has a Subscribe button and no address field', false !== strpos( $page, 'value="subscribe"' ) && false === strpos( $page, 'name="ts_email"' ) );
 $sb_mails = [];
 $nonce    = wp_create_nonce( 'travel_steps_subscription_' . $sb_pub );
-$to       = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', '_wpnonce' => $nonce ] );
+$to       = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => $nonce ] );
 $mine     = wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] );
 check( 'logged in: Subscribe subscribes the account at once, with no email', false !== strpos( (string) $to, 'subscription=subscribed' ) && 1 === count( $mine ) && 'confirmed' === current( $mine )['status'] && [] === $sb_mails, [ $to, $mine, $sb_mails ] );
 check( '…and the page then offers Unsubscribe', false !== strpos( $sb_page( $sb_pub ), 'value="unsubscribe"' ) );
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe', '_wpnonce' => $nonce ] );
+$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => $nonce ] );
 check( 'logged in: Unsubscribe ends it', false !== strpos( (string) $to, 'subscription=unsubscribed' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] ) );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', '_wpnonce' => $nonce ] );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => $nonce ] );
 wp_set_current_user( 0 );
 
 // The unsubscribe link in an email, opened or posted by a mail client's button.
@@ -199,7 +200,7 @@ $sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@examp
 $sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
 $sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'pending@example.org', 'ts_website' => '' ] );
 wp_set_current_user( $sb_friend );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', '_wpnonce' => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 wp_set_current_user( 0 );
 check( 'protected: visitors with the password subscribe', 3 === count( $sb_subs( $sb_prot ) ), $sb_subs( $sb_prot ) );
 
@@ -213,7 +214,7 @@ check( '…and the logged-in subscriber no longer gets the roundup', ! Roundup::
 wp_set_current_user( $sb_friend );
 $sb_enter( 'douro' );
 check( '…so they’re offered Subscribe again', false !== strpos( $sb_page( $sb_prot ), 'value="subscribe"' ) );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', '_wpnonce' => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 check( '…which brings it back', 1 === count( $sb_subs( $sb_prot ) ) && Roundup::reaches( get_post( $sb_prot ), $sb_subs( $sb_prot )[0] ) );
 wp_set_current_user( 0 );
 $sb_enter( null );
@@ -239,7 +240,7 @@ $sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'ana@example
 $sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
 $sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unconfirmed@example.org', 'ts_website' => '' ] );
 wp_set_current_user( $sb_friend );
-$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', '_wpnonce' => wp_create_nonce( 'travel_steps_subscription_' . $sb_rt ) ] );
+$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_rt ) ] );
 wp_set_current_user( 0 );
 check( 'roundup: nothing is sent for what the trip had when they subscribed', [] === $sb_run() );
 
@@ -307,3 +308,74 @@ wp_update_post( [ 'ID' => $sb_prot, 'post_password' => 'mondego' ] );
 $sb_prot_day3 = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $sb_prot, 'post_title' => 'Day three', 'post_status' => 'publish', 'post_date' => '2025-05-03 12:00:00' ] );
 wp_set_current_user( 0 );
 check( 'roundup: after a password change the logged-in subscriber is skipped, and kept', [] === $sb_run() && 1 === count( $sb_subs( $sb_prot ) ) );
+
+// When it runs.
+wp_clear_scheduled_hook( Roundup::HOOK );
+Roundup::schedule();
+check( 'schedule: the roundup is hooked and scheduled for its next hour', false !== has_action( Roundup::HOOK, [ Roundup::class, 'run' ] ) && wp_next_scheduled( Roundup::HOOK ) === Roundup::next_time() );
+$sb_tz = get_option( 'timezone_string' );
+update_option( 'timezone_string', 'Europe/Lisbon' );
+$sb_at = fn( string $local ) => ( new DateTimeImmutable( $local, new DateTimeZone( 'Europe/Lisbon' ) ) )->getTimestamp();
+check( 'schedule: by default at 08:00 site time, later the same day', $sb_at( '2026-07-01 08:00' ) === Roundup::next_time( $sb_at( '2026-07-01 07:30' ) ) );
+check( '…or the next day, once it’s past', $sb_at( '2026-07-02 08:00' ) === Roundup::next_time( $sb_at( '2026-07-01 08:00' ) ) );
+check( '…at 08:00 across the change of clocks too', $sb_at( '2026-10-26 08:00' ) === Roundup::next_time( $sb_at( '2026-10-25 09:00' ) ) );
+update_option( Settings::OPTION, Settings::sanitize_site( [ 'roundup_hour' => '19' ] ) );
+check( 'schedule: at the hour in the site settings', $sb_at( '2026-07-01 19:00' ) === Roundup::next_time( $sb_at( '2026-07-01 07:30' ) ) );
+check( '…which is an hour of the day', [ 0, 23, 8 ] === array_map( fn( $h ) => Settings::sanitize_site( [ 'roundup_hour' => $h ] )['roundup_hour'], [ '-3', '30', 'x' ] ) );
+Roundup::reschedule();
+check( '…and changing it moves the next run', wp_next_scheduled( Roundup::HOOK ) === Roundup::next_time() );
+update_option( Settings::OPTION, Settings::sanitize_site( [] ) );
+update_option( 'timezone_string', $sb_tz );
+Roundup::reschedule();
+
+// The author's panel on the edit page.
+wp_set_current_user( $sb_author );
+$edit = $render( 'trip-edit.php', (string) $sb_rt );
+check( 'edit page: lists subscribers by address, or name for an account', false !== strpos( $edit, 'ana@example.org' ) && false !== strpos( $edit, 'Friendly Fiona' ) && false !== strpos( $edit, 'unconfirmed@example.org' ) );
+check( '…marks pending ones', 1 === preg_match( '/unconfirmed@example\.org.*?Pending/s', $edit ) );
+check( '…counts them', false !== strpos( $edit, '2 subscribers' ), substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 600 ) );
+check( '…and says when the last roundup went', false !== stripos( $edit, 'last roundup' ) );
+$sb_remove = function ( int $user, int $sub ) use ( $stopped ) {
+	wp_set_current_user( $user );
+	$_POST = $_REQUEST = [ 'subscription' => $sub, '_wpnonce' => wp_create_nonce( 'travel_steps_remove_subscriber' ) ];
+	$result = $stopped( [ Subscriptions::class, 'handle_remove' ] );
+	$_POST = $_REQUEST = [];
+	return $result;
+};
+$ana_sub = current( wp_list_filter( $sb_subs( $sb_rt ), [ 'email' => 'ana@example.org' ] ) );
+check( 'edit page: someone who can’t edit the trip can’t remove a subscriber', 'die' === $sb_remove( $sb_friend, $ana_sub['id'] ) && Subscriptions::get( $ana_sub['id'] ) );
+check( '…but its author can', 'redirect' === $sb_remove( $sb_author, $ana_sub['id'] ) && ! Subscriptions::get( $ana_sub['id'] ) );
+wp_set_current_user( $sb_friend );
+check( 'edit page: no subscriber list for anyone else', false === strpos( $render( 'trip-edit.php', (string) $sb_rt ), 'Friendly Fiona' ) );
+wp_set_current_user( 0 );
+
+// Personal data: exported and erased by address.
+$sb_exporters = apply_filters( 'wp_privacy_personal_data_exporters', [] );
+$sb_erasers   = apply_filters( 'wp_privacy_personal_data_erasers', [] );
+check( 'privacy: an exporter and an eraser are registered', isset( $sb_exporters['travel-steps-subscriptions'], $sb_erasers['travel-steps-subscriptions'] ) );
+$sb_export = call_user_func( $sb_exporters['travel-steps-subscriptions']['callback'], 'friend@example.org', 1 );
+check( '…the export lists an account’s subscriptions by its address', in_array( 'Roundup Lisbon', wp_list_pluck( array_merge( ...array_column( $sb_export['data'], 'data' ) ), 'value' ), true ), $sb_export );
+$sb_erased = call_user_func( $sb_erasers['travel-steps-subscriptions']['callback'], 'unconfirmed@example.org', 1 );
+check( '…and erasing an address deletes its subscriptions', $sb_erased['items_removed'] && ! wp_list_filter( $sb_subs( $sb_rt ), [ 'email' => 'unconfirmed@example.org' ] ), $sb_erased );
+require_once ABSPATH . 'wp-admin/includes/misc.php';
+require_once ABSPATH . 'wp-admin/includes/class-wp-privacy-policy-content.php';
+require_once ABSPATH . 'wp-admin/includes/class-wp-screen.php';
+require_once ABSPATH . 'wp-admin/includes/screen.php';
+$GLOBALS['current_screen']      = WP_Screen::get( 'dashboard' );
+$GLOBALS['wp_current_filter'][] = 'admin_init';
+TravelSteps\App::suggest_privacy_policy();
+array_pop( $GLOBALS['wp_current_filter'] );
+$GLOBALS['current_screen'] = null;
+check( 'privacy: the policy text mentions subscriptions', false !== stripos( implode( ' ', wp_list_pluck( WP_Privacy_Policy_Content::get_suggested_policy_text(), 'policy_text' ) ), 'subscribe' ) );
+
+// Deleting a trip, and the plugin.
+wp_set_current_user( 1 );
+$sb_pub_subs = wp_list_pluck( $sb_subs( $sb_pub ), 'id' );
+wp_delete_post( $sb_pub, true );
+check( 'deleting a trip deletes its subscriptions', $sb_pub_subs && ! array_filter( array_map( [ Subscriptions::class, 'get' ], $sb_pub_subs ) ) );
+if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+	define( 'WP_UNINSTALL_PLUGIN', 'travel-steps/travel-steps.php' );
+}
+require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+check( 'uninstall: every subscription is deleted, and the roundup unscheduled', [] === get_posts( [ 'post_type' => Subscriptions::TYPE, 'post_status' => 'any', 'numberposts' => -1 ] ) && ! wp_next_scheduled( Roundup::HOOK ) );
+wp_set_current_user( 0 );

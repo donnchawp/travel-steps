@@ -50,6 +50,7 @@ register_activation_hook(
 		Trips::register_post_types();
 		flush_rewrite_rules();
 		CacheSweep::schedule();
+		Roundup::schedule();
 	}
 );
 
@@ -59,5 +60,6 @@ register_deactivation_hook(
 		flush_rewrite_rules();
 		wp_unschedule_hook( CacheFill::HOOK );
 		wp_unschedule_hook( CacheSweep::HOOK );
+		wp_unschedule_hook( Roundup::HOOK );
 	}
 );

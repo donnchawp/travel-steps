@@ -9,7 +9,9 @@ use TravelSteps\DawarichClient;
 use TravelSteps\Exif;
 use TravelSteps\ImmichClient;
 use TravelSteps\RestController;
+use TravelSteps\Roundup;
 use TravelSteps\Settings;
+use TravelSteps\Subscriptions;
 use TravelSteps\Trips;
 use TravelSteps\Uploads;
 use TravelSteps\View;
@@ -485,6 +487,80 @@ include __DIR__ . '/_header.php';
 						</li>
 					<?php endforeach; ?>
 				</ol>
+			<?php endif; ?>
+		</section>
+
+		<?php
+		$subscriptions = Subscriptions::for_trip( $trip_id );
+		$confirmed     = count( wp_list_filter( $subscriptions, [ 'status' => Subscriptions::CONFIRMED ] ) );
+		$last_roundup  = get_post_meta( $trip_id, Roundup::META_LAST, true );
+		?>
+		<section class="ts-panel" id="ts-subscribers">
+			<h2><?php esc_html_e( 'Subscribers', 'travel-steps' ); ?></h2>
+			<?php if ( isset( $_GET['removed'] ) ) : ?>
+				<p class="ts-notice"><?php esc_html_e( 'Subscriber removed.', 'travel-steps' ); ?></p>
+			<?php endif; ?>
+			<p class="ts-muted">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %s: number of subscribers */
+						_n( '%s subscriber gets an email on days when new days or photos are published.', '%s subscribers get an email on days when new days or photos are published.', $confirmed, 'travel-steps' ),
+						number_format_i18n( $confirmed )
+					)
+				);
+				echo ' ';
+				if ( is_array( $last_roundup ) && ! empty( $last_roundup['time'] ) ) {
+					$listed = [];
+					if ( ! empty( $last_roundup['days'] ) ) {
+						/* translators: %s: number of days */
+						$listed[] = sprintf( _n( '%s new day', '%s new days', (int) $last_roundup['days'], 'travel-steps' ), number_format_i18n( (int) $last_roundup['days'] ) );
+					}
+					if ( ! empty( $last_roundup['photos'] ) ) {
+						/* translators: %s: number of days */
+						$listed[] = sprintf( _n( 'new photos on %s day', 'new photos on %s days', (int) $last_roundup['photos'], 'travel-steps' ), number_format_i18n( (int) $last_roundup['photos'] ) );
+					}
+					if ( ! empty( $last_roundup['updated'] ) ) {
+						/* translators: %s: number of days */
+						$listed[] = sprintf( _n( '%s updated day', '%s updated days', (int) $last_roundup['updated'], 'travel-steps' ), number_format_i18n( (int) $last_roundup['updated'] ) );
+					}
+					echo esc_html(
+						sprintf(
+							/* translators: 1: time since, 2: a list such as "2 new days, new photos on 1 day", 3: number of recipients */
+							_n( 'The last roundup went %1$s ago, with %2$s, to %3$s subscriber.', 'The last roundup went %1$s ago, with %2$s, to %3$s subscribers.', (int) $last_roundup['recipients'], 'travel-steps' ),
+							human_time_diff( (int) $last_roundup['time'] ),
+							wp_sprintf( '%l', $listed ),
+							number_format_i18n( (int) $last_roundup['recipients'] )
+						)
+					);
+				} else {
+					esc_html_e( 'No roundup has been sent yet.', 'travel-steps' );
+				}
+				?>
+			</p>
+			<?php if ( 'publish' !== $trip->post_status ) : ?>
+				<p class="ts-muted"><?php esc_html_e( 'The trip isn’t public, so nobody can subscribe and no roundups go out. Its subscribers are kept for when it is.', 'travel-steps' ); ?></p>
+			<?php endif; ?>
+			<?php if ( $subscriptions ) : ?>
+				<ul class="ts-subscriber-list">
+					<?php foreach ( $subscriptions as $subscription ) : ?>
+						<?php $account = $subscription['user'] ? get_userdata( $subscription['user'] ) : null; ?>
+						<li>
+							<span><?php echo esc_html( $account ? $account->display_name : ( $subscription['email'] ? $subscription['email'] : __( 'A deleted account', 'travel-steps' ) ) ); ?></span>
+							<?php if ( Subscriptions::PENDING === $subscription['status'] ) : ?>
+								<span class="ts-badge is-warning"><?php esc_html_e( 'Pending', 'travel-steps' ); ?></span>
+							<?php elseif ( ! Roundup::reaches( $trip, $subscription ) && 'publish' === $trip->post_status ) : ?>
+								<span class="ts-badge"><?php esc_html_e( 'Can’t see the trip', 'travel-steps' ); ?></span>
+							<?php endif; ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+								<input type="hidden" name="action" value="travel_steps_remove_subscriber">
+								<input type="hidden" name="subscription" value="<?php echo (int) $subscription['id']; ?>">
+								<?php wp_nonce_field( 'travel_steps_remove_subscriber' ); ?>
+								<button type="submit" class="ts-button ts-button-secondary"><?php esc_html_e( 'Remove', 'travel-steps' ); ?></button>
+							</form>
+						</li>
+					<?php endforeach; ?>
+				</ul>
 			<?php endif; ?>
 		</section>
 	<?php endif; ?>

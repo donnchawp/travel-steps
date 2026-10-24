@@ -32,7 +32,7 @@ $notices = [
 	<?php endif; ?>
 	<form class="ts-subscribe-form" method="post" action="<?php echo esc_url( Trips::url( $trip ) . '#ts-subscribe' ); ?>">
 		<?php if ( is_user_logged_in() ) : ?>
-			<?php wp_nonce_field( 'travel_steps_subscription_' . $trip->ID ); ?>
+			<?php wp_nonce_field( 'travel_steps_subscription_' . $trip->ID, Subscriptions::NONCE_FIELD ); ?>
 		<?php endif; ?>
 		<?php if ( $subscribed ) : ?>
 			<p class="ts-muted"><?php esc_html_e( 'You get an email on days when new days or photos are added to this trip.', 'travel-steps' ); ?></p>

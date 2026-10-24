@@ -126,7 +126,11 @@ class Settings {
 		}
 		check_admin_referer( 'travel_steps_settings' );
 
+		$hour = self::get( 'roundup_hour' );
 		update_option( self::OPTION, self::sanitize_site( wp_unslash( $_POST ) ), false );
+		if ( self::get( 'roundup_hour' ) !== $hour ) {
+			Roundup::reschedule();
+		}
 		wp_safe_redirect( add_query_arg( 'saved', '1', App::url( 'settings' ) ) );
 		exit;
 	}
@@ -138,6 +142,7 @@ class Settings {
 			'place_radius_km' => max( 0.1, (float) ( $input['place_radius_km'] ?? 2 ) ),
 			'auto_pick'       => min( 50, max( 1, (int) ( $input['auto_pick'] ?? 8 ) ) ),
 			'cache_days'      => max( 0, (int) ( $input['cache_days'] ?? 0 ) ),
+			'roundup_hour'    => is_numeric( $input['roundup_hour'] ?? null ) ? min( 23, max( 0, (int) $input['roundup_hour'] ) ) : self::DEFAULTS['roundup_hour'],
 		];
 	}
 

@@ -699,18 +699,24 @@ class Trips {
 	 * @return array<string, true>
 	 */
 	public static function visible_photo_ids( int $trip_id, array $steps ): array {
-		$ids = [];
-		foreach ( self::photos_by_step( $trip_id, $steps ) as $groups ) {
-			foreach ( array_merge( $groups['shown'], $groups['rest'] ) as $photo ) {
-				$ids[ $photo['id'] ] = true;
-			}
-		}
+		$ids = array_fill_keys( array_merge( [], ...array_values( self::visible_photos_by_step( $trip_id, $steps ) ) ), true );
 		// The chosen cover is public with the trip, whichever step it's from.
 		$cover = self::cover( $trip_id );
 		if ( '' !== $cover ) {
 			$ids[ $cover ] = true;
 		}
 		return $ids;
+	}
+
+	/**
+	 * Asset ids of the photos visitors see on each of $steps once they're published: its
+	 * non-hidden photos, shown or behind "Show more".
+	 *
+	 * @param \WP_Post[] $steps
+	 * @return array<int, string[]> Keyed by step id; a step with none is left out.
+	 */
+	public static function visible_photos_by_step( int $trip_id, array $steps ): array {
+		return array_map( fn( $groups ) => array_column( array_merge( $groups['shown'], $groups['rest'] ), 'id' ), self::photos_by_step( $trip_id, $steps ) );
 	}
 
 	private function trip_from_request(): \WP_Post {

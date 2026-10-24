@@ -393,15 +393,23 @@ class Subscriptions {
 	public static function signup( \WP_Post $trip, string $email ): void {
 		// Two signups for the address at once would both find none and both send an email.
 		// The one that finds the lock taken sends nothing.
-		Lock::run( self::signup_lock( $trip->ID, $email ), fn() => self::signup_now( $trip, strtolower( trim( $email ) ) ) );
+		$email = self::normalise_email( $email );
+		Lock::run( self::signup_lock( $trip->ID, $email ), fn() => self::signup_now( $trip, $email ) );
 	}
 
 	/**
 	 * The lock a signup for the address holds. Named by a keyed hash, so the address
-	 * isn't in the options table.
+	 * isn't in the options table. Public so the smoke test can hold it.
 	 */
 	public static function signup_lock( int $trip_id, string $email ): string {
-		return 'travel_steps_signup_lock_' . $trip_id . '_' . wp_hash( strtolower( trim( $email ) ) );
+		return 'travel_steps_signup_lock_' . $trip_id . '_' . wp_hash( self::normalise_email( $email ) );
+	}
+
+	/**
+	 * An address as subscriptions store it, so lookups and locks agree on it.
+	 */
+	private static function normalise_email( string $email ): string {
+		return strtolower( trim( $email ) );
 	}
 
 	private static function signup_now( \WP_Post $trip, string $email ): void {
@@ -593,7 +601,7 @@ class Subscriptions {
 	 * @return array[]
 	 */
 	public static function for_address( string $email ): array {
-		$email = strtolower( trim( $email ) );
+		$email = self::normalise_email( $email );
 		$user  = '' === $email ? false : get_user_by( 'email', $email );
 		$subs  = [];
 		foreach ( array_filter( [ self::META_EMAIL => $email, self::META_USER => $user ? $user->ID : 0 ] ) as $key => $value ) {

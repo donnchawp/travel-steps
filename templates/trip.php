@@ -5,6 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 use TravelSteps\RestController;
+use TravelSteps\Subscriptions;
 use TravelSteps\Trips;
 use TravelSteps\View;
 
@@ -32,6 +33,8 @@ if ( isset( $_GET['tried'] ) ) {
 	wp_safe_redirect( Trips::url( $trip ) );
 	exit;
 }
+// The subscribe form posts here, so only those who can see the trip get this far.
+Subscriptions::handle_post( $trip );
 
 $can_edit   = current_user_can( 'edit_post', $trip->ID );
 // Pinning, hiding and choosing the cover also take the travel-steps capability.
@@ -219,6 +222,11 @@ include __DIR__ . '/_header.php';
 					</div>
 				</section>
 			<?php endforeach; ?>
+			<?php
+			if ( Subscriptions::offered( $trip ) ) {
+				include __DIR__ . '/_subscribe.php';
+			}
+			?>
 		</div>
 	</div>
 

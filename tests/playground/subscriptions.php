@@ -309,11 +309,57 @@ $sb_prot_day3 = wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $
 wp_set_current_user( 0 );
 check( 'roundup: after a password change the logged-in subscriber is skipped, and kept', [] === $sb_run() && 1 === count( $sb_subs( $sb_prot ) ) );
 
+// One address with an account subscription and an email-only one gets one email, and one unsubscribe ends both.
+[ $sb_two, [ , $sb_two_day2 ] ] = $sb_trip( 'Both ways Lisbon' );
+$sb_both = function () use ( $sb_two, $sb_page, $sb_link, $sb_url_in, &$sb_mails, $sb_friend ) {
+	$sb_page( $sb_two, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'Friend@example.org', 'ts_website' => '' ] );
+	$sb_link( $sb_url_in( end( $sb_mails )['message'] ?? '', 'confirm' ) );
+	wp_set_current_user( $sb_friend );
+	$sb_page( $sb_two, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
+	wp_set_current_user( 0 );
+};
+$sb_new_day = function ( string $title, string $date ) use ( $sb_two ) {
+	wp_set_current_user( 1 );
+	wp_insert_post( [ 'post_type' => Trips::STEP, 'post_parent' => $sb_two, 'post_title' => $title, 'post_status' => 'publish', 'post_date' => "$date 12:00:00", 'edit_date' => true ] );
+	wp_set_current_user( 0 );
+};
+$sb_both();
+check( 'one address: an account and an email-only subscription to the same trip', 2 === count( $sb_subs( $sb_two, 'confirmed' ) ), $sb_subs( $sb_two ) );
+wp_set_current_user( 1 );
+wp_update_post( [ 'ID' => $sb_two_day2, 'post_status' => 'publish' ] );
+wp_set_current_user( 0 );
+$mails = $sb_run();
+check( '…get one email between them', [ 'friend@example.org' ] === $sb_to( $mails ), $sb_to( $mails ) );
+$sb_link( $sb_url_in( $mails[0]['message'] ?? '', 'unsubscribe' ) );
+check( '…and its unsubscribe link ends both', [] === $sb_subs( $sb_two ), $sb_subs( $sb_two ) );
+$sb_new_day( 'Sintra', '2025-05-03' );
+check( '…so the next roundup goes to nobody', [] === $sb_run() );
+$sb_both();
+wp_set_current_user( $sb_friend );
+$sb_page( $sb_two, [ 'ts_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
+wp_set_current_user( 0 );
+check( 'one address: the logged-in Unsubscribe button ends both too', [] === $sb_subs( $sb_two ), $sb_subs( $sb_two ) );
+$sb_new_day( 'Cascais', '2025-05-04' );
+check( '…so the next roundup goes to nobody', [] === $sb_run() );
+
+// Deleting a user deletes their account's subscriptions.
+$sb_gone = wp_insert_user( [ 'user_login' => 'sb_gone', 'user_email' => 'gone@example.org', 'user_pass' => wp_generate_password(), 'role' => 'subscriber' ] );
+wp_set_current_user( $sb_gone );
+$sb_page( $sb_two, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
+wp_set_current_user( 1 );
+$sb_gone_subs = wp_list_filter( $sb_subs( $sb_two ), [ 'user' => $sb_gone ] );
+require_once ABSPATH . 'wp-admin/includes/user.php';
+wp_delete_user( $sb_gone );
+wp_set_current_user( 0 );
+check( 'deleting a user deletes their subscriptions', 1 === count( $sb_gone_subs ) && ! wp_list_filter( $sb_subs( $sb_two ), [ 'user' => $sb_gone ] ), $sb_subs( $sb_two ) );
+
 // When it runs.
 wp_clear_scheduled_hook( Roundup::HOOK );
 Roundup::schedule();
 check( 'schedule: the roundup is hooked and scheduled for its next hour', false !== has_action( Roundup::HOOK, [ Roundup::class, 'run' ] ) && wp_next_scheduled( Roundup::HOOK ) === Roundup::next_time() );
 $sb_tz = get_option( 'timezone_string' );
+update_option( 'timezone_string', 'Asia/Kolkata' );
+check( 'schedule: changing the site’s timezone moves the next run', wp_next_scheduled( Roundup::HOOK ) === Roundup::next_time() );
 update_option( 'timezone_string', 'Europe/Lisbon' );
 $sb_at = fn( string $local ) => ( new DateTimeImmutable( $local, new DateTimeZone( 'Europe/Lisbon' ) ) )->getTimestamp();
 check( 'schedule: by default at 08:00 site time, later the same day', $sb_at( '2026-07-01 08:00' ) === Roundup::next_time( $sb_at( '2026-07-01 07:30' ) ) );
@@ -334,6 +380,8 @@ $edit = $render( 'trip-edit.php', (string) $sb_rt );
 check( 'edit page: lists subscribers by address, or name for an account', false !== strpos( $edit, 'ana@example.org' ) && false !== strpos( $edit, 'Friendly Fiona' ) && false !== strpos( $edit, 'unconfirmed@example.org' ) );
 check( '…marks pending ones', 1 === preg_match( '/unconfirmed@example\.org.*?Pending/s', $edit ) );
 check( '…counts them', false !== strpos( $edit, '2 subscribers' ), substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 600 ) );
+$edit = $render( 'trip-edit.php', (string) $sb_prot );
+check( '…but not one who can’t see the trip any more', false !== strpos( $edit, '0 subscribers get' ) && false !== strpos( $edit, 'Friendly Fiona' ), substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 600 ) );
 check( '…and says when the last roundup went', false !== stripos( $edit, 'last roundup' ) );
 $sb_remove = function ( int $user, int $sub ) use ( $stopped ) {
 	wp_set_current_user( $user );

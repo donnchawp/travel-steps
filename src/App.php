@@ -61,6 +61,10 @@ class App extends BaseApp {
 		CacheSweep::schedule();
 		add_action( Roundup::HOOK, [ Roundup::class, 'run' ] );
 		Roundup::schedule();
+		// A new timezone moves the hour the roundup goes at.
+		add_action( 'update_option_timezone_string', [ Roundup::class, 'reschedule' ], 10, 0 );
+		add_action( 'update_option_gmt_offset', [ Roundup::class, 'reschedule' ], 10, 0 );
+		add_action( 'deleted_user', [ Subscriptions::class, 'delete_for_user' ] );
 		add_action( 'admin_post_travel_steps_remove_subscriber', [ Subscriptions::class, 'handle_remove' ] );
 		add_filter( 'wp_privacy_personal_data_exporters', [ Subscriptions::class, 'register_exporter' ] );
 		add_filter( 'wp_privacy_personal_data_erasers', [ Subscriptions::class, 'register_eraser' ] );

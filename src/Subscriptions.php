@@ -188,6 +188,47 @@ class Subscriptions {
 	}
 
 	/**
+	 * Every subscription of a user, when they're deleted.
+	 */
+	public static function delete_for_user( int $user_id ): void {
+		$ids = self::query(
+			[
+				'fields'     => 'ids',
+				'meta_key'   => self::META_USER, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Only when a user is deleted.
+				'meta_value' => (string) $user_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			]
+		);
+		foreach ( $ids as $id ) {
+			wp_delete_post( (int) $id, true );
+		}
+	}
+
+	/**
+	 * The address a subscription's emails go to: its own, or its account's. Empty if the
+	 * account is gone.
+	 */
+	public static function address( array $sub ): string {
+		if ( ! $sub['user'] ) {
+			return $sub['email'];
+		}
+		$user = get_userdata( $sub['user'] );
+		return $user ? strtolower( $user->user_email ) : '';
+	}
+
+	/**
+	 * Ends a subscription, and any other to the same trip with the same address: they
+	 * share one roundup email, so unsubscribing from it has to stop it.
+	 */
+	private static function end( array $sub ): void {
+		$address = self::address( $sub );
+		foreach ( self::for_trip( $sub['trip'] ) as $other ) {
+			if ( $other['id'] === $sub['id'] || ( '' !== $address && self::address( $other ) === $address ) ) {
+				wp_delete_post( $other['id'], true );
+			}
+		}
+	}
+
+	/**
 	 * Drops a trip's email-only subscriptions when it gets a new password, wherever it's
 	 * changed (the plugin's form, the block editor, wp-admin, REST): changing it is how
 	 * access is revoked, so it stops the emails too. Logged-in subscribers are kept, and
@@ -391,12 +432,13 @@ class Subscriptions {
 	}
 
 	/**
-	 * Ends the current visitor's subscription: their account's, or the one their cookie names.
+	 * Ends the current visitor's subscription: their account's, or the one their cookie names
+	 * (and any other with its address, see end()).
 	 */
 	private static function unsubscribe_current( \WP_Post $trip ): string {
 		$sub = self::current( $trip->ID );
 		if ( $sub ) {
-			self::delete( $sub['id'] );
+			self::end( $sub );
 		}
 		if ( ! is_user_logged_in() ) {
 			self::clear_cookie( $trip->ID );
@@ -425,7 +467,7 @@ class Subscriptions {
 		$trip = get_post( $sub['trip'] );
 		$trip = $trip && Trips::TRIP === $trip->post_type ? $trip : null;
 		if ( 'unsubscribe' === $do ) {
-			self::delete( $sub['id'] );
+			self::end( $sub );
 			if ( $sub['email'] ) {
 				self::clear_cookie( $sub['trip'] );
 			}

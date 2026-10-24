@@ -194,16 +194,15 @@ class Roundup {
 	 * Who gets a trip's roundup, by address: each confirmed subscription that reaches()
 	 * it, once per address.
 	 *
-	 * @return array<string, array> The subscription each address's unsubscribe link ends.
+	 * @return array<string, array> The subscription whose unsubscribe link each address gets.
 	 */
-	private static function recipients( \WP_Post $trip ): array {
+	public static function recipients( \WP_Post $trip ): array {
 		$recipients = [];
 		foreach ( Subscriptions::for_trip( $trip->ID ) as $sub ) {
 			if ( ! self::reaches( $trip, $sub ) ) {
 				continue;
 			}
-			$address = strtolower( $sub['user'] ? (string) get_userdata( $sub['user'] )->user_email : $sub['email'] );
-			$recipients[ $address ] ??= $sub;
+			$recipients[ Subscriptions::address( $sub ) ] ??= $sub;
 		}
 		return $recipients;
 	}

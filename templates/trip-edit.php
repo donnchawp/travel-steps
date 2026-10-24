@@ -492,7 +492,8 @@ include __DIR__ . '/_header.php';
 
 		<?php
 		$subscriptions = Subscriptions::for_trip( $trip_id );
-		$confirmed     = count( wp_list_filter( $subscriptions, [ 'status' => Subscriptions::CONFIRMED ] ) );
+		// Those a roundup would go to: confirmed, able to see the trip, one per address.
+		$reached       = count( Roundup::recipients( $trip ) );
 		$last_roundup  = get_post_meta( $trip_id, Roundup::META_LAST, true );
 		?>
 		<section class="ts-panel" id="ts-subscribers">
@@ -505,8 +506,8 @@ include __DIR__ . '/_header.php';
 				echo esc_html(
 					sprintf(
 						/* translators: %s: number of subscribers */
-						_n( '%s subscriber gets an email on days when new days or photos are published.', '%s subscribers get an email on days when new days or photos are published.', $confirmed, 'travel-steps' ),
-						number_format_i18n( $confirmed )
+						_n( '%s subscriber gets an email on days when new days or photos are published.', '%s subscribers get an email on days when new days or photos are published.', $reached, 'travel-steps' ),
+						number_format_i18n( $reached )
 					)
 				);
 				echo ' ';
@@ -532,9 +533,9 @@ include __DIR__ . '/_header.php';
 			<?php if ( $subscriptions ) : ?>
 				<ul class="ts-subscriber-list">
 					<?php foreach ( $subscriptions as $subscription ) : ?>
-						<?php $account = $subscription['user'] ? get_userdata( $subscription['user'] ) : null; ?>
+						<?php $subscriber_user = $subscription['user'] ? get_userdata( $subscription['user'] ) : null; ?>
 						<li>
-							<span><?php echo esc_html( $account ? $account->display_name : ( $subscription['email'] ? $subscription['email'] : __( 'A deleted account', 'travel-steps' ) ) ); ?></span>
+							<span><?php echo esc_html( $subscriber_user ? $subscriber_user->display_name : ( $subscription['email'] ? $subscription['email'] : __( 'A deleted account', 'travel-steps' ) ) ); ?></span>
 							<?php if ( Subscriptions::PENDING === $subscription['status'] ) : ?>
 								<span class="ts-badge is-warning"><?php esc_html_e( 'Pending', 'travel-steps' ); ?></span>
 							<?php elseif ( ! Roundup::reaches( $trip, $subscription ) && 'publish' === $trip->post_status ) : ?>

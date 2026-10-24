@@ -4,6 +4,7 @@
  * page, confirming and unsubscribing by link, what a roundup lists and who gets it.
  * Required at the end of smoke.php, in its scope: uses check(), row(), $render and $stopped.
  */
+use TravelSteps\Lock;
 use TravelSteps\Roundup;
 use TravelSteps\Settings;
 use TravelSteps\Subscriptions;
@@ -137,6 +138,19 @@ $to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'bot@
 check( 'subscribe: a filled-in honeypot gets the same answer and nothing is sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
 $to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'not an address', 'ts_website' => '' ] );
 check( 'subscribe: an address that isn’t one gets the same answer, nothing sent', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
+// Another signup for the address is under way: it holds the lock while this one comes in.
+$sb_lock = Subscriptions::signup_lock( $sb_pub, 'Racer@Example.org' );
+$to      = Lock::run( $sb_lock, fn() => $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'racer@example.org', 'ts_website' => '' ] ) );
+check( 'subscribe: a signup made while another for the address is under way gets the same answer, nothing sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
+check( '…and the lock is named by a hash of the address, not the address', $sb_lock === Subscriptions::signup_lock( $sb_pub, 'racer@example.org' ) && false === stripos( $sb_lock, 'racer' ) && strlen( $sb_lock ) <= 191, $sb_lock );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'racer@example.org', 'ts_website' => '' ] );
+check( '…and once it’s done, signing up works again', 1 === count( $sb_mails ) && 2 === count( $sb_subs( $sb_pub ) ), $sb_mails );
+foreach ( $sb_subs( $sb_pub ) as $sb_racer ) {
+	if ( 'racer@example.org' === $sb_racer['email'] ) {
+		wp_delete_post( $sb_racer['id'], true );
+	}
+}
+$sb_mails = [];
 
 // Confirming: opening the link only asks, so a mail scanner fetching it changes nothing.
 $page = $sb_link( $confirm );

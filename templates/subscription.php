@@ -9,16 +9,21 @@ use TravelSteps\Roundup;
 use TravelSteps\Subscriptions;
 use TravelSteps\Trips;
 
-// Each visit acts, so no cache may keep the answer.
+// Opening the link only asks: mail scanners open every link in an email. The button,
+// or a mail client's one-click unsubscribe, POSTs back to it, and that acts. No cache
+// may keep either answer.
 nocache_headers();
-$result = Subscriptions::handle_link( wp_unslash( $_GET ) );
+$result = Subscriptions::handle_link( wp_unslash( $_GET ), 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) );
 $trip   = $result['trip'];
 $shown  = $trip && Subscriptions::offered( $trip );
+$asks   = in_array( $result['state'], [ 'confirm', 'unsubscribe' ], true );
 // The share code only for a subscription that still gets the roundup: a logged-in
 // subscriber cut off by a password change keeps the links in their old emails.
 $sub    = 'confirmed' === $result['state'] ? Subscriptions::get( $result['sub'] ) : null;
 $link   = $shown && $sub && Roundup::reaches( $trip, $sub ) ? Roundup::trip_link( $trip ) : ( $shown ? Trips::url( $trip ) : '' );
 $texts  = [
+	'confirm'      => [ __( 'Confirm your subscription', 'travel-steps' ), __( 'Press the button to get an email on days when new days or photos are added to this trip.', 'travel-steps' ) ],
+	'unsubscribe'  => [ __( 'Unsubscribe', 'travel-steps' ), __( 'Press the button to stop getting emails about this trip.', 'travel-steps' ) ],
 	'confirmed'    => [ __( 'You’re subscribed', 'travel-steps' ), __( 'You’ll get an email on days when new days or photos are added to this trip. Each one has a link to unsubscribe.', 'travel-steps' ) ],
 	'unsubscribed' => [ __( 'You’re unsubscribed', 'travel-steps' ), __( 'You won’t get any more emails about this trip.', 'travel-steps' ) ],
 	'expired'      => [ __( 'This link has expired', 'travel-steps' ), __( 'Confirmation links work for 7 days. Sign up again on the trip’s page to get a new one.', 'travel-steps' ) ],
@@ -36,7 +41,11 @@ include __DIR__ . '/_header.php';
 		<p class="ts-muted"><?php echo esc_html( get_the_title( $trip ) ); ?></p>
 	<?php endif; ?>
 	<p><?php echo esc_html( $message ); ?></p>
-	<?php if ( $shown ) : ?>
+	<?php if ( $asks ) : ?>
+		<form method="post" action="<?php echo esc_url( Subscriptions::link( Subscriptions::get( $result['sub'] ), $result['state'] ) ); ?>">
+			<p><button type="submit" class="ts-button"><?php echo esc_html( 'confirm' === $result['state'] ? __( 'Confirm subscription', 'travel-steps' ) : __( 'Unsubscribe', 'travel-steps' ) ); ?></button></p>
+		</form>
+	<?php elseif ( $shown ) : ?>
 		<p><a class="ts-button" href="<?php echo esc_url( $link ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps' ); ?></a></p>
 	<?php else : ?>
 		<p><a href="<?php echo esc_url( App::url() ); ?>"><?php esc_html_e( 'All trips', 'travel-steps' ); ?></a></p>

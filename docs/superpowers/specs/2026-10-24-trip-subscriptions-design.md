@@ -10,7 +10,7 @@ Most of the author's trips will be password-protected, shared with a share link.
 
 - **Visitors subscribe to one trip** from the trip page, with their email address, and confirm by clicking a link sent to it.
 - **Logged-in visitors subscribe with a button**, with no confirmation email: their account's address is used.
-- **Subscribers see an Unsubscribe button** on the trip page, and every email has an unsubscribe link that works in one click.
+- **Subscribers see an Unsubscribe button** on the trip page, and every email has an unsubscribe link that leads to an Unsubscribe button.
 - **One plain-text roundup per trip per day**, at a fixed hour, only when something new happened.
 - **The author sees and manages subscribers** on the trip's edit page.
 - **Changing a trip's password drops its email-only subscribers**, so revoking access by changing the password (see the share links design) also stops the emails.
@@ -88,7 +88,7 @@ For a protected trip, every link in the roundup carries the trip's current share
 - One email per recipient, with that recipient's own unsubscribe link.
 - WP-cron runs the send at the hour set. A site that only runs cron on page loads may send late. That's accepted.
 - The From name and address are the site's defaults.
-- Unsubscribe links work in one click (GET), and the email also carries `List-Unsubscribe` and `List-Unsubscribe-Post` headers, so mail clients can show their own unsubscribe button.
+- Confirm and unsubscribe links open a page with one button, which POSTs back to the link and does it. Opening the link changes nothing, because corporate mail scanners fetch every link in an email: a GET that acted would unsubscribe people and confirm signups nobody asked for (#122). The email also carries `List-Unsubscribe` and `List-Unsubscribe-Post` headers, so mail clients can show their own unsubscribe button, whose one-click POST unsubscribes in one request.
 
 ### Abuse (my calls)
 

@@ -45,6 +45,7 @@ class App extends BaseApp {
 		RestController::migrate_cache();
 		PhotosBlock::register();
 		Uploads::register();
+		Subscriptions::register();
 
 		$trips = new Trips();
 		add_action( 'admin_post_travel_steps_save_trip', [ $trips, 'handle_save_trip' ] );
@@ -97,6 +98,8 @@ class App extends BaseApp {
 		$this->app->route( 'settings', 'settings.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}', 'trip.php' );
+		// Confirm and unsubscribe links in emails: they work whatever the trip's status.
+		$this->app->route( 'subscription', 'subscription.php' );
 	}
 
 	protected function setup_menu(): void {

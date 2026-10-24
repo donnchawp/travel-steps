@@ -199,11 +199,17 @@ class Roundup {
 	 * were counted.
 	 */
 	public static function last_unsent( int $trip_id ): int {
-		$last = get_post_meta( $trip_id, self::META_LAST, true );
-		if ( ! is_array( $last ) || ! isset( $last['sent'] ) ) {
+		$last = self::last( $trip_id );
+		if ( ! isset( $last['sent'] ) ) {
 			return 0;
 		}
 		return max( 0, (int) ( $last['recipients'] ?? 0 ) - (int) $last['sent'] );
+	}
+
+	/** The trip's record of its last roundup, or [] if it has none. */
+	private static function last( int $trip_id ): array {
+		$last = get_post_meta( $trip_id, self::META_LAST, true );
+		return is_array( $last ) ? $last : [];
 	}
 
 	/**
@@ -250,8 +256,8 @@ class Roundup {
 	 * @return string[]
 	 */
 	public static function last_listed( int $trip_id ): array {
-		$last = get_post_meta( $trip_id, self::META_LAST, true );
-		if ( ! is_array( $last ) || empty( $last['time'] ) ) {
+		$last = self::last( $trip_id );
+		if ( empty( $last['time'] ) ) {
 			return [];
 		}
 		$listed = [];

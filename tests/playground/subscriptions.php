@@ -301,11 +301,12 @@ update_post_meta( $sb_rt, Trips::META_HIDDEN, [] );
 check( 'roundup: unhiding a photo shows it, and sends it as new', 1 === preg_match( '/New photos on:/', $sb_run()[0]['message'] ?? '' ) );
 $sb_last = fn() => array_intersect_key( (array) get_post_meta( $sb_rt, Roundup::META_LAST, true ), array_flip( [ 'recipients', 'sent', 'failed' ] ) );
 check( '…and records each email as sent', [ 'recipients' => 2, 'sent' => 2, 'failed' => 0 ] === $sb_last(), $sb_last() );
-$sb_panel = function () use ( $render, $sb_author, $sb_rt ) {
+$sb_panel_of = fn( string $edit ) => substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 1200 );
+$sb_panel    = function () use ( $render, $sb_author, $sb_rt, $sb_panel_of ) {
 	wp_set_current_user( $sb_author );
 	$edit = $render( 'trip-edit.php', (string) $sb_rt );
 	wp_set_current_user( 0 );
-	return substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 1200 );
+	return $sb_panel_of( $edit );
 };
 check( '…so the edit page names no failures', false === strpos( $sb_panel(), 'couldn’t be sent' ), $sb_panel() );
 
@@ -331,8 +332,8 @@ add_filter( 'pre_wp_mail', $sb_die, 20, 2 );
 $sb_add_photos( $sb_rt, [ row( 69, '2025-05-01', '18:00', 38.7, -9.1, 'Lisbon', true ) ] );
 try {
 	$sb_run();
-} catch ( \RuntimeException $e ) {
-	unset( $e );
+} catch ( \RuntimeException ) {
+	// The run died part-way, as meant.
 }
 remove_filter( 'pre_wp_mail', $sb_die, 20 );
 check( 'roundup: a run that dies part-way records what it sent', [ 'recipients' => 2, 'sent' => 1, 'failed' => 0 ] === $sb_last(), $sb_last() );
@@ -441,9 +442,9 @@ wp_set_current_user( $sb_author );
 $edit = $render( 'trip-edit.php', (string) $sb_rt );
 check( 'edit page: lists subscribers by address, or name for an account', false !== strpos( $edit, 'ana@example.org' ) && false !== strpos( $edit, 'Friendly Fiona' ) && false !== strpos( $edit, 'unconfirmed@example.org' ) );
 check( '…marks pending ones', 1 === preg_match( '/unconfirmed@example\.org.*?Pending/s', $edit ) );
-check( '…counts them', false !== strpos( $edit, '2 subscribers' ), substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 600 ) );
+check( '…counts them', false !== strpos( $edit, '2 subscribers' ), $sb_panel_of( $edit ) );
 $edit = $render( 'trip-edit.php', (string) $sb_prot );
-check( '…but not one who can’t see the trip any more', false !== strpos( $edit, '0 subscribers get' ) && false !== strpos( $edit, 'Friendly Fiona' ), substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 600 ) );
+check( '…but not one who can’t see the trip any more', false !== strpos( $edit, '0 subscribers get' ) && false !== strpos( $edit, 'Friendly Fiona' ), $sb_panel_of( $edit ) );
 check( '…and says when the last roundup went', false !== stripos( $edit, 'last roundup' ) );
 wp_set_current_user( 0 );
 $page = $sb_link( $sb_old_link );

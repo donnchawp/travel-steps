@@ -513,27 +513,26 @@ include __DIR__ . '/_header.php';
 				echo ' ';
 				$listed = Roundup::last_listed( $trip_id );
 				if ( $listed ) {
+					$recipients = (int) $last_roundup['recipients'];
 					echo esc_html(
 						sprintf(
 							/* translators: 1: time since, 2: a list such as "2 new days, new photos on 1 day", 3: number of recipients */
-							_n( 'The last roundup went %1$s ago, with %2$s, to %3$s subscriber.', 'The last roundup went %1$s ago, with %2$s, to %3$s subscribers.', (int) $last_roundup['recipients'], 'travel-steps' ),
+							_n( 'The last roundup went %1$s ago, with %2$s, to %3$s subscriber.', 'The last roundup went %1$s ago, with %2$s, to %3$s subscribers.', $recipients, 'travel-steps' ),
 							human_time_diff( (int) $last_roundup['time'] ),
 							wp_sprintf( '%l', $listed ),
-							number_format_i18n( (int) $last_roundup['recipients'] )
+							number_format_i18n( $recipients )
 						)
 					);
 					$unsent = Roundup::last_unsent( $trip_id );
 					if ( $unsent ) {
-						echo ' <strong>';
-						echo esc_html(
+						echo ' <strong>' . esc_html(
 							sprintf(
 								/* translators: 1: number of emails not sent, 2: number of recipients */
 								__( '%1$s of %2$s couldn’t be sent. Check the site’s mail settings.', 'travel-steps' ),
 								number_format_i18n( $unsent ),
-								number_format_i18n( (int) $last_roundup['recipients'] )
+								number_format_i18n( $recipients )
 							)
-						);
-						echo '</strong>';
+						) . '</strong>';
 					}
 				} else {
 					esc_html_e( 'No roundup has been sent yet.', 'travel-steps' );

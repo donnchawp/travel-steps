@@ -32,16 +32,14 @@
 					for ( i = index + 1; i < blocks.length && ! end; i++ ) {
 						end = placeTime( blocks[ i ] );
 					}
-					// The trip page puts photos taken before the earliest place heading above
-					// the first heading. With no photos block there, the first block shows them.
+					// The trip page puts photos taken before the earliest place heading above the
+					// first heading. With no photos block up there, the first block shows them.
 					var lead = 0;
-					var headings = blocks.filter( placeTime );
-					var firstHeading = blocks.indexOf( headings[ 0 ] );
-					var firstPhotos = blocks.findIndex( function ( block ) {
+					var first = ! blocks.slice( 0, index ).some( function ( block ) {
 						return 'travel-steps/photos' === block.name;
 					} );
-					if ( headings.length && index === firstPhotos && firstPhotos > firstHeading ) {
-						lead = Math.min.apply( null, headings.map( placeTime ) );
+					if ( start && first ) {
+						lead = Math.min.apply( null, blocks.map( placeTime ).filter( Boolean ) );
 					}
 					return start + ':' + end + ':' + lead;
 				},
@@ -56,7 +54,11 @@
 				wp.blockEditor.useBlockProps(),
 				el( wp.serverSideRender, {
 					block: 'travel-steps/photos',
-					attributes: { start: parseInt( range[ 0 ], 10 ), end: parseInt( range[ 1 ], 10 ), lead: parseInt( range[ 2 ], 10 ) },
+					attributes: {
+						start: parseInt( range[ 0 ], 10 ),
+						end: parseInt( range[ 1 ], 10 ),
+						lead: parseInt( range[ 2 ], 10 ),
+					},
 					urlQueryArgs: { post_id: postId },
 				} )
 			);

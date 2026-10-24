@@ -34,8 +34,7 @@ class PhotosBlock {
 				'category'              => 'media',
 				'icon'                  => 'format-gallery',
 				// Only for the editor preview: the section the block sits in, as place start
-				// times, and for the first block when none sits above the first place heading,
-				// that heading's time (lead): the trip page puts photos before it above it.
+				// times, and lead: photos taken before it are shown first, as their own group.
 				'attributes'            => [
 					'start' => [ 'type' => 'integer' ],
 					'end'   => [ 'type' => 'integer' ],
@@ -75,29 +74,29 @@ class PhotosBlock {
 
 		$html = '';
 		if ( $before ) {
-			$html .= '<div class="ts-photos-block-lead">' . self::grid( $trip->ID, $before ) . '<p class="ts-photos-block-note">' . esc_html(
-				sprintf(
-					/* translators: %s: number of photos */
-					_n( '%s photo taken before the first heading. The trip page shows it above that heading. Add a Trip photos block there to place it.', '%s photos taken before the first heading. The trip page shows them above that heading. Add a Trip photos block there to place them.', count( $before ), 'travel-steps' ),
-					number_format_i18n( count( $before ) )
-				)
-			) . '</p></div>';
+			$html .= '<div class="ts-photos-block-lead">' . self::grid(
+				$trip->ID,
+				$before,
+				/* translators: %s: number of photos */
+				_n( '%s photo taken before the first heading. The trip page shows it above that heading. Add a Trip photos block there to place it.', '%s photos taken before the first heading. The trip page shows them above that heading. Add a Trip photos block there to place them.', count( $before ), 'travel-steps' )
+			) . '</div>';
 		}
-		if ( ! $photos ) {
+		if ( $photos ) {
+			/* translators: %s: number of photos */
+			$html .= self::grid( $trip->ID, $photos, _n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps' ) );
+		} else {
 			$empty = Trips::uses_uploads( $trip->ID )
 				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps' )
 				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps' );
-			return $html . '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
+			$html .= '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
 		}
-		$note = sprintf(
-			/* translators: %s: number of photos */
-			_n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps' ),
-			number_format_i18n( count( $photos ) )
-		);
-		return $html . self::grid( $trip->ID, $photos ) . '<p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
+		return $html;
 	}
 
-	private static function grid( int $trip_id, array $photos ): string {
+	/**
+	 * Thumbnails of photos, then a note, a translated "%s photos…" given their count.
+	 */
+	private static function grid( int $trip_id, array $photos, string $note ): string {
 		$html = '';
 		foreach ( $photos as $photo ) {
 			$html .= sprintf(
@@ -107,6 +106,7 @@ class PhotosBlock {
 				esc_attr( $photo['id'] )
 			);
 		}
-		return '<div class="ts-photos-block-grid">' . $html . '</div>';
+		$note = sprintf( $note, number_format_i18n( count( $photos ) ) );
+		return '<div class="ts-photos-block-grid">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
 	}
 }

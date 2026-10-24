@@ -44,7 +44,8 @@ $sb_trip = function ( string $title, string $password = '' ) use ( $sb_author, $
 	return [ $id, $steps ];
 };
 // A trip page request: the page, or where it redirected to.
-$sb_page = function ( int $trip, array $post = [], array $get = [] ) use ( $render ) {
+$sb_page = function ( int $trip, array $post = [], array $get = [], array $headers = [] ) use ( $render ) {
+	$_SERVER                   = $headers + $_SERVER;
 	$_POST                     = $post;
 	$_GET                      = $get;
 	$_REQUEST                  = $post + $get;
@@ -75,6 +76,9 @@ $sb_page = function ( int $trip, array $post = [], array $get = [] ) use ( $rend
 	$_GET                      = [];
 	$_REQUEST                  = [];
 	$_SERVER['REQUEST_METHOD'] = 'GET';
+	foreach ( array_keys( $headers ) as $header ) {
+		unset( $_SERVER[ $header ] );
+	}
 	return $to ?? $page;
 };
 // The page a link in an email opens, given its URL.
@@ -180,6 +184,16 @@ update_post_meta( $later['id'], Subscriptions::META_MAILED, time() - 8 * DAY_IN_
 Subscriptions::expire_pending();
 check( '…and the daily run drops expired signups nobody confirmed', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'later@example.org' ] ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'jo@example.org' ] ) );
 
+// Another site's form posting here.
+$sb_home  = wp_parse_url( home_url() );
+$sb_home  = $sb_home['scheme'] . '://' . $sb_home['host'] . ( isset( $sb_home['port'] ) ? ':' . $sb_home['port'] : '' );
+$sb_mails = [];
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'crosssite@example.org', 'ts_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'cross-site' ] );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'origin@example.org', 'ts_website' => '' ], [], [ 'HTTP_ORIGIN' => 'https://elsewhere.example' ] );
+check( 'a post from another site’s page is refused, by Sec-Fetch-Site or by Origin', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'crosssite@example.org' ] ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'origin@example.org' ] ) && [] === $sb_mails, $sb_mails );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'sameorigin@example.org', 'ts_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'same-origin', 'HTTP_ORIGIN' => $sb_home ] );
+check( '…while one from the trip page itself is taken', (bool) wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'sameorigin@example.org' ] ) && 1 === count( $sb_mails ), $sb_mails );
+
 // Protected trips.
 $sb_enter = function ( ?string $password ) {
 	unset( $_COOKIE[ Trips::password_cookie() ] );
@@ -196,9 +210,14 @@ $sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'sneaky@ex
 check( '…and posting to it subscribes nobody', [] === $sb_subs( $sb_prot ) && [] === $sb_mails );
 $sb_enter( 'tagus' );
 check( 'protected: with the password there’s the form', false !== strpos( $sb_page( $sb_prot ), 'name="ts_email"' ) );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '' ] );
+check( '…carrying a nonce, since a protected trip’s page is never cached', false !== strpos( $sb_page( $sb_prot ), 'name="' . Subscriptions::NONCE_FIELD . '"' ) );
+check( '…and no referer field, which would carry a share link’s code', false === strpos( $sb_page( $sb_prot ), '_wp_http_referer' ) );
+$sb_mails = [];
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'forged@example.org', 'ts_website' => '' ] );
+check( 'protected: a post without the nonce, as another site’s form would send, subscribes nobody and sends nothing', ! wp_list_filter( $sb_subs( $sb_prot ), [ 'email' => 'forged@example.org' ] ) && [] === $sb_mails, $sb_mails );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 $sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'pending@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'pending@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 wp_set_current_user( $sb_friend );
 $sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 wp_set_current_user( 0 );
@@ -294,7 +313,7 @@ check( '…and once published again, sends what was added meanwhile', 'Roundup L
 
 // A protected trip's links carry its share code, and a subscriber who lost access is skipped.
 $sb_enter( 'douro' );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 $sb_link( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
 $sb_enter( null );
 wp_set_current_user( 1 );

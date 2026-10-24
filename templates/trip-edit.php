@@ -510,20 +510,8 @@ include __DIR__ . '/_header.php';
 					)
 				);
 				echo ' ';
-				if ( is_array( $last_roundup ) && ! empty( $last_roundup['time'] ) ) {
-					$listed = [];
-					if ( ! empty( $last_roundup['days'] ) ) {
-						/* translators: %s: number of days */
-						$listed[] = sprintf( _n( '%s new day', '%s new days', (int) $last_roundup['days'], 'travel-steps' ), number_format_i18n( (int) $last_roundup['days'] ) );
-					}
-					if ( ! empty( $last_roundup['photos'] ) ) {
-						/* translators: %s: number of days */
-						$listed[] = sprintf( _n( 'new photos on %s day', 'new photos on %s days', (int) $last_roundup['photos'], 'travel-steps' ), number_format_i18n( (int) $last_roundup['photos'] ) );
-					}
-					if ( ! empty( $last_roundup['updated'] ) ) {
-						/* translators: %s: number of days */
-						$listed[] = sprintf( _n( '%s updated day', '%s updated days', (int) $last_roundup['updated'], 'travel-steps' ), number_format_i18n( (int) $last_roundup['updated'] ) );
-					}
+				$listed = Roundup::last_listed( $trip_id );
+				if ( $listed ) {
 					echo esc_html(
 						sprintf(
 							/* translators: 1: time since, 2: a list such as "2 new days, new photos on 1 day", 3: number of recipients */

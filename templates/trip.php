@@ -35,6 +35,11 @@ if ( isset( $_GET['tried'] ) ) {
 }
 // The subscribe form posts here, so only those who can see the trip get this far.
 Subscriptions::handle_post( $trip );
+// A subscriber the cookie recognises is shown an Unsubscribe button others aren't: no
+// page cache may keep it.
+if ( Subscriptions::offered( $trip ) && ! is_user_logged_in() && Subscriptions::current( $trip->ID ) ) {
+	nocache_headers();
+}
 
 $can_edit   = current_user_can( 'edit_post', $trip->ID );
 // Pinning, hiding and choosing the cover also take the travel-steps capability.

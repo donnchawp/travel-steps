@@ -22,7 +22,7 @@ $sub    = 'confirmed' === $result['state'] ? Subscriptions::get( $result['sub'] 
 $link   = $shown && $sub && Roundup::reaches( $trip, $sub ) ? Roundup::trip_link( $trip ) : ( $shown ? Trips::url( $trip ) : '' );
 $texts  = [
 	'confirm'      => [ __( 'Confirm your subscription', 'travel-steps' ), __( 'Press the button to get an email on days when new days or photos are added to this trip.', 'travel-steps' ), __( 'Confirm subscription', 'travel-steps' ) ],
-	'unsubscribe'  => [ __( 'Unsubscribe', 'travel-steps' ), __( 'Press the button to stop getting emails about this trip.', 'travel-steps' ), __( 'Unsubscribe', 'travel-steps' ) ],
+	'unsubscribe'  => [ __( 'Stop emails about this trip?', 'travel-steps' ), __( 'Press the button to stop getting emails about this trip.', 'travel-steps' ), __( 'Unsubscribe', 'travel-steps' ) ],
 	'confirmed'    => [ __( 'You’re subscribed', 'travel-steps' ), __( 'You’ll get an email on days when new days or photos are added to this trip. Each one has a link to unsubscribe.', 'travel-steps' ) ],
 	'unsubscribed' => [ __( 'You’re unsubscribed', 'travel-steps' ), __( 'You won’t get any more emails about this trip.', 'travel-steps' ) ],
 	'expired'      => [ __( 'This link has expired', 'travel-steps' ), __( 'Confirmation links work for 7 days. Sign up again on the trip’s page to get a new one.', 'travel-steps' ) ],

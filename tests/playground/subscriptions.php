@@ -142,11 +142,13 @@ check( 'subscribe: an address that isn’t one gets the same answer, nothing sen
 $page = $sb_link( $confirm );
 check( 'confirm: opening the link leaves the subscription pending', 'pending' === ( $sb_subs( $sb_pub )[0]['status'] ?? '' ), $sb_subs( $sb_pub ) );
 check( '…sets no cookie', empty( $_COOKIE[ Subscriptions::cookie( $sb_pub ) ] ) );
+check( '…and records no roundup baseline', '' === get_post_meta( $sb_pub, Roundup::META_STATE, true ) );
 $form = $sb_form( (string) $page );
 check( '…and shows a Confirm subscription button that posts back to the link', $form && null === $form['action'] && 'Confirm subscription' === $form['button'], [ $form, substr( (string) $page, 0, 600 ) ] );
 $page = $sb_press( $confirm );
 check( 'confirm: the button confirms the subscription', 'confirmed' === ( $sb_subs( $sb_pub )[0]['status'] ?? '' ) && false !== stripos( $page, 'subscribed' ), [ $sb_subs( $sb_pub ), substr( wp_strip_all_tags( $page ), 0, 300 ) ] );
 check( '…and sets a cookie that recognises the subscriber on this browser', ! empty( $_COOKIE[ Subscriptions::cookie( $sb_pub ) ] ) );
+check( '…and records the trip’s roundup baseline, so the first roundup is only what comes after', is_array( get_post_meta( $sb_pub, Roundup::META_STATE, true ) ) );
 $page = $sb_page( $sb_pub );
 check( '…so the trip page offers Unsubscribe in place of the form', false === strpos( $page, 'name="ts_email"' ) && false !== strpos( $page, 'value="unsubscribe"' ) );
 $sb_mails = [];

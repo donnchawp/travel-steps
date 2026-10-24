@@ -13,7 +13,20 @@ use TravelSteps\Trips;
 // (a form with no action, so it posts to this same link), or a mail client's one-click
 // unsubscribe, POSTs back to it, and that acts. No cache may keep either answer.
 nocache_headers();
-$result = Subscriptions::handle_link( wp_unslash( $_GET ), 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) );
+$posted = 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' );
+$done   = 'unsubscribed' === ( $_GET['done'] ?? '' );
+$result = Subscriptions::handle_link( wp_unslash( $_GET ), $posted );
+// The subscription is gone after the button unsubscribes, so reloading would post again and
+// find nothing: send the browser on to a page that only says it's done. A mail client's
+// one-click POST (RFC 8058) isn't a browser, so it gets the page.
+// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Reads which kind of POST this is; the link's key was checked.
+if ( $posted && 'unsubscribed' === $result['state'] && 'One-Click' !== ( $_POST['List-Unsubscribe'] ?? '' ) ) {
+	wp_safe_redirect( add_query_arg( 'done', 'unsubscribed', App::url( 'subscription' ) ), 303 );
+	exit;
+}
+if ( $done && 'invalid' === $result['state'] ) {
+	$result['state'] = 'unsubscribed';
+}
 $trip   = $result['trip'];
 $shown  = $trip && Subscriptions::offered( $trip );
 // The share code only for a subscription that still gets the roundup: a logged-in

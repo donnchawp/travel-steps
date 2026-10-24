@@ -4,6 +4,7 @@
  * page, confirming and unsubscribing by link, what a roundup lists and who gets it.
  * Required at the end of smoke.php, in its scope: uses check(), row(), $render and $stopped.
  */
+use TravelSteps\App;
 use TravelSteps\Lock;
 use TravelSteps\Roundup;
 use TravelSteps\Settings;
@@ -83,18 +84,37 @@ $sb_page = function ( int $trip, array $post = [], array $get = [], array $heade
 	return $to ?? $page;
 };
 // The page a link in an email opens, given its URL; or, with a POST, the page its
-// button or a mail client's one-click unsubscribe leads to. Only the method matters.
-$sb_link = function ( string $url, string $method = 'GET' ) use ( $render ) {
+// button or a mail client's one-click unsubscribe leads to, or where it redirected to.
+$sb_link = function ( string $url, string $method = 'GET', array $post = [] ) use ( $render ) {
 	wp_parse_str( (string) wp_parse_url( html_entity_decode( $url ), PHP_URL_QUERY ), $query );
 	$_GET                      = $query;
+	$_POST                     = $post;
 	$_SERVER['REQUEST_METHOD'] = $method;
-	$page                      = $render( 'subscription.php', '' );
+	$to                        = null;
+	$catch                     = function ( $location ) use ( &$to ) {
+		$to = $location;
+		throw new RuntimeException( 'redirect' );
+	};
+	add_filter( 'wp_redirect', $catch );
+	$level = ob_get_level();
+	try {
+		$page = $render( 'subscription.php', '' );
+	} catch ( RuntimeException $e ) {
+		$page = null;
+	}
+	while ( ob_get_level() > $level ) {
+		ob_end_clean();
+	}
+	remove_filter( 'wp_redirect', $catch );
 	$_GET                      = [];
+	$_POST                     = [];
 	$_SERVER['REQUEST_METHOD'] = 'GET';
-	return $page;
+	return $to ?? $page;
 };
-// Pressing a link's button, or a mail client's one-click unsubscribe: a POST to the link.
+// Pressing a link's button: a POST to the link with nothing in it.
 $sb_press = fn( string $url ) => $sb_link( $url, 'POST' );
+// A mail client's one-click unsubscribe (RFC 8058): a POST to the link with this body.
+$sb_one_click = fn( string $url ) => $sb_link( $url, 'POST', [ 'List-Unsubscribe' => 'One-Click' ] );
 // The POST form on a link's page, if it has one: its action (null when it has none, so
 // it posts back to the link itself) and its button text.
 $sb_form = function ( string $page ) {
@@ -207,14 +227,18 @@ $page      = $sb_link( $sb_unsub );
 check( 'unsubscribe link: opening it keeps the subscription', (bool) wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) && false === stripos( $page, 'unsubscribed' ), $sb_subs( $sb_pub ) );
 $form = $sb_form( (string) $page );
 check( '…and shows an Unsubscribe button that posts back to the link', $form && null === $form['action'] && 'Unsubscribe' === $form['button'], $form );
-$page = $sb_press( $sb_unsub );
-check( 'unsubscribe link: the button ends the subscription', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) && false !== stripos( $page, 'unsubscribed' ) );
+$to = $sb_press( $sb_unsub );
+check( 'unsubscribe link: the button ends the subscription', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) );
+check( '…and sends the browser on to a page that says so, so a reload doesn’t post again', is_string( $to ) && 0 === strpos( $to, App::url( 'subscription' ) ) && false === strpos( $to, 'key=' ), $to );
+$page = $sb_link( (string) $to );
+check( '…which says it’s done, with no button', false !== strpos( (string) $page, 'You’re unsubscribed' ) && null === $sb_form( (string) $page ) );
 $page = $sb_link( $sb_unsub );
 check( '…and opening the link again says it doesn’t work', false !== stripos( $page, 'doesn’t work' ) && null === $sb_form( (string) $page ) );
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'post@example.org', 'ts_website' => '' ] );
 $post_sub = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
-$sb_press( Subscriptions::link( $post_sub, 'unsubscribe' ) );
+$page     = $sb_one_click( Subscriptions::link( $post_sub, 'unsubscribe' ) );
 check( 'unsubscribe link: a mail client’s one-click POST ends it too', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
+check( '…and gets the page, not a redirect', false !== strpos( (string) $page, 'You’re unsubscribed' ), $page );
 
 // A pending subscription expires after 7 days.
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'late@example.org', 'ts_website' => '' ] );
@@ -460,7 +484,7 @@ check( 'one address: the logged-in Unsubscribe button ends both too', [] === $sb
 $sb_new_day( 'Cascais', '2025-05-04' );
 check( '…so the next roundup goes to nobody', [] === $sb_run() );
 $sb_both();
-$sb_press( Subscriptions::link( $sb_subs( $sb_two )[0], 'unsubscribe' ) );
+$sb_one_click( Subscriptions::link( $sb_subs( $sb_two )[0], 'unsubscribe' ) );
 check( 'one address: a mail client’s one-click unsubscribe ends both too', [] === $sb_subs( $sb_two ), $sb_subs( $sb_two ) );
 
 // Deleting a user deletes their account's subscriptions.

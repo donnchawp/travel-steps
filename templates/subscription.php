@@ -14,18 +14,21 @@ use TravelSteps\Trips;
 // unsubscribe, POSTs back to it, and that acts. No cache may keep either answer.
 nocache_headers();
 $posted = 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' );
-$done   = 'unsubscribed' === ( $_GET['done'] ?? '' );
-$result = Subscriptions::handle_link( wp_unslash( $_GET ), $posted );
+// The page the button's unsubscribe sends the browser on to (below) only says it's done.
+$result = 'unsubscribed' === ( $_GET[ Subscriptions::NOTICE_ARG ] ?? '' )
+	? [
+		'state' => 'unsubscribed',
+		'trip'  => null,
+		'sub'   => 0,
+	]
+	: Subscriptions::handle_link( wp_unslash( $_GET ), $posted );
 // The subscription is gone after the button unsubscribes, so reloading would post again and
-// find nothing: send the browser on to a page that only says it's done. A mail client's
-// one-click POST (RFC 8058) isn't a browser, so it gets the page.
-// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Reads which kind of POST this is; the link's key was checked.
-if ( $posted && 'unsubscribed' === $result['state'] && 'One-Click' !== ( $_POST['List-Unsubscribe'] ?? '' ) ) {
-	wp_safe_redirect( add_query_arg( 'done', 'unsubscribed', App::url( 'subscription' ) ), 303 );
+// find nothing: send the browser on. A mail client's one-click POST (RFC 8058) doesn't press
+// the button, so it gets the page.
+// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Reads whether the button was pressed; the link's key was checked.
+if ( $posted && 'unsubscribed' === $result['state'] && isset( $_POST['ts_button'] ) ) {
+	wp_safe_redirect( add_query_arg( Subscriptions::NOTICE_ARG, 'unsubscribed', App::url( 'subscription' ) ), 303 );
 	exit;
-}
-if ( $done && 'invalid' === $result['state'] ) {
-	$result['state'] = 'unsubscribed';
 }
 $trip   = $result['trip'];
 $shown  = $trip && Subscriptions::offered( $trip );
@@ -56,7 +59,7 @@ include __DIR__ . '/_header.php';
 	<p><?php echo esc_html( $message ); ?></p>
 	<?php if ( $button ) : ?>
 		<form method="post">
-			<p><button type="submit" class="ts-button"><?php echo esc_html( $button ); ?></button></p>
+			<p><button type="submit" class="ts-button" name="ts_button" value="1"><?php echo esc_html( $button ); ?></button></p>
 		</form>
 	<?php elseif ( $shown ) : ?>
 		<p><a class="ts-button" href="<?php echo esc_url( $link ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps' ); ?></a></p>

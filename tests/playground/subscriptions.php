@@ -45,19 +45,14 @@ $sb_trip = function ( string $title, string $password = '' ) use ( $sb_author, $
 	wp_set_current_user( 0 );
 	return [ $id, $steps ];
 };
-// A trip page request: the page, or where it redirected to.
-$sb_page = function ( int $trip, array $post = [], array $get = [], array $headers = [] ) use ( $render ) {
-	$_SERVER                   = $headers + $_SERVER;
-	$_POST                     = $post;
-	$_GET                      = $get;
-	$_REQUEST                  = $post + $get;
-	$_SERVER['REQUEST_METHOD'] = $post ? 'POST' : 'GET';
-	$to                        = null;
-	$die                       = fn() => function () use ( &$to ) {
+// A request for a template: the page, or where it redirected to ('die' if it died).
+$sb_request = function ( string $tpl, string $slug ) use ( $render ) {
+	$to    = null;
+	$die   = fn() => function () use ( &$to ) {
 		$to = 'die';
 		throw new RuntimeException( 'die' );
 	};
-	$catch                     = function ( $location ) use ( &$to ) {
+	$catch = function ( $location ) use ( &$to ) {
 		$to = $location;
 		throw new RuntimeException( 'redirect' );
 	};
@@ -65,7 +60,7 @@ $sb_page = function ( int $trip, array $post = [], array $get = [], array $heade
 	add_filter( 'wp_die_handler', $die );
 	$level = ob_get_level();
 	try {
-		$page = $render( 'trip.php', (string) $trip );
+		$page = $render( $tpl, $slug );
 	} catch ( RuntimeException $e ) {
 		$page = null;
 	}
@@ -74,6 +69,16 @@ $sb_page = function ( int $trip, array $post = [], array $get = [], array $heade
 	}
 	remove_filter( 'wp_redirect', $catch );
 	remove_filter( 'wp_die_handler', $die );
+	return $to ?? $page;
+};
+// A trip page request: the page, or where it redirected to.
+$sb_page = function ( int $trip, array $post = [], array $get = [], array $headers = [] ) use ( $sb_request ) {
+	$_SERVER                   = $headers + $_SERVER;
+	$_POST                     = $post;
+	$_GET                      = $get;
+	$_REQUEST                  = $post + $get;
+	$_SERVER['REQUEST_METHOD'] = $post ? 'POST' : 'GET';
+	$page                      = $sb_request( 'trip.php', (string) $trip );
 	$_POST                     = [];
 	$_GET                      = [];
 	$_REQUEST                  = [];
@@ -81,40 +86,25 @@ $sb_page = function ( int $trip, array $post = [], array $get = [], array $heade
 	foreach ( array_keys( $headers ) as $header ) {
 		unset( $_SERVER[ $header ] );
 	}
-	return $to ?? $page;
+	return $page;
 };
-// The page a link in an email opens, given its URL; or, with a POST, the page its
-// button or a mail client's one-click unsubscribe leads to, or where it redirected to.
-$sb_link = function ( string $url, string $method = 'GET', array $post = [] ) use ( $render ) {
+// The page a link in an email opens, given its URL; or, given a POST body, the page that
+// POST leads to, or where it redirected to.
+$sb_link = function ( string $url, ?array $post = null ) use ( $sb_request ) {
 	wp_parse_str( (string) wp_parse_url( html_entity_decode( $url ), PHP_URL_QUERY ), $query );
 	$_GET                      = $query;
-	$_POST                     = $post;
-	$_SERVER['REQUEST_METHOD'] = $method;
-	$to                        = null;
-	$catch                     = function ( $location ) use ( &$to ) {
-		$to = $location;
-		throw new RuntimeException( 'redirect' );
-	};
-	add_filter( 'wp_redirect', $catch );
-	$level = ob_get_level();
-	try {
-		$page = $render( 'subscription.php', '' );
-	} catch ( RuntimeException $e ) {
-		$page = null;
-	}
-	while ( ob_get_level() > $level ) {
-		ob_end_clean();
-	}
-	remove_filter( 'wp_redirect', $catch );
+	$_POST                     = $post ?? [];
+	$_SERVER['REQUEST_METHOD'] = null === $post ? 'GET' : 'POST';
+	$page                      = $sb_request( 'subscription.php', '' );
 	$_GET                      = [];
 	$_POST                     = [];
 	$_SERVER['REQUEST_METHOD'] = 'GET';
-	return $to ?? $page;
+	return $page;
 };
-// Pressing a link's button: a POST to the link with nothing in it.
-$sb_press = fn( string $url ) => $sb_link( $url, 'POST' );
+// Pressing a link's button.
+$sb_press = fn( string $url ) => $sb_link( $url, [ 'ts_button' => '1' ] );
 // A mail client's one-click unsubscribe (RFC 8058): a POST to the link with this body.
-$sb_one_click = fn( string $url ) => $sb_link( $url, 'POST', [ 'List-Unsubscribe' => 'One-Click' ] );
+$sb_one_click = fn( string $url ) => $sb_link( $url, [ 'List-Unsubscribe' => 'One-Click' ] );
 // The POST form on a link's page, if it has one: its action (null when it has none, so
 // it posts back to the link itself) and its button text.
 $sb_form = function ( string $page ) {

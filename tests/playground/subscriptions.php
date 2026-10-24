@@ -299,6 +299,44 @@ check( 'roundup: a new visible photo on a published step sends one', 2 === count
 check( '…saying so in the subject', 'Roundup Lisbon: new photos' === ( $mails[0]['subject'] ?? '' ), $mails[0]['subject'] ?? '' );
 update_post_meta( $sb_rt, Trips::META_HIDDEN, [] );
 check( 'roundup: unhiding a photo shows it, and sends it as new', 1 === preg_match( '/New photos on:/', $sb_run()[0]['message'] ?? '' ) );
+$sb_last = fn() => array_intersect_key( (array) get_post_meta( $sb_rt, Roundup::META_LAST, true ), array_flip( [ 'recipients', 'sent', 'failed' ] ) );
+check( '…and records each email as sent', [ 'recipients' => 2, 'sent' => 2, 'failed' => 0 ] === $sb_last(), $sb_last() );
+$sb_panel = function () use ( $render, $sb_author, $sb_rt ) {
+	wp_set_current_user( $sb_author );
+	$edit = $render( 'trip-edit.php', (string) $sb_rt );
+	wp_set_current_user( 0 );
+	return substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 1200 );
+};
+check( '…so the edit page names no failures', false === strpos( $sb_panel(), 'couldn’t be sent' ), $sb_panel() );
+
+// Mail the site couldn't send is counted, never named.
+$sb_refuse = fn( $sent, $atts ) => 'ana@example.org' === $atts['to'] ? false : $sent;
+add_filter( 'pre_wp_mail', $sb_refuse, 20, 2 );
+$sb_add_photos( $sb_rt, [ row( 68, '2025-05-01', '17:00', 38.7, -9.1, 'Lisbon', true ) ] );
+$sb_run();
+remove_filter( 'pre_wp_mail', $sb_refuse, 20 );
+check( 'roundup: an email the site refuses is counted as failed', [ 'recipients' => 2, 'sent' => 1, 'failed' => 1 ] === $sb_last(), $sb_last() );
+check( '…and not by address', false === strpos( (string) wp_json_encode( get_post_meta( $sb_rt, Roundup::META_LAST, true ) ), 'ana@' ) );
+check( '…and the edit page says so', false !== strpos( $sb_panel(), '1 of 2 couldn’t be sent. Check the site’s mail settings.' ), $sb_panel() );
+check( '…and it isn’t sent again', [] === $sb_run() );
+
+// A run that dies part-way leaves the emails it didn't get to counted as not sent.
+$sb_die = function ( $sent, $atts ) {
+	if ( 'friend@example.org' === $atts['to'] ) {
+		throw new \RuntimeException( 'timed out' );
+	}
+	return $sent;
+};
+add_filter( 'pre_wp_mail', $sb_die, 20, 2 );
+$sb_add_photos( $sb_rt, [ row( 69, '2025-05-01', '18:00', 38.7, -9.1, 'Lisbon', true ) ] );
+try {
+	$sb_run();
+} catch ( \RuntimeException $e ) {
+	unset( $e );
+}
+remove_filter( 'pre_wp_mail', $sb_die, 20 );
+check( 'roundup: a run that dies part-way records what it sent', [ 'recipients' => 2, 'sent' => 1, 'failed' => 0 ] === $sb_last(), $sb_last() );
+check( '…and the edit page counts the rest as not sent', false !== strpos( $sb_panel(), '1 of 2 couldn’t be sent.' ), $sb_panel() );
 
 // A private trip sends nothing, and keeps its subscribers.
 wp_set_current_user( 1 );

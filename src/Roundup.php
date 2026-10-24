@@ -20,7 +20,7 @@ class Roundup {
 
 	// Trip meta.
 	const META_STATE = '_ts_roundup_state'; // array{steps: array<int, string>, photos: string[]}: as at the last roundup.
-	const META_LAST  = '_ts_roundup_last';  // array{time: int, days: int, photos: int, updated: int, recipients: int}: the last roundup sent.
+	const META_LAST  = '_ts_roundup_last';  // array{time: int, days: int, photos: int, updated: int, recipients: int, sent: int, failed: int}: the last roundup sent.
 
 	/**
 	 * Run at the next hour the site settings name, unless that's scheduled already. A
@@ -139,7 +139,9 @@ class Roundup {
 	/**
 	 * A trip's roundup, if it has new days or photos and anyone to send it to. What was
 	 * sent is recorded before it goes, so a run that dies part-way doesn't send it twice.
-	 * Nothing is recorded when nothing is sent.
+	 * How many emails the site accepted and refused is counted as each goes, so the edit
+	 * page can say how many didn't go; none are sent again. Nothing is recorded when nothing
+	 * is sent.
 	 */
 	public static function send( \WP_Post $trip ): void {
 		if ( 'publish' !== $trip->post_status ) {
@@ -154,17 +156,16 @@ class Roundup {
 		}
 		update_post_meta( $trip->ID, self::META_STATE, $now );
 		$recipients = self::recipients( $trip );
-		update_post_meta(
-			$trip->ID,
-			self::META_LAST,
-			[
-				'time'       => time(),
-				'days'       => count( $changes['days'] ),
-				'photos'     => count( $changes['photos'] ),
-				'updated'    => count( $changes['updated'] ),
-				'recipients' => count( $recipients ),
-			]
-		);
+		$last       = [
+			'time'       => time(),
+			'days'       => count( $changes['days'] ),
+			'photos'     => count( $changes['photos'] ),
+			'updated'    => count( $changes['updated'] ),
+			'recipients' => count( $recipients ),
+			'sent'       => 0,
+			'failed'     => 0,
+		];
+		update_post_meta( $trip->ID, self::META_LAST, $last );
 		if ( ! $recipients ) {
 			return;
 		}
@@ -177,7 +178,7 @@ class Roundup {
 		) . "\n" . __( 'Unsubscribe:', 'travel-steps' ) . ' ';
 		foreach ( $recipients as $address => $sub ) {
 			$unsubscribe = Subscriptions::link( $sub, 'unsubscribe' );
-			wp_mail(
+			$sent = wp_mail(
 				$address,
 				$subject,
 				$body . $footer . $unsubscribe . "\n",
@@ -187,7 +188,22 @@ class Roundup {
 					'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
 				]
 			);
+			++$last[ $sent ? 'sent' : 'failed' ];
+			update_post_meta( $trip->ID, self::META_LAST, $last );
 		}
+	}
+
+	/**
+	 * How many of the last roundup's emails didn't go: refused by the site's mail, or
+	 * never reached by a run that died part-way. 0 for a roundup recorded before sends
+	 * were counted.
+	 */
+	public static function last_unsent( int $trip_id ): int {
+		$last = get_post_meta( $trip_id, self::META_LAST, true );
+		if ( ! is_array( $last ) || ! isset( $last['sent'] ) ) {
+			return 0;
+		}
+		return max( 0, (int) ( $last['recipients'] ?? 0 ) - (int) $last['sent'] );
 	}
 
 	/**

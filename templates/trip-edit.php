@@ -522,6 +522,19 @@ include __DIR__ . '/_header.php';
 							number_format_i18n( (int) $last_roundup['recipients'] )
 						)
 					);
+					$unsent = Roundup::last_unsent( $trip_id );
+					if ( $unsent ) {
+						echo ' <strong>';
+						echo esc_html(
+							sprintf(
+								/* translators: 1: number of emails not sent, 2: number of recipients */
+								__( '%1$s of %2$s couldn’t be sent. Check the site’s mail settings.', 'travel-steps' ),
+								number_format_i18n( $unsent ),
+								number_format_i18n( (int) $last_roundup['recipients'] )
+							)
+						);
+						echo '</strong>';
+					}
 				} else {
 					esc_html_e( 'No roundup has been sent yet.', 'travel-steps' );
 				}

@@ -358,7 +358,12 @@ $mails = $sb_run();
 check( 'roundup: a new visible photo on a published step sends one', 2 === count( $mails ) && 1 === preg_match( '/New photos on:\s+.*Alfama/s', $mails[0]['message'] ?? '' ), $mails );
 check( '…saying so in the subject', 'Roundup Lisbon: new photos' === ( $mails[0]['subject'] ?? '' ), $mails[0]['subject'] ?? '' );
 update_post_meta( $sb_rt, Trips::META_HIDDEN, [] );
-check( 'roundup: unhiding a photo shows it, and sends it as new', 1 === preg_match( '/New photos on:/', $sb_run()[0]['message'] ?? '' ) );
+check( 'roundup: unhiding a photo hidden at the last roundup sends nothing', [] === $sb_run() );
+// A state recorded before roundups noted hidden photos: the unhidden one counts as new, as it did then.
+$sb_state = get_post_meta( $sb_rt, Roundup::META_STATE, true );
+unset( $sb_state['hidden'] );
+update_post_meta( $sb_rt, Roundup::META_STATE, $sb_state );
+check( 'roundup: a state saved without hidden photos still works, counting the unhidden one as new', 1 === preg_match( '/New photos on:/', $sb_run()[0]['message'] ?? '' ) );
 $sb_last = fn() => array_intersect_key( (array) get_post_meta( $sb_rt, Roundup::META_LAST, true ), array_flip( [ 'recipients', 'sent', 'failed' ] ) );
 check( '…and records each email as sent', [ 'recipients' => 2, 'sent' => 2, 'failed' => 0 ] === $sb_last(), $sb_last() );
 $sb_panel_of = fn( string $edit ) => substr( $edit, strpos( $edit, 'ts-subscribers' ) ?: 0, 1200 );

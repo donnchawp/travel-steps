@@ -118,7 +118,8 @@ class Roundup {
 	 * published steps, steps with photos visitors hadn't seen anywhere on the trip, and
 	 * other steps changed since. Each step is listed once, under the first that applies.
 	 * A photo hidden at the last roundup isn't new once it's shown: hiding and showing
-	 * photos sends nothing. A state recorded before hidden photos were has none.
+	 * photos sends nothing. A state recorded before hidden photos were has none, so until
+	 * a trip's next roundup goes, a photo hidden before then counts as new once shown.
 	 *
 	 * @return array{days: int[], photos: int[], updated: int[]}
 	 */

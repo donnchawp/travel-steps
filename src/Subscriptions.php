@@ -468,6 +468,10 @@ class Subscriptions {
 		}
 		$sent[] = time();
 		update_option( self::SENT_OPTION, $sent, false );
+		if ( count( $sent ) === self::CAP ) {
+			// Once per full hour, so a site owner can tell why signups get no email.
+			error_log( sprintf( 'Travel Steps: %d confirmation emails sent in the last hour. Signups get none until the oldest is an hour old.', self::CAP ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- The only trace when the cap turns visitors away.
+		}
 		return true;
 	}
 

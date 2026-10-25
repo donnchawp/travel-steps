@@ -104,11 +104,12 @@ class Roundup {
 	 * @return array{steps: array<int, string>, photos: array<int, string[]>, hidden: array<int, string[]>}
 	 */
 	public static function state( int $trip_id ): array {
-		$steps = Trips::steps( $trip_id );
+		$steps   = Trips::steps( $trip_id );
+		$by_step = Trips::photos_by_step( $trip_id, $steps );
 		return [
 			'steps'  => wp_list_pluck( $steps, 'post_modified_gmt', 'ID' ),
-			'photos' => Trips::visible_photos_by_step( $trip_id, $steps ),
-			'hidden' => array_filter( array_map( fn( $groups ) => array_column( $groups['hidden'], 'id' ), Trips::photos_by_step( $trip_id, $steps ) ) ),
+			'photos' => Trips::visible_photos_by_step( $by_step ),
+			'hidden' => Trips::hidden_photos_by_step( $by_step ),
 		];
 	}
 

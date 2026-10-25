@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Once a day, at the hour in the site settings, each published trip is compared with what
  * was recorded at its last roundup: its published steps, when each was last changed, and
- * the photos visitors could see on each. A roundup goes out only for a newly published
+ * the photos visitors could see on each and those hidden from them. A roundup goes out only for a newly published
  * step or new visible photos; text edits are listed with those, never on their own.
  */
 class Roundup {
@@ -19,7 +19,7 @@ class Roundup {
 	const LOCK = 'travel_steps_roundup_lock';
 
 	// Trip meta.
-	const META_STATE = '_ts_roundup_state'; // array{steps: array<int, string>, photos: string[]}: as at the last roundup.
+	const META_STATE = '_ts_roundup_state'; // array{steps: array<int, string>, photos: array<int, string[]>, hidden: array<int, string[]>}: as at the last roundup.
 	const META_LAST  = '_ts_roundup_last';  // array{time: int, days: int, photos: int, updated: int, recipients: int, sent: int, failed: int}: the last roundup sent.
 
 	/**
@@ -98,15 +98,16 @@ class Roundup {
 
 	/**
 	 * What visitors see of a trip now: when each published step was last changed (in
-	 * GMT), and the photos they see on each.
+	 * GMT), the photos they see on each, and the photos hidden from them on each.
 	 *
-	 * @return array{steps: array<int, string>, photos: array<int, string[]>}
+	 * @return array{steps: array<int, string>, photos: array<int, string[]>, hidden: array<int, string[]>}
 	 */
 	public static function state( int $trip_id ): array {
 		$steps = Trips::steps( $trip_id );
 		return [
 			'steps'  => wp_list_pluck( $steps, 'post_modified_gmt', 'ID' ),
 			'photos' => Trips::visible_photos_by_step( $trip_id, $steps ),
+			'hidden' => array_filter( array_map( fn( $groups ) => array_column( $groups['hidden'], 'id' ), Trips::photos_by_step( $trip_id, $steps ) ) ),
 		];
 	}
 
@@ -114,11 +115,13 @@ class Roundup {
 	 * The step ids a roundup lists, from the state at the last one and now: newly
 	 * published steps, steps with photos visitors hadn't seen anywhere on the trip, and
 	 * other steps changed since. Each step is listed once, under the first that applies.
+	 * A photo hidden at the last roundup isn't new once it's shown: hiding and showing
+	 * photos sends nothing. A state recorded before hidden photos were has none.
 	 *
 	 * @return array{days: int[], photos: int[], updated: int[]}
 	 */
 	public static function changes( array $before, array $now ): array {
-		$seen    = Trips::photo_id_set( (array) ( $before['photos'] ?? [] ) );
+		$seen    = Trips::photo_id_set( (array) ( $before['photos'] ?? [] ) ) + Trips::photo_id_set( (array) ( $before['hidden'] ?? [] ) );
 		$changes = [
 			'days'    => [],
 			'photos'  => [],

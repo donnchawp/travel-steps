@@ -1,9 +1,9 @@
 <?php
 /**
  * Deleting the plugin deletes the photos it cached, on every site of a network, the
- * subscriptions to trips, and the cron events that fill and sweep that cache and send
- * the roundups. Trips, steps, settings, keys and the photos uploaded to trips
- * (uploads/travel-steps/) stay.
+ * subscriptions to trips with the record of confirmation emails sent, and the cron
+ * events that fill and sweep that cache and send the roundups. Trips, steps, settings,
+ * keys and the photos uploaded to trips (uploads/travel-steps/) stay.
  *
  * WordPress runs this without loading the plugin. Its autoloader is enough: the classes
  * do nothing until called, so the names below come from them.
@@ -35,6 +35,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 		wp_unschedule_hook( TravelSteps\Roundup::HOOK );
 		// Subscriptions hold visitors' addresses: they go with the plugin.
 		TravelSteps\Subscriptions::delete_all();
+		delete_option( TravelSteps\Subscriptions::SENT_OPTION );
 		$root = TravelSteps\RestController::cache_root();
 		// A cache folder that can't be read is kept, as a folder inside it is below.
 		if ( is_dir( $root ) && ! is_link( $root ) && is_readable( $root ) ) {

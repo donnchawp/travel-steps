@@ -412,32 +412,36 @@ class Subscriptions {
 		return strtolower( trim( $email ) );
 	}
 
+	/**
+	 * A new signup's subscription is added unmailed (its META_MAILED 0), and the time is
+	 * recorded once the site's mail accepts the email. One it refuses doesn't hold off a
+	 * retry, and a signup whose email never went is as old as can be, so the daily run
+	 * drops it.
+	 */
 	private static function signup_now( \WP_Post $trip, string $email ): void {
 		$existing = self::find( $trip->ID, self::META_EMAIL, $email );
 		if ( $existing && ( self::CONFIRMED === $existing['status'] || $existing['mailed'] > time() - self::RESEND_S ) ) {
 			return;
 		}
-		if ( $existing ) {
-			update_post_meta( $existing['id'], self::META_MAILED, time() );
-			$sub = $existing;
-		} else {
-			$sub = self::get(
-				self::add(
-					$trip->ID,
-					[
-						self::META_EMAIL  => $email,
-						self::META_STATUS => self::PENDING,
-						self::META_MAILED => time(),
-					]
-				)
-			);
-		}
-		if ( $sub ) {
-			self::send_confirmation( $trip, $sub );
+		$sub = $existing ?? self::get(
+			self::add(
+				$trip->ID,
+				[
+					self::META_EMAIL  => $email,
+					self::META_STATUS => self::PENDING,
+					self::META_MAILED => 0,
+				]
+			)
+		);
+		if ( $sub && self::send_confirmation( $trip, $sub ) ) {
+			update_post_meta( $sub['id'], self::META_MAILED, time() );
 		}
 	}
 
-	private static function send_confirmation( \WP_Post $trip, array $sub ): void {
+	/**
+	 * Emails a pending subscription its confirmation link. Whether the site's mail took it.
+	 */
+	private static function send_confirmation( \WP_Post $trip, array $sub ): bool {
 		$site  = self::plain( get_bloginfo( 'name' ) );
 		$title = self::plain( get_the_title( $trip ) );
 		/* translators: %s: trip title */
@@ -449,7 +453,7 @@ class Subscriptions {
 			$site
 		) . "\n\n" . __( 'To confirm, open this link:', 'travel-steps' ) . "\n" . self::link( $sub, 'confirm' ) . "\n\n"
 			. __( 'If it wasn’t you, ignore this email and you won’t get any more. The link works for 7 days.', 'travel-steps' ) . "\n";
-		wp_mail( $sub['email'], $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
+		return wp_mail( $sub['email'], $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
 	}
 
 	/**

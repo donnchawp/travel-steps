@@ -52,7 +52,7 @@ class Subscriptions {
 		register_post_type(
 			self::TYPE,
 			[
-				'label'               => __( 'Trip subscriptions', 'travel-steps' ),
+				'label'               => __( 'Trip subscriptions', 'travel-steps-storyteller' ),
 				'public'              => false,
 				'exclude_from_search' => true,
 				'publicly_queryable'  => false,
@@ -482,14 +482,14 @@ class Subscriptions {
 		$site  = self::plain( get_bloginfo( 'name' ) );
 		$title = self::plain( get_the_title( $trip ) );
 		/* translators: %s: trip title */
-		$subject = sprintf( __( 'Confirm your subscription to %s', 'travel-steps' ), $title );
+		$subject = sprintf( __( 'Confirm your subscription to %s', 'travel-steps-storyteller' ), $title );
 		$body    = sprintf(
 			/* translators: 1: trip title, 2: site name */
-			__( 'Someone, probably you, asked for an email from %2$s when new days or photos are added to “%1$s”. At most one a day.', 'travel-steps' ),
+			__( 'Someone, probably you, asked for an email from %2$s when new days or photos are added to “%1$s”. At most one a day.', 'travel-steps-storyteller' ),
 			$title,
 			$site
-		) . "\n\n" . __( 'To confirm, open this link:', 'travel-steps' ) . "\n" . self::link( $sub, 'confirm' ) . "\n\n"
-			. __( 'If it wasn’t you, ignore this email and you won’t get any more. The link works for 7 days.', 'travel-steps' ) . "\n";
+		) . "\n\n" . __( 'To confirm, open this link:', 'travel-steps-storyteller' ) . "\n" . self::link( $sub, 'confirm' ) . "\n\n"
+			. __( 'If it wasn’t you, ignore this email and you won’t get any more. The link works for 7 days.', 'travel-steps-storyteller' ) . "\n";
 		return wp_mail( $sub['email'], $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
 	}
 
@@ -628,7 +628,7 @@ class Subscriptions {
 		$sub  = self::get( absint( $_POST['subscription'] ?? 0 ) );
 		$trip = $sub ? get_post( $sub['trip'] ) : null;
 		if ( ! $sub || ! $trip || ! Trips::can_edit_trip( $trip->ID ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps' ), 403 );
+			wp_die( esc_html__( 'Sorry, you are not allowed to edit this trip.', 'travel-steps-storyteller' ), 403 );
 		}
 		self::delete( $sub['id'] );
 		wp_safe_redirect( add_query_arg( 'removed', '1', Trips::url( $trip, 'edit' ) ) . '#ts-subscribers' );
@@ -661,7 +661,7 @@ class Subscriptions {
 
 	public static function register_exporter( array $exporters ): array {
 		$exporters['travel-steps-subscriptions'] = [
-			'exporter_friendly_name' => __( 'Travel Steps trip subscriptions', 'travel-steps' ),
+			'exporter_friendly_name' => __( 'Travel Steps Storyteller trip subscriptions', 'travel-steps-storyteller' ),
 			'callback'               => [ self::class, 'export' ],
 		];
 		return $exporters;
@@ -669,7 +669,7 @@ class Subscriptions {
 
 	public static function register_eraser( array $erasers ): array {
 		$erasers['travel-steps-subscriptions'] = [
-			'eraser_friendly_name' => __( 'Travel Steps trip subscriptions', 'travel-steps' ),
+			'eraser_friendly_name' => __( 'Travel Steps Storyteller trip subscriptions', 'travel-steps-storyteller' ),
 			'callback'             => [ self::class, 'erase' ],
 		];
 		return $erasers;
@@ -683,23 +683,23 @@ class Subscriptions {
 		foreach ( self::for_address( $email ) as $sub ) {
 			$data[] = [
 				'group_id'    => 'travel-steps-subscriptions',
-				'group_label' => __( 'Trip subscriptions', 'travel-steps' ),
+				'group_label' => __( 'Trip subscriptions', 'travel-steps-storyteller' ),
 				'item_id'     => 'travel-steps-subscription-' . $sub['id'],
 				'data'        => [
 					[
-						'name'  => __( 'Trip', 'travel-steps' ),
+						'name'  => __( 'Trip', 'travel-steps-storyteller' ),
 						'value' => self::plain( get_the_title( $sub['trip'] ) ),
 					],
 					[
-						'name'  => __( 'Email address', 'travel-steps' ),
-						'value' => $sub['email'] ? $sub['email'] : __( 'Your account’s', 'travel-steps' ),
+						'name'  => __( 'Email address', 'travel-steps-storyteller' ),
+						'value' => $sub['email'] ? $sub['email'] : __( 'Your account’s', 'travel-steps-storyteller' ),
 					],
 					[
-						'name'  => __( 'Status', 'travel-steps' ),
-						'value' => self::CONFIRMED === $sub['status'] ? __( 'Confirmed', 'travel-steps' ) : __( 'Pending', 'travel-steps' ),
+						'name'  => __( 'Status', 'travel-steps-storyteller' ),
+						'value' => self::CONFIRMED === $sub['status'] ? __( 'Confirmed', 'travel-steps-storyteller' ) : __( 'Pending', 'travel-steps-storyteller' ),
 					],
 					[
-						'name'  => __( 'Subscribed', 'travel-steps' ),
+						'name'  => __( 'Subscribed', 'travel-steps-storyteller' ),
 						'value' => (string) get_post_field( 'post_date', $sub['id'] ),
 					],
 				],

@@ -179,9 +179,9 @@ class Roundup {
 		$body    = self::body( $trip, $changes );
 		$footer  = "\n-- \n" . sprintf(
 			/* translators: %s: site name */
-			__( 'You subscribed to this trip on %s.', 'travel-steps' ),
+			__( 'You subscribed to this trip on %s.', 'travel-steps-storyteller' ),
 			Subscriptions::plain( get_bloginfo( 'name' ) )
-		) . "\n" . __( 'Unsubscribe:', 'travel-steps' ) . ' ';
+		) . "\n" . __( 'Unsubscribe:', 'travel-steps-storyteller' ) . ' ';
 		foreach ( $recipients as $address => $sub ) {
 			$unsubscribe = Subscriptions::link( $sub, 'unsubscribe' );
 			$sent = wp_mail(
@@ -241,10 +241,10 @@ class Roundup {
 			$parts[] = self::new_days( count( $changes['days'] ) );
 		}
 		if ( $changes['photos'] ) {
-			$parts[] = __( 'new photos', 'travel-steps' );
+			$parts[] = __( 'new photos', 'travel-steps-storyteller' );
 		}
 		/* translators: 1: trip title, 2: what's new, such as "2 new days and new photos" */
-		return sprintf( __( '%1$s: %2$s', 'travel-steps' ), Subscriptions::plain( get_the_title( $trip ) ), implode( __( ' and ', 'travel-steps' ), $parts ) );
+		return sprintf( __( '%1$s: %2$s', 'travel-steps-storyteller' ), Subscriptions::plain( get_the_title( $trip ) ), implode( __( ' and ', 'travel-steps-storyteller' ), $parts ) );
 	}
 
 	/**
@@ -252,7 +252,7 @@ class Roundup {
 	 */
 	private static function new_days( int $days ): string {
 		/* translators: %s: number of days */
-		return sprintf( _n( '%s new day', '%s new days', $days, 'travel-steps' ), number_format_i18n( $days ) );
+		return sprintf( _n( '%s new day', '%s new days', $days, 'travel-steps-storyteller' ), number_format_i18n( $days ) );
 	}
 
 	/**
@@ -275,23 +275,23 @@ class Roundup {
 		}
 		if ( $photos ) {
 			/* translators: %s: number of days */
-			$listed[] = sprintf( _n( 'new photos on %s day', 'new photos on %s days', $photos, 'travel-steps' ), number_format_i18n( $photos ) );
+			$listed[] = sprintf( _n( 'new photos on %s day', 'new photos on %s days', $photos, 'travel-steps-storyteller' ), number_format_i18n( $photos ) );
 		}
 		if ( $edited ) {
 			/* translators: %s: number of days */
-			$listed[] = sprintf( _n( '%s updated day', '%s updated days', $edited, 'travel-steps' ), number_format_i18n( $edited ) );
+			$listed[] = sprintf( _n( '%s updated day', '%s updated days', $edited, 'travel-steps-storyteller' ), number_format_i18n( $edited ) );
 		}
 		return $listed;
 	}
 
 	private static function body( \WP_Post $trip, array $changes ): string {
 		/* translators: %s: trip title */
-		$body     = sprintf( __( 'What’s new on “%s”:', 'travel-steps' ), Subscriptions::plain( get_the_title( $trip ) ) ) . "\n";
+		$body     = sprintf( __( 'What’s new on “%s”:', 'travel-steps-storyteller' ), Subscriptions::plain( get_the_title( $trip ) ) ) . "\n";
 		$format   = get_option( 'date_format' );
 		$sections = [
-			'days'    => __( 'New days:', 'travel-steps' ),
-			'photos'  => __( 'New photos on:', 'travel-steps' ),
-			'updated' => __( 'Also updated:', 'travel-steps' ),
+			'days'    => __( 'New days:', 'travel-steps-storyteller' ),
+			'photos'  => __( 'New photos on:', 'travel-steps-storyteller' ),
+			'updated' => __( 'Also updated:', 'travel-steps-storyteller' ),
 		];
 		foreach ( $sections as $key => $heading ) {
 			if ( ! $changes[ $key ] ) {
@@ -305,7 +305,7 @@ class Roundup {
 				}
 				$day   = Trips::day_of_trip( $trip->ID, $step );
 				$date  = mysql2date( $format, $step->post_date );
-				$when  = $day > 0 ? sprintf( /* translators: 1: day number of the trip, 2: date */ __( 'Day %1$d, %2$s', 'travel-steps' ), $day, $date ) : $date;
+				$when  = $day > 0 ? sprintf( /* translators: 1: day number of the trip, 2: date */ __( 'Day %1$d, %2$s', 'travel-steps-storyteller' ), $day, $date ) : $date;
 				$body .= '- ' . $when . ': ' . Subscriptions::plain( get_the_title( $step ) ) . "\n  " . self::trip_link( $trip, $step_id ) . "\n";
 			}
 		}

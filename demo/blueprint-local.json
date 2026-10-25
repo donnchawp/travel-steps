@@ -12,7 +12,7 @@
 	"steps": [
 		{
 			"step": "activatePlugin",
-			"pluginPath": "travel-steps/travel-steps.php"
+			"pluginPath": "travel-steps-storyteller/travel-steps-storyteller.php"
 		},
 		{
 			"step": "mkdir",

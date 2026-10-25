@@ -1,6 +1,6 @@
 {
 	"name": "donncha/travel-steps",
-	"description": "Travel Steps - document trips with Dawarich and Immich, powered by WpApp",
+	"description": "Travel Steps Storyteller - document trips with Dawarich and Immich, powered by WpApp",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
 	"require": {

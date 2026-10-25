@@ -1,4 +1,4 @@
-# Local settings, not committed: e.g. DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps/
+# Local settings, not committed: e.g. DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps-storyteller/
 -include Makefile.local
 
 PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
@@ -26,7 +26,7 @@ smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs N
 	@out=$$(mktemp -d) && trap 'rm -rf "$$out"' EXIT && \
 	$(PLAYGROUND) run-blueprint --quiet \
 		--blueprint=tests/playground/blueprint.json \
-		--mount=$(CURDIR):/wordpress/wp-content/plugins/travel-steps \
+		--mount=$(CURDIR):/wordpress/wp-content/plugins/travel-steps-storyteller \
 		--mount=$(CURDIR)/tests/playground:/smoke \
 		--mount="$$out":/out; \
 	status=$$?; \
@@ -35,7 +35,7 @@ smoke: vendor/autoload.php ## End-to-end checks in WordPress Playground (needs N
 check: test smoke ## Unit tests, then smoke
 
 demo: vendor/autoload.php ## Run the Playground demo locally, from this checkout, at http://127.0.0.1:9400
-	$(PLAYGROUND) server --port=9400 --mount=.:/wordpress/wp-content/plugins/travel-steps --blueprint=demo/blueprint-local.json
+	$(PLAYGROUND) server --port=9400 --mount=.:/wordpress/wp-content/plugins/travel-steps-storyteller --blueprint=demo/blueprint-local.json
 
 deploy: deploy-dest ## Copy the working tree to DEPLOY_DEST (runtime deps only)
 	composer install --no-dev
@@ -49,13 +49,13 @@ deploy-dest:
 
 # Built from the last commit, not the working tree, so untracked and uncommitted files stay out of a release.
 dist: ## Build dist/ from HEAD: the plugin zip (runtime deps only) and the demo's files, all release assets
-	rm -rf dist && mkdir -p dist/travel-steps
-	git archive HEAD | tar -x -C dist/travel-steps
-	composer install --no-dev --no-interaction --quiet --working-dir=dist/travel-steps
-	find dist/travel-steps -mindepth 1 -name '.*' -prune -exec rm -rf {} +
+	rm -rf dist && mkdir -p dist/travel-steps-storyteller
+	git archive HEAD | tar -x -C dist/travel-steps-storyteller
+	composer install --no-dev --no-interaction --quiet --working-dir=dist/travel-steps-storyteller
+	find dist/travel-steps-storyteller -mindepth 1 -name '.*' -prune -exec rm -rf {} +
 	# Only Composer and GitHub read these. composer.json stays: wp-app's settings page finds the plugin by it.
-	cd dist/travel-steps && rm -f composer.lock README.md vendor/akirk/wp-app/AGENTS.md vendor/akirk/wp-app/README.md vendor/akirk/wp-app/composer.json
-	cd dist && zip -qr travel-steps.zip travel-steps && rm -rf travel-steps
+	cd dist/travel-steps-storyteller && rm -f composer.lock README.md vendor/akirk/wp-app/AGENTS.md vendor/akirk/wp-app/README.md vendor/akirk/wp-app/composer.json
+	cd dist && zip -qr travel-steps.zip travel-steps-storyteller && rm -rf travel-steps-storyteller
 	git show HEAD:demo/setup.php > dist/demo-setup.php
 	git show HEAD:demo/fake-services.php > dist/demo-fake-services.php
 	@ls dist/*

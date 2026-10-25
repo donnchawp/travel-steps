@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Travel Steps
+ * Plugin Name: Travel Steps Storyteller
  * Description: A travel journal with photos from Immich or uploaded to the trip, a route from Dawarich or the photos themselves, and a post for each day's story.
  * Version: 0.5.1
  * Requires at least: 6.7
@@ -8,7 +8,7 @@
  * Author: Donncha
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: travel-steps
+ * Text Domain: travel-steps-storyteller
  */
 
 namespace TravelSteps;
@@ -28,7 +28,7 @@ if ( ! is_readable( TRAVEL_STEPS_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 		'admin_notices',
 		function () {
 			if ( current_user_can( 'activate_plugins' ) ) {
-				echo '<div class="notice notice-error"><p>' . esc_html__( 'Travel Steps is missing its dependencies. Run composer install --no-dev in wp-content/plugins/travel-steps.', 'travel-steps' ) . '</p></div>';
+				echo '<div class="notice notice-error"><p>' . esc_html__( 'Travel Steps Storyteller is missing its dependencies. Run composer install --no-dev in its folder.', 'travel-steps-storyteller' ) . '</p></div>';
 			}
 		}
 	);

@@ -29,8 +29,8 @@ class PhotosBlock {
 			Days::PHOTOS_BLOCK,
 			[
 				'api_version'           => 3,
-				'title'                 => __( 'Trip photos', 'travel-steps' ),
-				'description'           => __( 'Where this place’s photos appear on the trip page.', 'travel-steps' ),
+				'title'                 => __( 'Trip photos', 'travel-steps-storyteller' ),
+				'description'           => __( 'Where this place’s photos appear on the trip page.', 'travel-steps-storyteller' ),
 				'category'              => 'media',
 				'icon'                  => 'format-gallery',
 				// Only for the editor preview: the section the block sits in, as place start
@@ -78,16 +78,16 @@ class PhotosBlock {
 				$trip->ID,
 				$before,
 				/* translators: %s: number of photos */
-				_n( '%s photo taken before the first heading. The trip page shows it above that heading. Add a Trip photos block there to place it.', '%s photos taken before the first heading. The trip page shows them above that heading. Add a Trip photos block there to place them.', count( $before ), 'travel-steps' )
+				_n( '%s photo taken before the first heading. The trip page shows it above that heading. Add a Trip photos block there to place it.', '%s photos taken before the first heading. The trip page shows them above that heading. Add a Trip photos block there to place them.', count( $before ), 'travel-steps-storyteller' )
 			) . '</div>';
 		}
 		if ( $photos ) {
 			/* translators: %s: number of photos */
-			$html .= self::grid( $trip->ID, $photos, _n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps' ) );
+			$html .= self::grid( $trip->ID, $photos, _n( '%s photo. Pin or hide photos on the trip page.', '%s photos. Pin or hide photos on the trip page.', count( $photos ), 'travel-steps-storyteller' ) );
 		} else {
 			$empty = Trips::uses_uploads( $trip->ID )
-				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps' )
-				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps' );
+				? __( 'No photos for this place yet. Add photos to the trip.', 'travel-steps-storyteller' )
+				: __( 'No photos for this place yet. Favourite some in Immich and sync.', 'travel-steps-storyteller' );
 			$html .= '<p class="ts-photos-block-empty">' . esc_html( $empty ) . '</p>';
 		}
 		return $html;

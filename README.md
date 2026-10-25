@@ -1,4 +1,4 @@
-# Travel Steps
+# Travel Steps Storyteller
 
 A travel journal for your own WordPress site, built with [WpApp](https://github.com/akirk/wp-app). Each day of a trip is a step, a post you write in the block editor. The route comes from your [Dawarich](https://dawarich.app) location history, or from where your photos were taken. Photos come from [Immich](https://immich.app), or you upload them to the trip.
 
@@ -200,7 +200,7 @@ Travel Steps is in the [WordPress blueprints gallery](https://github.com/WordPre
 Copy the plugin to a server with rsync over SSH. Put the destination in `Makefile.local`, which git ignores:
 
 ```make
-DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps/
+DEPLOY_DEST = host:/path/to/wp-content/plugins/travel-steps-storyteller/
 ```
 
 ```bash
@@ -210,7 +210,7 @@ make deploy       # composer install --no-dev, then rsync --delete
 
 - It copies your working tree, not the last commit, so uncommitted changes go too.
 - `tests/`, the Makefiles and all dotfiles (`.git`, `.gitignore`, `.github` in dependencies) stay behind. `vendor/` goes, with runtime dependencies only.
-- `make dist` builds the same files into `dist/travel-steps.zip`, ready to upload or run through Plugin Check.
+- `make dist` builds the same files into `dist/travel-steps.zip`, in a `travel-steps-storyteller/` folder, ready to upload or run through Plugin Check.
 - `--delete` removes files on the server that aren't in your copy, so don't keep anything else in the plugin folder there.
 - `vendor/composer/installed.php` is copied every time, because Composer writes the current commit into it.
 - If `vendor/` ever goes missing on the server, the plugin stands down and shows admins a notice instead of breaking the site.
@@ -221,6 +221,6 @@ If an authentication proxy guards the whole site, trips aren't public until it l
 
 - `/travel-steps/*`, the trip pages and their photos. The new, edit and settings routes still need a WordPress login with the trips capability (`publish_posts` unless filtered, see Privacy).
 - `/wp-json/travel-steps/v1/*`, the map data, checked against the trip's visibility.
-- `/wp-content/plugins/travel-steps/*`, the scripts, styles and Leaflet.
+- `/wp-content/plugins/travel-steps-storyteller/*` (`travel-steps/*` for a copy installed by the blueprints), the scripts, styles and Leaflet.
 
 Photos come from `/travel-steps/photo/{trip id}/{asset}/{size}`, the same URL for everyone. Public ones are sent with `s-maxage=300`, so a CDN that honours origin headers keeps them for 5 minutes. Photos only some people may see, and every photo an editor fetches, are `private`, and a refused photo is a `no-store` 404. So don't let a CDN cache these URLs whatever the origin says, such as with Cloudflare's "Cache Everything". The old `/wp-json/travel-steps/v1/trips/{id}/photo/{asset}` URLs redirect there. Like the trip pages, photos need pretty permalinks. Don't let a CDN or page cache store `/travel-steps/*` pages for logged-in users, or for visitors with a cookie whose name starts `wp-postpass_` (core's password cookie and the share links' cookies). Editors see drafts and editing tools, and a protected trip's page shows the whole trip once its password is entered or its share link opened. A protected trip's page also defines `DONOTCACHEPAGE`, for page caching plugins that go by it. A subscriber's page shows them an Unsubscribe button, and is sent with no-cache headers. The subscribe form posts to the trip page, and the buttons on subscription links post to `/travel-steps/subscription`, so POSTs to `/travel-steps/trip/*` and `/travel-steps/subscription` must reach WordPress.

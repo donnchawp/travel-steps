@@ -394,7 +394,7 @@ check( 'trip API: no per-photo data', ! isset( $data['steps'] ) );
 $render = function ( $tpl, $slug ) {
 	set_query_var( 'slug', $slug );
 	ob_start();
-	include '/wordpress/wp-content/plugins/travel-steps/templates/' . $tpl;
+	include '/wordpress/wp-content/plugins/travel-steps-storyteller/templates/' . $tpl;
 	return ob_get_clean();
 };
 
@@ -584,7 +584,7 @@ ob_start();
 do_action( wp_app_get_scoped_hook_name( 'wp_app_head_styles', 'travel-steps' ) );
 $styles  = ob_get_clean();
 $leaflet = wp_scripts()->registered['leaflet']->src ?? '';
-check( 'trip page loads Leaflet from the plugin, not a CDN', str_ends_with( $leaflet, 'travel-steps/assets/vendor/leaflet/leaflet.js' ) && false !== strpos( $styles, 'travel-steps/assets/vendor/leaflet/leaflet.css' ) && false === strpos( $styles, 'unpkg.com' ), [ $leaflet, $styles ] );
+check( 'trip page loads Leaflet from the plugin, not a CDN', str_ends_with( $leaflet, 'travel-steps-storyteller/assets/vendor/leaflet/leaflet.js' ) && false !== strpos( $styles, 'travel-steps-storyteller/assets/vendor/leaflet/leaflet.css' ) && false === strpos( $styles, 'unpkg.com' ), [ $leaflet, $styles ] );
 
 // All-digit slugs would read as post IDs in trip URLs.
 wp_set_current_user( 1 );

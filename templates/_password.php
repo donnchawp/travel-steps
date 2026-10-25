@@ -20,15 +20,15 @@ include __DIR__ . '/_header.php';
 	<h1><?php echo esc_html( $page_title ); ?></h1>
 	<form class="ts-form ts-password-form" method="post" action="<?php echo esc_url( Trips::url( $trip ) ); ?>">
 		<?php if ( isset( $_GET['tried'], $_COOKIE[ Trips::password_cookie() ] ) ) : ?>
-			<p class="ts-notice is-error" role="alert"><?php esc_html_e( 'That password isn’t right.', 'travel-steps' ); ?></p>
+			<p class="ts-notice is-error" role="alert"><?php esc_html_e( 'That password isn’t right.', 'travel-steps-storyteller' ); ?></p>
 		<?php endif; ?>
-		<p><?php esc_html_e( 'This trip is password protected. Enter its password to see it.', 'travel-steps' ); ?></p>
+		<p><?php esc_html_e( 'This trip is password protected. Enter its password to see it.', 'travel-steps-storyteller' ); ?></p>
 		<label>
-			<span><?php esc_html_e( 'Password', 'travel-steps' ); ?></span>
+			<span><?php esc_html_e( 'Password', 'travel-steps-storyteller' ); ?></span>
 			<input type="password" name="post_password" required autocomplete="current-password" spellcheck="false">
 		</label>
 		<div class="ts-form-actions">
-			<button type="submit" class="ts-button"><?php esc_html_e( 'See the trip', 'travel-steps' ); ?></button>
+			<button type="submit" class="ts-button"><?php esc_html_e( 'See the trip', 'travel-steps-storyteller' ); ?></button>
 		</div>
 	</form>
 </div>

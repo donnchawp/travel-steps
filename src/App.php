@@ -20,7 +20,7 @@ class App extends BaseApp {
 				// Published trips are public; editing routes carry their own capability.
 				'require_login'       => false,
 				'app_name'            => 'Travel Steps',
-				'app_name_textdomain' => 'travel-steps',
+				'app_name_textdomain' => 'travel-steps-storyteller',
 				'app_icon'            => 'dashicons-location-alt',
 				'app_icon_background' => 'linear-gradient(135deg, #11998e, #38ef7d)',
 				'app_icon_color'      => '#fff',
@@ -104,16 +104,16 @@ class App extends BaseApp {
 		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) {
 			return;
 		}
-		$text  = '<p>' . esc_html__( 'Trip pages show a map whose background images come from the OpenStreetMap Foundation’s tile servers. When you view a trip, your browser requests those images directly, so the OpenStreetMap Foundation receives your IP address, browser details, the address of the trip page and the part of the map you look at.', 'travel-steps' ) . '</p>';
+		$text  = '<p>' . esc_html__( 'Trip pages show a map whose background images come from the OpenStreetMap Foundation’s tile servers. When you view a trip, your browser requests those images directly, so the OpenStreetMap Foundation receives your IP address, browser details, the address of the trip page and the part of the map you look at.', 'travel-steps-storyteller' ) . '</p>';
 		$text .= '<p>' . sprintf(
 			/* translators: %s: link to the OpenStreetMap Foundation privacy policy */
-			esc_html__( 'See the OpenStreetMap Foundation’s privacy policy: %s', 'travel-steps' ),
+			esc_html__( 'See the OpenStreetMap Foundation’s privacy policy: %s', 'travel-steps-storyteller' ),
 			'<a href="https://osmfoundation.org/wiki/Privacy_Policy">https://osmfoundation.org/wiki/Privacy_Policy</a>'
 		) . '</p>';
-		$text .= '<p>' . esc_html__( 'Photos on trip pages are served by this site. Published trips show the route travelled, with the area around the author’s home left out.', 'travel-steps' ) . '</p>';
-		$text .= '<p>' . esc_html__( 'Visitors can subscribe to a trip to get an email on days when something is added to it. This site keeps their email address, or for a logged-in visitor their account, until they unsubscribe or the trip’s author removes them, and sends the emails through this site’s own mail setup. A subscription that isn’t confirmed from the emailed link is deleted after 7 days, and changing a trip’s password deletes the subscriptions made with an email address.', 'travel-steps' ) . '</p>';
-		$text .= '<p>' . esc_html__( 'People who make trips store their own Immich and Dawarich API keys and home location on this site. They are used only to fetch that person’s photos and location history for their trips, and nobody else can see them.', 'travel-steps' ) . '</p>';
-		wp_add_privacy_policy_content( __( 'Travel Steps', 'travel-steps' ), wp_kses_post( $text ) );
+		$text .= '<p>' . esc_html__( 'Photos on trip pages are served by this site. Published trips show the route travelled, with the area around the author’s home left out.', 'travel-steps-storyteller' ) . '</p>';
+		$text .= '<p>' . esc_html__( 'Visitors can subscribe to a trip to get an email on days when something is added to it. This site keeps their email address, or for a logged-in visitor their account, until they unsubscribe or the trip’s author removes them, and sends the emails through this site’s own mail setup. A subscription that isn’t confirmed from the emailed link is deleted after 7 days, and changing a trip’s password deletes the subscriptions made with an email address.', 'travel-steps-storyteller' ) . '</p>';
+		$text .= '<p>' . esc_html__( 'People who make trips store their own Immich and Dawarich API keys and home location on this site. They are used only to fetch that person’s photos and location history for their trips, and nobody else can see them.', 'travel-steps-storyteller' ) . '</p>';
+		wp_add_privacy_policy_content( __( 'Travel Steps Storyteller', 'travel-steps-storyteller' ), wp_kses_post( $text ) );
 	}
 
 	protected function setup_database(): void {
@@ -130,10 +130,10 @@ class App extends BaseApp {
 	}
 
 	protected function setup_menu(): void {
-		$this->app->add_menu_item( 'trips', __( 'Trips', 'travel-steps' ), self::url() );
+		$this->app->add_menu_item( 'trips', __( 'Trips', 'travel-steps-storyteller' ), self::url() );
 		if ( current_user_can( Trips::capability() ) ) {
-			$this->app->add_menu_item( 'new', __( 'New trip', 'travel-steps' ), self::url( 'new' ) );
-			$this->app->add_menu_item( 'settings', __( 'Settings', 'travel-steps' ), self::url( 'settings' ) );
+			$this->app->add_menu_item( 'new', __( 'New trip', 'travel-steps-storyteller' ), self::url( 'new' ) );
+			$this->app->add_menu_item( 'settings', __( 'Settings', 'travel-steps-storyteller' ), self::url( 'settings' ) );
 		}
 	}
 }

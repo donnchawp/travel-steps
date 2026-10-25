@@ -74,7 +74,8 @@ function check_files( string $path, string $body ) {
 [ 'kind' => $kind, 'landing' => $landing ] = $release_check;
 $dir = WP_PLUGIN_DIR . '/travel-steps/';
 
-check( 'Travel Steps is active', is_plugin_active( 'travel-steps/travel-steps.php' ), array_keys( get_plugins() ) );
+// The gallery's blueprints install the zip as travel-steps/, whatever its folder is called.
+check( 'Travel Steps Storyteller is active', is_plugin_active( 'travel-steps/travel-steps-storyteller.php' ), array_keys( get_plugins() ) );
 $loaded_from = class_exists( Trips::class ) ? ( new ReflectionClass( Trips::class ) )->getFileName() : 'not loaded';
 check( 'it runs from wp-content/plugins/travel-steps/', 0 === strpos( $loaded_from, $dir ), $loaded_from );
 check( 'that folder is the zip, not a checkout', ! file_exists( $dir . 'Makefile' ) && ! file_exists( $dir . 'tests' ) );

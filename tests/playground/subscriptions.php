@@ -639,10 +639,10 @@ $sb_pub_subs = wp_list_pluck( $sb_subs( $sb_pub ), 'id' );
 wp_delete_post( $sb_pub, true );
 check( 'deleting a trip deletes its subscriptions', $sb_pub_subs && ! array_filter( array_map( [ Subscriptions::class, 'get' ], $sb_pub_subs ) ) );
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
-	define( 'WP_UNINSTALL_PLUGIN', 'travel-steps/travel-steps.php' );
+	define( 'WP_UNINSTALL_PLUGIN', 'travel-steps-storyteller/travel-steps-storyteller.php' );
 }
 $sb_had_sent = is_array( get_option( Subscriptions::SENT_OPTION ) );
-require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+require WP_PLUGIN_DIR . '/travel-steps-storyteller/uninstall.php';
 check( 'uninstall: the record of confirmation emails sent this hour is deleted', $sb_had_sent && false === get_option( Subscriptions::SENT_OPTION ) );
 check( 'uninstall: every subscription is deleted, and the roundup unscheduled', [] === get_posts( [ 'post_type' => Subscriptions::TYPE, 'post_status' => 'any', 'numberposts' => -1 ] ) && ! wp_next_scheduled( Roundup::HOOK ) );
 wp_set_current_user( 0 );

@@ -158,7 +158,7 @@ $cs_root   = RestController::cache_root();
 $cs_before = $pc_files();
 chmod( $cs_root, 0 );
 try {
-	require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+	require WP_PLUGIN_DIR . '/travel-steps-storyteller/uninstall.php';
 	$cs_failed = '';
 } catch ( Throwable $e ) {
 	$cs_failed = get_class( $e ) . ': ' . $e->getMessage();
@@ -175,7 +175,7 @@ wp_mkdir_p( $cs_locked );
 file_put_contents( "$cs_locked/photo", 'LOCKED' );
 chmod( $cs_locked, 0 );
 try {
-	require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+	require WP_PLUGIN_DIR . '/travel-steps-storyteller/uninstall.php';
 } finally {
 	// Or Playground can't remove its site when it's done.
 	chmod( $cs_locked, 0755 );
@@ -183,7 +183,7 @@ try {
 $cs_left = array_keys( $pc_files() );
 check( 'uninstall: a cache folder it can’t read is skipped, and the rest of the cache deleted', [ 'preview/locked/photo' ] === $cs_left, $cs_left );
 // Readable again, the next uninstall gets it.
-require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+require WP_PLUGIN_DIR . '/travel-steps-storyteller/uninstall.php';
 check( 'uninstall: the photo cache is deleted', ! file_exists( RestController::cache_root() ) );
 check( '…and the sweep and the cache fill unscheduled', 0 === $cs_events() && false === wp_next_scheduled( CacheFill::HOOK, [ $cs_shared[0] ] ) );
 check( '…but not photos uploaded to trips, trips or settings', 'ORIGINAL' === file_get_contents( "$cs_upload_dir/original.jpg" ) && null !== get_post( $cs_binned ) && $cs_options === Settings::all() );

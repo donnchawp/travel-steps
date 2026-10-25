@@ -37,12 +37,12 @@ $shown  = $trip && Subscriptions::offered( $trip );
 $sub    = 'confirmed' === $result['state'] ? Subscriptions::get( $result['sub'] ) : null;
 $link   = $shown && $sub && Roundup::reaches( $trip, $sub ) ? Roundup::trip_link( $trip ) : ( $shown ? Trips::url( $trip ) : '' );
 $texts  = [
-	'confirm'      => [ __( 'Confirm your subscription', 'travel-steps' ), __( 'Press the button to get an email on days when new days or photos are added to this trip.', 'travel-steps' ), __( 'Confirm subscription', 'travel-steps' ) ],
-	'unsubscribe'  => [ __( 'Stop emails about this trip?', 'travel-steps' ), __( 'Press the button to stop getting emails about this trip.', 'travel-steps' ), __( 'Unsubscribe', 'travel-steps' ) ],
-	'confirmed'    => [ __( 'You’re subscribed', 'travel-steps' ), __( 'You’ll get an email on days when new days or photos are added to this trip. Each one has a link to unsubscribe.', 'travel-steps' ) ],
-	'unsubscribed' => [ __( 'You’re unsubscribed', 'travel-steps' ), __( 'You won’t get any more emails about this trip.', 'travel-steps' ) ],
-	'expired'      => [ __( 'This link has expired', 'travel-steps' ), __( 'Confirmation links work for 7 days. Sign up again on the trip’s page to get a new one.', 'travel-steps' ) ],
-	'invalid'      => [ __( 'This link doesn’t work', 'travel-steps' ), __( 'It may have been used already. If you’re still getting emails, use the unsubscribe link in the latest one.', 'travel-steps' ) ],
+	'confirm'      => [ __( 'Confirm your subscription', 'travel-steps-storyteller' ), __( 'Press the button to get an email on days when new days or photos are added to this trip.', 'travel-steps-storyteller' ), __( 'Confirm subscription', 'travel-steps-storyteller' ) ],
+	'unsubscribe'  => [ __( 'Stop emails about this trip?', 'travel-steps-storyteller' ), __( 'Press the button to stop getting emails about this trip.', 'travel-steps-storyteller' ), __( 'Unsubscribe', 'travel-steps-storyteller' ) ],
+	'confirmed'    => [ __( 'You’re subscribed', 'travel-steps-storyteller' ), __( 'You’ll get an email on days when new days or photos are added to this trip. Each one has a link to unsubscribe.', 'travel-steps-storyteller' ) ],
+	'unsubscribed' => [ __( 'You’re unsubscribed', 'travel-steps-storyteller' ), __( 'You won’t get any more emails about this trip.', 'travel-steps-storyteller' ) ],
+	'expired'      => [ __( 'This link has expired', 'travel-steps-storyteller' ), __( 'Confirmation links work for 7 days. Sign up again on the trip’s page to get a new one.', 'travel-steps-storyteller' ) ],
+	'invalid'      => [ __( 'This link doesn’t work', 'travel-steps-storyteller' ), __( 'It may have been used already. If you’re still getting emails, use the unsubscribe link in the latest one.', 'travel-steps-storyteller' ) ],
 ];
 // A state with a third entry asks: that is its button's label.
 [ $page_title, $message, $button ] = $texts[ $result['state'] ] + [ 2 => '' ];
@@ -62,9 +62,9 @@ include __DIR__ . '/_header.php';
 			<p><button type="submit" class="ts-button" name="ts_button" value="1"><?php echo esc_html( $button ); ?></button></p>
 		</form>
 	<?php elseif ( $shown ) : ?>
-		<p><a class="ts-button" href="<?php echo esc_url( $link ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps' ); ?></a></p>
+		<p><a class="ts-button" href="<?php echo esc_url( $link ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps-storyteller' ); ?></a></p>
 	<?php else : ?>
-		<p><a href="<?php echo esc_url( App::url() ); ?>"><?php esc_html_e( 'All trips', 'travel-steps' ); ?></a></p>
+		<p><a href="<?php echo esc_url( App::url() ); ?>"><?php esc_html_e( 'All trips', 'travel-steps-storyteller' ); ?></a></p>
 	<?php endif; ?>
 </div>
 <?php

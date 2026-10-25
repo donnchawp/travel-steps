@@ -1,7 +1,7 @@
 {
   "landingPage": "/",
   "steps": [
-    { "step": "activatePlugin", "pluginPath": "/wordpress/wp-content/plugins/travel-steps/travel-steps.php" },
+    { "step": "activatePlugin", "pluginPath": "/wordpress/wp-content/plugins/travel-steps-storyteller/travel-steps-storyteller.php" },
     { "step": "runPHP", "code": "<?php require '/smoke/smoke.php';" }
   ]
 }

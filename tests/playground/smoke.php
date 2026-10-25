@@ -652,28 +652,28 @@ check( 'emptying both clears home', '' === $home['home_lat'] && '' === $home['ho
 update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test' ] ) );
 TravelSteps\Settings::update_account( 1, [ 'immich_key' => 'admin-immich-key' ] + TravelSteps\Settings::ACCOUNT_DEFAULTS );
 // The trips list runs newest first by start date, with undated drafts on top.
-$card_titles = function ( string $html ) {
-	preg_match_all( '#<a class="ts-card".*?<h2>(.*?)</h2>#s', $html, $m );
-	return $m[1];
+$listed     = function ( array $titles ) use ( $render ) {
+	preg_match_all( '#<a class="ts-card".*?<h2>(.*?)</h2>#s', $render( 'index.php', '' ), $m );
+	return array_values( array_intersect( $m[1], $titles ) );
 };
-$middle  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'May 2025 trip', 'post_status' => 'publish' ] );
-$newest  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'October 2026 trip', 'post_status' => 'publish' ] );
-$oldest  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'March 2024 trip', 'post_status' => 'publish' ] );
-$undated = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Undated trip', 'post_status' => 'draft' ] );
-update_post_meta( $middle, Trips::META_START, '2025-05-01' );
-update_post_meta( $newest, Trips::META_START, '2026-10-20' );
-update_post_meta( $oldest, Trips::META_START, '2024-03-10' );
-$ours  = [ 'Undated trip', 'October 2026 trip', 'May 2025 trip', 'March 2024 trip' ];
-$order = array_values( array_intersect( $card_titles( $render( 'index.php', '' ) ), $ours ) );
-check( 'trips list: undated draft on top, then newest start first', $ours === $order, $order );
+$dated_trip = function ( string $title, string $start, array $extra = [] ) {
+	$id = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => $title, 'post_status' => 'publish' ] + $extra );
+	update_post_meta( $id, Trips::META_START, $start );
+	return $id;
+};
+$middle   = $dated_trip( 'May 2025 trip', '2025-05-01' );
+$newest   = $dated_trip( 'October 2026 trip', '2026-10-20' );
+$oldest   = $dated_trip( 'March 2024 trip', '2024-03-10' );
+$undated  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Undated trip', 'post_status' => 'draft' ] );
+$expected = [ 'Undated trip', 'October 2026 trip', 'May 2025 trip', 'March 2024 trip' ];
+$order    = $listed( $expected );
+check( 'trips list: undated draft on top, then newest start first', $expected === $order, $order );
 // Trips that start the same day: the one made last comes first, even when both were made in the same second.
-$made_first  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Made first', 'post_status' => 'publish', 'post_date' => '2026-01-01 10:00:00' ] );
-$made_second = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Made second', 'post_status' => 'publish', 'post_date' => '2026-01-01 10:00:00' ] );
-update_post_meta( $made_first, Trips::META_START, '2025-05-01' );
-update_post_meta( $made_second, Trips::META_START, '2025-05-01' );
-$ours  = [ 'October 2026 trip', 'Made second', 'Made first', 'May 2025 trip', 'March 2024 trip' ];
-$order = array_values( array_intersect( $card_titles( $render( 'index.php', '' ) ), $ours ) );
-check( 'trips list: trips starting the same day run most recently made first', $ours === $order, $order );
+$made_first  = $dated_trip( 'Made first', '2025-05-01', [ 'post_date' => '2026-01-01 10:00:00' ] );
+$made_second = $dated_trip( 'Made second', '2025-05-01', [ 'post_date' => '2026-01-01 10:00:00' ] );
+$expected    = [ 'October 2026 trip', 'Made second', 'Made first', 'May 2025 trip', 'March 2024 trip' ];
+$order       = $listed( $expected );
+check( 'trips list: trips starting the same day run most recently made first', $expected === $order, $order );
 foreach ( [ $middle, $newest, $oldest, $undated, $made_first, $made_second ] as $id ) {
 	wp_delete_post( $id, true );
 }

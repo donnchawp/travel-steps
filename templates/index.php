@@ -17,7 +17,11 @@ $trips      = get_posts(
 );
 $trips      = array_values( array_filter( $trips, [ Trips::class, 'listed' ] ) );
 // Newest trip first by first day, undated drafts on top; trips starting the same day run most recently made (highest ID) first.
-usort( $trips, fn( $a, $b ) => strcmp( get_post_meta( $b->ID, Trips::META_START, true ) ?: '9999', get_post_meta( $a->ID, Trips::META_START, true ) ?: '9999' ) ?: $b->ID <=> $a->ID );
+$start      = [];
+foreach ( $trips as $trip ) {
+	$start[ $trip->ID ] = get_post_meta( $trip->ID, Trips::META_START, true ) ?: '9999';
+}
+usort( $trips, fn( $a, $b ) => [ $start[ $b->ID ], $b->ID ] <=> [ $start[ $a->ID ], $a->ID ] );
 $page_title = __( 'Trips', 'travel-steps' );
 include __DIR__ . '/_header.php';
 ?>

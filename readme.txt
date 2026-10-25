@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.5.1
+Stable tag: 0.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -20,7 +20,7 @@ Sync creates a draft step for every day with favourite photos. Each place you vi
 
 Only published steps of published trips are public. Your home is kept off every map. Photos taken at home show without a place when you chose them for the trip, as uploads, in an Immich album, or as favourites; a trip of Immich photos picked by its dates leaves out the rest. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
 
-A trip can also have a password. Logged-in users on its viewer lists see it without one.
+A trip can also have a password. Logged-in users on its viewer lists see it without one. Its edit page gives a share link that opens it without the password, until the password changes.
 
 Visitors can subscribe to a trip. Once a day, if new days or photos were published, they get one plain-text email listing them, with a link to unsubscribe.
 
@@ -57,6 +57,21 @@ Syncing a trip makes your WordPress server ask your Immich server for the photos
 Place names come from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The plugin ships towns of 500 people or more, and country names, trimmed to names, countries and positions. Most neighbourhoods and historical places are left out, and Paris's and Marseille's arrondissements are named after their city. Because the names ship with the plugin, naming a place sends nothing anywhere.
 
 == Changelog ==
+
+= 0.6.0 =
+* Travel Steps is now Travel Steps Storyteller, the name it has on WordPress.org. It lives in the folder travel-steps-storyteller, so WordPress sees it as a new plugin: deactivate the old one, remove its travel-steps folder by hand rather than with Delete on the Plugins screen (which deletes subscriptions and cached photos), then add and activate the new one. Trips, steps, settings and links are unchanged. An authentication proxy that lets /wp-content/plugins/travel-steps/* through needs the new folder instead.
+* Visitors can subscribe to a published trip from the end of its page. Once a day, at the hour set on the settings page, each trip with newly published days or photos emails its subscribers one plain-text roundup, with links to the new days and a link to unsubscribe. An email address is confirmed before anything is sent, and logged-in users subscribe with a button. The trip's edit page lists its subscribers and says when the last roundup went, to how many, and how many emails the site's mail refused. Subscriptions are included in WordPress's personal data export and erasure.
+* Opening a link from a subscription email only shows a page with a button, Confirm subscription or Unsubscribe, so mail scanners that open every link change nothing. A mail client's one-click unsubscribe still works in one step.
+* A password-protected trip's edit page has a share link that opens the trip without the password. Changing the password stops old links working. Roundups for a protected trip carry the link, and a link to a day lands on that day.
+* Trip pages have link-preview tags, so a shared trip shows its title, introduction and cover in chats and social media.
+* As you read a trip, the map zooms to the route under the place heading you're reading, and the other days' routes fade. A long move zooms out, across and back in.
+* On a phone, one finger scrolls the page over the trip map instead of moving the map. Pinching still zooms it.
+* The trips page lists trips newest first. Drafts without dates stay at the top.
+* Photos taken at home are kept, without a place, when they're in the trip's Immich album, or favourites on any trip.
+* A trip's edit page names the days that have photos but no step, because none of their photos is a favourite.
+* The block editor shows a step's photos taken before its first place heading in the first Trip photos block, as the trip page does.
+* Fixes: the lightbox's close button stays on screen while a phone's address bar shows, and its arrows are hidden when there is only one photo; a < in a trip's introduction that doesn't start a tag is kept; a draft trip gets its own URL when saved, so it can't share a published trip's; a password set on a step is dropped, since a step's trip password covers it; two requests can no longer both take a sync's lock.
+* Hardening: the app's pages can only be framed by the site itself; trip photos can't be set as featured images; a share link sets a cookie for its own trip only; subscription forms check where a post came from.
 
 = 0.5.1 =
 * Photos are served from /travel-steps/photo/, outside REST, at the same URL for everyone: their URLs no longer carry a nonce. A photo that isn't there, or that you can't see, gets the same 404, which caches don't keep, and photos only some people may see can't be loaded by other sites. Old photo URLs redirect to the new ones. Like the trip pages, photos need pretty permalinks, and an authentication proxy that lets /travel-steps/* through now lets their photos through too.

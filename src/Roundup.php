@@ -11,8 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Once a day, at the hour in the site settings, each published trip is compared with what
  * was recorded at its last roundup: its published steps, when each was last changed, and
- * the photos visitors could see on each and those hidden from them. A roundup goes out only for a newly published
- * step or new visible photos; text edits are listed with those, never on their own.
+ * the photos visitors could see on each and those hidden from them. A roundup goes out
+ * only for a newly published step or new visible photos; text edits are listed with
+ * those, never on their own.
  */
 class Roundup {
 	const HOOK = 'travel_steps_roundup';

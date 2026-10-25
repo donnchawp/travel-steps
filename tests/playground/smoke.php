@@ -666,7 +666,15 @@ update_post_meta( $oldest, Trips::META_START, '2024-03-10' );
 $ours  = [ 'Undated trip', 'October 2026 trip', 'May 2025 trip', 'March 2024 trip' ];
 $order = array_values( array_intersect( $card_titles( $render( 'index.php', '' ) ), $ours ) );
 check( 'trips list: undated draft on top, then newest start first', $ours === $order, $order );
-foreach ( [ $middle, $newest, $oldest, $undated ] as $id ) {
+// Trips that start the same day: the one made last comes first, even when both were made in the same second.
+$made_first  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Made first', 'post_status' => 'publish', 'post_date' => '2026-01-01 10:00:00' ] );
+$made_second = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Made second', 'post_status' => 'publish', 'post_date' => '2026-01-01 10:00:00' ] );
+update_post_meta( $made_first, Trips::META_START, '2025-05-01' );
+update_post_meta( $made_second, Trips::META_START, '2025-05-01' );
+$ours  = [ 'October 2026 trip', 'Made second', 'Made first', 'May 2025 trip', 'March 2024 trip' ];
+$order = array_values( array_intersect( $card_titles( $render( 'index.php', '' ) ), $ours ) );
+check( 'trips list: trips starting the same day run most recently made first', $ours === $order, $order );
+foreach ( [ $middle, $newest, $oldest, $undated, $made_first, $made_second ] as $id ) {
 	wp_delete_post( $id, true );
 }
 

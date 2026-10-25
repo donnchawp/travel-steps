@@ -651,16 +651,22 @@ check( 'emptying both clears home', '' === $home['home_lat'] && '' === $home['ho
 
 update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( TravelSteps\Settings::OPTION, [] ), [ 'immich_url' => 'http://immich.test' ] ) );
 TravelSteps\Settings::update_account( 1, [ 'immich_key' => 'admin-immich-key' ] + TravelSteps\Settings::ACCOUNT_DEFAULTS );
-// The trips list runs oldest first by start date, with undated drafts on top.
-$later   = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Later trip', 'post_status' => 'publish' ] );
-$earlier = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Earlier trip', 'post_status' => 'publish' ] );
+// The trips list runs newest first by start date, with undated drafts on top.
+$card_titles = function ( string $html ) {
+	preg_match_all( '#<a class="ts-card".*?<h2>(.*?)</h2>#s', $html, $m );
+	return $m[1];
+};
+$middle  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'May 2025 trip', 'post_status' => 'publish' ] );
+$newest  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'October 2026 trip', 'post_status' => 'publish' ] );
+$oldest  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'March 2024 trip', 'post_status' => 'publish' ] );
 $undated = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Undated trip', 'post_status' => 'draft' ] );
-update_post_meta( $later, Trips::META_START, '2026-09-13' );
-update_post_meta( $earlier, Trips::META_START, '2026-09-04' );
-$list  = $render( 'index.php', '' );
-$order = array_map( fn( $t ) => strpos( $list, $t ), [ 'Undated trip', 'Earlier trip', 'Later trip' ] );
-check( 'trips list: undated, then oldest start first', ! in_array( false, $order, true ) && $order === array_values( array_unique( $order ) ) && $order[0] < $order[1] && $order[1] < $order[2], $order );
-foreach ( [ $later, $earlier, $undated ] as $id ) {
+update_post_meta( $middle, Trips::META_START, '2025-05-01' );
+update_post_meta( $newest, Trips::META_START, '2026-10-20' );
+update_post_meta( $oldest, Trips::META_START, '2024-03-10' );
+$ours  = [ 'Undated trip', 'October 2026 trip', 'May 2025 trip', 'March 2024 trip' ];
+$order = array_values( array_intersect( $card_titles( $render( 'index.php', '' ) ), $ours ) );
+check( 'trips list: undated draft on top, then newest start first', $ours === $order, $order );
+foreach ( [ $middle, $newest, $oldest, $undated ] as $id ) {
 	wp_delete_post( $id, true );
 }
 

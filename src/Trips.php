@@ -782,7 +782,7 @@ class Trips {
 	 * @return array<string, true>
 	 */
 	public static function visible_photo_ids( int $trip_id, array $steps ): array {
-		$ids = self::photo_id_set( self::visible_photos_by_step( $trip_id, $steps ) );
+		$ids = self::photo_id_set( self::visible_photos_by_step( self::photos_by_step( $trip_id, $steps ) ) );
 		// The chosen cover is public with the trip, whichever step it's from.
 		$cover = self::cover( $trip_id );
 		if ( '' !== $cover ) {
@@ -792,14 +792,24 @@ class Trips {
 	}
 
 	/**
-	 * Asset ids of the photos visitors see on each of $steps once they're published: its
-	 * non-hidden photos, shown or behind "Show more".
+	 * Asset ids of the photos visitors see on each step once it's published, from
+	 * photos_by_step(): its non-hidden photos, shown or behind "Show more".
 	 *
-	 * @param \WP_Post[] $steps
-	 * @return array<int, string[]> Keyed by step id; a step with none is left out.
+	 * @param array<int, array{shown: array, rest: array, hidden: array}> $by_step
+	 * @return array<int, string[]> Keyed by step id; a step with no photos is left out.
 	 */
-	public static function visible_photos_by_step( int $trip_id, array $steps ): array {
-		return array_map( fn( $groups ) => array_column( array_merge( $groups['shown'], $groups['rest'] ), 'id' ), self::photos_by_step( $trip_id, $steps ) );
+	public static function visible_photos_by_step( array $by_step ): array {
+		return array_map( fn( $groups ) => array_column( array_merge( $groups['shown'], $groups['rest'] ), 'id' ), $by_step );
+	}
+
+	/**
+	 * Asset ids of the photos hidden from visitors on each step, from photos_by_step().
+	 *
+	 * @param array<int, array{shown: array, rest: array, hidden: array}> $by_step
+	 * @return array<int, string[]> Keyed by step id; a step with none hidden is left out.
+	 */
+	public static function hidden_photos_by_step( array $by_step ): array {
+		return array_filter( array_map( fn( $groups ) => array_column( $groups['hidden'], 'id' ), $by_step ) );
 	}
 
 	/**

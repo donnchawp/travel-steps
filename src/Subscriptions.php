@@ -122,12 +122,14 @@ class Subscriptions {
 	}
 
 	/**
-	 * Every subscription on the site, when the plugin is deleted.
+	 * Every subscription on the site, and the record of confirmation emails sent this
+	 * hour, when the plugin is deleted.
 	 */
 	public static function delete_all(): void {
 		foreach ( self::query( [ 'fields' => 'ids' ] ) as $id ) {
 			wp_delete_post( (int) $id, true );
 		}
+		delete_option( self::SENT_OPTION );
 	}
 
 	/**
@@ -434,7 +436,7 @@ class Subscriptions {
 		if ( $existing && ( self::CONFIRMED === $existing['status'] || $existing['mailed'] > time() - self::RESEND_S ) ) {
 			return;
 		}
-		if ( ! Lock::run( self::CAP_LOCK, [ self::class, 'take_place' ], false ) ) {
+		if ( ! Lock::run( self::CAP_LOCK, fn() => self::take_place(), false ) ) {
 			return;
 		}
 		$sub = $existing ?? self::get(
@@ -455,9 +457,9 @@ class Subscriptions {
 	/**
 	 * Takes one of the hour's CAP confirmation emails, or false if they're all gone. Under
 	 * CAP_LOCK, so two signups at once can't both take the last. An email the site's mail
-	 * then refuses still counts. Public for Lock::run().
+	 * then refuses still counts.
 	 */
-	public static function take_place(): bool {
+	private static function take_place(): bool {
 		$sent = get_option( self::SENT_OPTION, [] );
 		$sent = array_values( array_filter( is_array( $sent ) ? $sent : [], fn( $time ) => (int) $time > time() - HOUR_IN_SECONDS ) );
 		if ( count( $sent ) >= self::CAP ) {

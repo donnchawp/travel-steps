@@ -653,7 +653,10 @@ update_option( TravelSteps\Settings::OPTION, array_merge( (array) get_option( Tr
 TravelSteps\Settings::update_account( 1, [ 'immich_key' => 'admin-immich-key' ] + TravelSteps\Settings::ACCOUNT_DEFAULTS );
 // The trips list runs newest first by start date, with undated drafts on top.
 $listed     = function ( array $titles ) use ( $render ) {
-	preg_match_all( '#<a class="ts-card".*?<h2>(.*?)</h2>#s', $render( 'index.php', '' ), $m );
+	// No card titles at all means the card markup changed, not the order.
+	if ( ! preg_match_all( '#<a class="ts-card".*?<h2>(.*?)</h2>#s', $render( 'index.php', '' ), $m ) ) {
+		return [ 'no trip card titles found: has the card markup changed?' ];
+	}
 	return array_values( array_intersect( $m[1], $titles ) );
 };
 $dated_trip = function ( string $title, string $start, array $extra = [] ) {
@@ -665,16 +668,17 @@ $middle   = $dated_trip( 'May 2025 trip', '2025-05-01' );
 $newest   = $dated_trip( 'October 2026 trip', '2026-10-20' );
 $oldest   = $dated_trip( 'March 2024 trip', '2024-03-10' );
 $undated  = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Undated trip', 'post_status' => 'draft' ] );
-$expected = [ 'Undated trip', 'October 2026 trip', 'May 2025 trip', 'March 2024 trip' ];
+$undated2 = wp_insert_post( [ 'post_type' => Trips::TRIP, 'post_title' => 'Later undated trip', 'post_status' => 'draft' ] );
+$expected = [ 'Later undated trip', 'Undated trip', 'October 2026 trip', 'May 2025 trip', 'March 2024 trip' ];
 $order    = $listed( $expected );
-check( 'trips list: undated draft on top, then newest start first', $expected === $order, $order );
+check( 'trips list: undated drafts on top, most recently made first, then newest start first', $expected === $order, $order );
 // Trips that start the same day: the one made last comes first, even when both were made in the same second.
 $made_first  = $dated_trip( 'Made first', '2025-05-01', [ 'post_date' => '2026-01-01 10:00:00' ] );
 $made_second = $dated_trip( 'Made second', '2025-05-01', [ 'post_date' => '2026-01-01 10:00:00' ] );
 $expected    = [ 'October 2026 trip', 'Made second', 'Made first', 'May 2025 trip', 'March 2024 trip' ];
 $order       = $listed( $expected );
 check( 'trips list: trips starting the same day run most recently made first', $expected === $order, $order );
-foreach ( [ $middle, $newest, $oldest, $undated, $made_first, $made_second ] as $id ) {
+foreach ( [ $middle, $newest, $oldest, $undated, $undated2, $made_first, $made_second ] as $id ) {
 	wp_delete_post( $id, true );
 }
 

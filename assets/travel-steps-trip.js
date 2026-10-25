@@ -7,8 +7,9 @@
 		return;
 	}
 	// Opened from a share link: the cookie is set, so the code needn't stay in the address bar.
+	// Its #step anchor stays, so a roundup's link still lands on the day it names.
 	if ( root.dataset.cleanUrl ) {
-		history.replaceState( null, '', root.dataset.cleanUrl );
+		history.replaceState( null, '', root.dataset.cleanUrl + location.hash );
 	}
 	const nonce = root.dataset.nonce;
 

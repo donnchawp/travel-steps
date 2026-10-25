@@ -181,6 +181,16 @@ check( 'subscribe: a signup whose email was refused is dropped by the daily run'
 foreach ( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'unlucky@example.org' ] ) as $sb_unlucky ) {
 	wp_delete_post( $sb_unlucky['id'], true );
 }
+// The daily run drops the unmailed signup while its email is going out.
+$sb_sweep_mid_send = function () {
+	Subscriptions::expire_pending();
+	return true;
+};
+add_filter( 'pre_wp_mail', $sb_sweep_mid_send, 20 );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'swept@example.org', 'ts_website' => '' ] );
+remove_filter( 'pre_wp_mail', $sb_sweep_mid_send, 20 );
+$sb_orphans = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( "SELECT COUNT(*) FROM {$GLOBALS['wpdb']->postmeta} m LEFT JOIN {$GLOBALS['wpdb']->posts} p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.ID IS NULL", '_ts_mailed' ) );
+check( 'subscribe: a signup the daily run drops while its email goes leaves no stray sent time behind', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'swept@example.org' ] ) && 0 === $sb_orphans, $sb_orphans );
 $sb_mails = [];
 
 // Confirming: opening the link only asks, so a mail scanner fetching it changes nothing.

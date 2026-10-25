@@ -796,7 +796,7 @@ class Trips {
 	 * photos_by_step(): its non-hidden photos, shown or behind "Show more".
 	 *
 	 * @param array<int, array{shown: array, rest: array, hidden: array}> $by_step
-	 * @return array<int, string[]> Keyed by step id; a step with no photos is left out.
+	 * @return array<int, string[]> Keyed by step id, as $by_step; [] for a step whose photos are all hidden.
 	 */
 	public static function visible_photos_by_step( array $by_step ): array {
 		return array_map( fn( $groups ) => array_column( array_merge( $groups['shown'], $groups['rest'] ), 'id' ), $by_step );

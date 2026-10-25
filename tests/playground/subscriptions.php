@@ -289,13 +289,23 @@ check( '…while one from the trip page itself is taken', (bool) wp_list_filter(
 delete_option( Subscriptions::SENT_OPTION );
 $sb_mails = [];
 $sb_cap   = fn( int $n ) => $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => "cap$n@example.org", 'ts_website' => '' ] );
+// Another signup somewhere on the site holds the cap's lock while this one comes in.
+$to = Lock::run( Subscriptions::CAP_LOCK, fn() => $sb_cap( 0 ) );
+check( 'cap: a signup made while another takes a place gets the same answer, nothing sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap0@example.org' ] ) && [] === get_option( Subscriptions::SENT_OPTION, [] ), [ $to, $sb_mails ] );
+$sb_log      = wp_tempnam( 'sb-log' );
+$sb_log_was  = ini_set( 'error_log', $sb_log );
 for ( $n = 1; $n <= 20; $n++ ) {
 	$sb_ok = $sb_cap( $n );
 }
 check( 'cap: twenty signups in an hour each get their email', 20 === count( $sb_mails ), count( $sb_mails ) );
 $to = $sb_cap( 21 );
+$sb_cap( 22 );
+ini_set( 'error_log', (string) $sb_log_was );
 check( '…the twenty-first gets none, and no subscription', 20 === count( $sb_mails ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap21@example.org' ] ), count( $sb_mails ) );
 check( '…and is told the same as an accepted one', is_string( $to ) && $to === $sb_ok, [ $to, $sb_ok ] );
+$sb_logged = (string) file_get_contents( $sb_log );
+check( '…and the error log says once that the hour’s emails are used up, naming no address', 1 === substr_count( $sb_logged, 'confirmation emails' ) && false === strpos( $sb_logged, '@' ), $sb_logged );
+wp_delete_file( $sb_log );
 $sb_old = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap1@example.org' ] ) );
 update_post_meta( $sb_old['id'], Subscriptions::META_MAILED, time() - 2 * DAY_IN_SECONDS );
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => $sb_old['email'], 'ts_website' => '' ] );

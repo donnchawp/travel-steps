@@ -449,7 +449,8 @@ class Subscriptions {
 				]
 			)
 		);
-		if ( $sub && self::send_confirmation( $trip, $sub ) ) {
+		// The daily run may have dropped the unmailed signup while the email went.
+		if ( $sub && self::send_confirmation( $trip, $sub ) && self::get( $sub['id'] ) ) {
 			update_post_meta( $sub['id'], self::META_MAILED, time() );
 		}
 	}

@@ -170,6 +170,7 @@ add_filter( 'pre_wp_mail', $sb_refuse_all, 20 );
 $to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unlucky@example.org', 'ts_website' => '' ] );
 remove_filter( 'pre_wp_mail', $sb_refuse_all, 20 );
 check( 'subscribe: when the confirmation email is refused, the visitor is told the same', false !== strpos( (string) $to, 'subscription=check' ), $to );
+// $sb_mails holds the refused attempt too: its capture filter runs before the refusing one at 20.
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unlucky@example.org', 'ts_website' => '' ] );
 check( '…and trying again at once sends one', 2 === count( $sb_mails ) && 1 === count( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'unlucky@example.org' ] ) ), $sb_mails );
 add_filter( 'pre_wp_mail', $sb_refuse_all, 20 );

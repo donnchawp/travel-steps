@@ -32,6 +32,13 @@ class Subscriptions {
 	const EXPIRE_S = 7 * DAY_IN_SECONDS;
 	// At most one confirmation email per address per trip in this long.
 	const RESEND_S = DAY_IN_SECONDS;
+	// At most this many confirmation emails across the site in an hour, so a script can't
+	// make the site email any number of strangers.
+	const CAP = 20;
+	// Option: when each of the last hour's confirmation emails went, unix times.
+	const SENT_OPTION = 'travel_steps_confirmations_sent';
+	// The lock taking a place under the cap holds.
+	const CAP_LOCK = 'travel_steps_confirmations_lock';
 
 	// The query argument the trip page's notices come in.
 	const NOTICE_ARG = 'subscription';
@@ -413,6 +420,10 @@ class Subscriptions {
 	}
 
 	/**
+	 * Nothing is sent or added once the site has sent its CAP confirmation emails in the
+	 * hour, or while another signup takes its place under the cap: the visitor is told the
+	 * same, so the cap isn't shown.
+	 *
 	 * A new signup's subscription is added unmailed (its META_MAILED 0), and the time is
 	 * recorded once the site's mail accepts the email. One it refuses doesn't hold off a
 	 * retry, and a signup whose email never went is as old as can be, so the daily run
@@ -421,6 +432,9 @@ class Subscriptions {
 	private static function signup_now( \WP_Post $trip, string $email ): void {
 		$existing = self::find( $trip->ID, self::META_EMAIL, $email );
 		if ( $existing && ( self::CONFIRMED === $existing['status'] || $existing['mailed'] > time() - self::RESEND_S ) ) {
+			return;
+		}
+		if ( ! Lock::run( self::CAP_LOCK, [ self::class, 'take_place' ], false ) ) {
 			return;
 		}
 		$sub = $existing ?? self::get(
@@ -436,6 +450,22 @@ class Subscriptions {
 		if ( $sub && self::send_confirmation( $trip, $sub ) ) {
 			update_post_meta( $sub['id'], self::META_MAILED, time() );
 		}
+	}
+
+	/**
+	 * Takes one of the hour's CAP confirmation emails, or false if they're all gone. Under
+	 * CAP_LOCK, so two signups at once can't both take the last. An email the site's mail
+	 * then refuses still counts. Public for Lock::run().
+	 */
+	public static function take_place(): bool {
+		$sent = get_option( self::SENT_OPTION, [] );
+		$sent = array_values( array_filter( is_array( $sent ) ? $sent : [], fn( $time ) => (int) $time > time() - HOUR_IN_SECONDS ) );
+		if ( count( $sent ) >= self::CAP ) {
+			return false;
+		}
+		$sent[] = time();
+		update_option( self::SENT_OPTION, $sent, false );
+		return true;
 	}
 
 	/**

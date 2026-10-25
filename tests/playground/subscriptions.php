@@ -24,6 +24,8 @@ add_filter(
 	10,
 	2
 );
+// The site-wide hourly cap on confirmation emails counts from here.
+delete_option( Subscriptions::SENT_OPTION );
 $sb_author = wp_insert_user( [ 'user_login' => 'sb_author', 'user_email' => 'author@example.org', 'user_pass' => wp_generate_password(), 'role' => 'author' ] );
 $sb_friend = wp_insert_user( [ 'user_login' => 'sb_friend', 'user_email' => 'friend@example.org', 'user_pass' => wp_generate_password(), 'role' => 'subscriber', 'display_name' => 'Friendly Fiona' ] );
 // A published trip with a published step on 1 May and a draft step on 2 May, each with photos.
@@ -271,6 +273,38 @@ $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'origin@exa
 check( 'a post from another site’s page is refused, by Sec-Fetch-Site or by Origin', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'crosssite@example.org' ] ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'origin@example.org' ] ) && [] === $sb_mails, $sb_mails );
 $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'sameorigin@example.org', 'ts_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'same-origin', 'HTTP_ORIGIN' => $sb_home ] );
 check( '…while one from the trip page itself is taken', (bool) wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'sameorigin@example.org' ] ) && 1 === count( $sb_mails ), $sb_mails );
+
+// At most 20 confirmation emails go out across the site in an hour.
+delete_option( Subscriptions::SENT_OPTION );
+$sb_mails = [];
+$sb_cap   = fn( int $n ) => $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => "cap$n@example.org", 'ts_website' => '' ] );
+for ( $n = 1; $n <= 20; $n++ ) {
+	$sb_ok = $sb_cap( $n );
+}
+check( 'cap: twenty signups in an hour each get their email', 20 === count( $sb_mails ), count( $sb_mails ) );
+$to = $sb_cap( 21 );
+check( '…the twenty-first gets none, and no subscription', 20 === count( $sb_mails ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap21@example.org' ] ), count( $sb_mails ) );
+check( '…and is told the same as an accepted one', is_string( $to ) && $to === $sb_ok, [ $to, $sb_ok ] );
+$sb_old = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap1@example.org' ] ) );
+update_post_meta( $sb_old['id'], Subscriptions::META_MAILED, time() - 2 * DAY_IN_SECONDS );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => $sb_old['email'], 'ts_website' => '' ] );
+check( '…nor does a pending signup asking for its email again', 20 === count( $sb_mails ), count( $sb_mails ) );
+wp_set_current_user( $sb_friend );
+$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_pub ) ] );
+check( 'cap: a logged-in visitor still subscribes', false !== strpos( (string) $to, 'subscription=subscribed' ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] ), $to );
+$sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_pub ) ] );
+wp_set_current_user( 0 );
+// An hour on.
+update_option( Subscriptions::SENT_OPTION, array_map( fn( $t ) => $t - HOUR_IN_SECONDS - 1, (array) get_option( Subscriptions::SENT_OPTION, [] ) ) );
+$sb_cap( 21 );
+check( 'cap: an hour later, signing up sends again', 21 === count( $sb_mails ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap21@example.org' ] ), count( $sb_mails ) );
+foreach ( $sb_subs( $sb_pub ) as $sb_capsub ) {
+	if ( 0 === strpos( $sb_capsub['email'], 'cap' ) ) {
+		wp_delete_post( $sb_capsub['id'], true );
+	}
+}
+delete_option( Subscriptions::SENT_OPTION );
+$sb_mails = [];
 
 // Protected trips.
 $sb_enter = function ( ?string $password ) {
@@ -586,6 +620,8 @@ check( 'deleting a trip deletes its subscriptions', $sb_pub_subs && ! array_filt
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	define( 'WP_UNINSTALL_PLUGIN', 'travel-steps/travel-steps.php' );
 }
+$sb_had_sent = is_array( get_option( Subscriptions::SENT_OPTION ) );
 require WP_PLUGIN_DIR . '/travel-steps/uninstall.php';
+check( 'uninstall: the record of confirmation emails sent this hour is deleted', $sb_had_sent && false === get_option( Subscriptions::SENT_OPTION ) );
 check( 'uninstall: every subscription is deleted, and the roundup unscheduled', [] === get_posts( [ 'post_type' => Subscriptions::TYPE, 'post_status' => 'any', 'numberposts' => -1 ] ) && ! wp_next_scheduled( Roundup::HOOK ) );
 wp_set_current_user( 0 );

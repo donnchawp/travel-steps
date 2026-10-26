@@ -490,6 +490,37 @@ $at       = fn( string $needle ) => strpos( $rendered, $needle );
 [ $lead_at, $lisbon_at, $sintra_at ] = [ $at( 'ts-photos-block-lead' ), $at( row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ), $at( row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ) ];
 check( 'preview: the first block also shows the photos above the first heading, as their own group first', 200 === $res->get_status() && false !== $lead_at && false !== $lisbon_at && false !== $sintra_at && $lead_at < $lisbon_at && $lisbon_at < $sintra_at, [ $res->get_status(), $rendered ] );
 check( '…and a block without that group shows none', false === strpos( $preview( [ 'start' => $sintra_t ] )->get_data()['rendered'] ?? '', 'ts-photos-block-lead' ) );
+// A place added by hand with the "Trip place" pattern: its photos block lists all the
+// step's photos until its first one is picked, which sets the heading's anchor (#143).
+$place_pattern = WP_Block_Patterns_Registry::get_instance()->get_registered( 'travel-steps/place' );
+check( 'place pattern: registered for steps', $place_pattern && in_array( Trips::STEP, $place_pattern['postTypes'] ?? [], true ) && false !== strpos( $place_pattern['content'], 'id="' . Days::PICK_ANCHOR . '"' ), $place_pattern );
+$res      = $preview( [ 'pick' => true, 'start' => $sintra_t ] );
+$rendered = $res->get_data()['rendered'] ?? '';
+preg_match_all( '/data-asset="([^"]+)" data-t="(\d+)"/', $rendered, $picks );
+$pick_t   = array_combine( $picks[1], array_map( 'intval', $picks[2] ) );
+$sintra_1 = row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'];
+check( 'picker: all the step’s photos, each with its time, and asks for the first', 200 === $res->get_status() && isset( $pick_t[ row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ], $pick_t[ $sintra_1 ] ) && substr_count( $rendered, '<img' ) === count( $pick_t ) && false !== strpos( $rendered, 'Pick the first photo of this place' ) && false === strpos( $rendered, 'Pin or hide photos' ), [ $res->get_status(), $rendered ] );
+check( 'picker: no separate group for photos above the first heading', false === strpos( $preview( [ 'pick' => true, 'lead' => $sintra_t ] )->get_data()['rendered'] ?? '', 'ts-photos-block-lead' ) );
+$d1_story = get_post( $d1->ID )->post_content;
+$story    = function () use ( $d1 ) {
+	$by = Trips::photos_by_step( get_post( $d1->ID )->post_parent, Trips::steps( get_post( $d1->ID )->post_parent ) )[ $d1->ID ];
+	ob_start();
+	View::render_story( get_post( $d1->ID ), array_merge( $by['shown'], $by['rest'] ), function ( $photos ) {
+		$ids = array_map( fn( $p ) => (int) substr( $p['id'], -3 ), $photos );
+		sort( $ids );
+		echo '[GRID ' . implode( ',', $ids ) . ']';
+	} );
+	return ob_get_clean();
+};
+// Synced before reaching Sintra: one section, then the place added with the pattern.
+wp_update_post( [ 'ID' => $d1->ID, 'post_content' => "<!-- wp:paragraph -->\n<p>Morning.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:" . Days::PHOTOS_BLOCK . " /-->\n\n" . ( $place_pattern['content'] ?? '' ) ] );
+$html = $story();
+check( 'picker: until a photo is picked, the trip page keeps every photo in the section above', false !== strpos( $html, '[GRID 1,2,3,4]' ) && strpos( $html, '[GRID 1,2,3,4]' ) < strpos( $html, 'id="' . Days::PICK_ANCHOR . '"' ), $html );
+wp_update_post( [ 'ID' => $d1->ID, 'post_content' => str_replace( 'id="' . Days::PICK_ANCHOR . '"', 'id="' . Days::ANCHOR_PREFIX . ( $pick_t[ $sintra_1 ] ?? 0 ) . '"', get_post( $d1->ID )->post_content ) ] );
+$html    = $story();
+$heading = strpos( $html, 'id="' . Days::ANCHOR_PREFIX . ( $pick_t[ $sintra_1 ] ?? 0 ) . '"' );
+check( 'picker: once picked, that photo and the ones after it go under the new heading', false !== $heading && false !== strpos( $html, '[GRID 1,2]' ) && strpos( $html, '[GRID 1,2]' ) < $heading && strpos( $html, '[GRID 3,4]' ) > $heading, $html );
+wp_update_post( [ 'ID' => $d1->ID, 'post_content' => $d1_story ] );
 $GLOBALS['post'] = get_post( $d1->ID );
 wp_set_current_user( 0 );
 check( 'photos block renders nothing for visitors outside the trip page', '' === trim( render_block( [ 'blockName' => Days::PHOTOS_BLOCK, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => [] ] ) ) );

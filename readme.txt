@@ -63,9 +63,9 @@ Without them the files are only hidden by their names, which never appear anywhe
 
 = Can I use a CDN or page cache? =
 
-Yes, with care:
+Yes, but:
 
-* Don't make a CDN cache `/travel-steps/photo/*` regardless of what the site says, such as with Cloudflare's "Cache Everything". Public photos are already marked to be cached for five minutes, and private ones must never be.
+* Don't make a CDN cache `/travel-steps/photo/*` whatever cache headers the site sends, such as with Cloudflare's "Cache Everything". Public photos are already marked to be cached for five minutes, and private ones must never be.
 * Don't cache `/travel-steps/*` pages for logged-in users, or for visitors with a cookie whose name starts with `wp-postpass_`. They see drafts, or a protected trip.
 * Let POST requests to `/travel-steps/trip/*` and `/travel-steps/subscription` through to WordPress. The password, subscribe and unsubscribe forms use them.
 

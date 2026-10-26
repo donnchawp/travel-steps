@@ -116,6 +116,14 @@ check( 'no places, nothing to seed', '' === Days::seed_content( [] ) );
 check( 'place_anchor reads a heading id', 42 === Days::place_anchor( '<h2 class="wp-block-heading" id="ts-place-42">X</h2>' ) );
 check( 'place_anchor ignores other headings', null === Days::place_anchor( '<h2 id="intro">X</h2>' ) );
 
+// The "Trip place" pattern: a place heading waiting for its first photo, which the trip
+// page ignores until one is picked (#143).
+$pattern = Days::place_pattern( 'New place' );
+check( 'place pattern: a heading marked to pick its first photo', 1 === preg_match( '/<!-- wp:heading -->\s*<h2 class="wp-block-heading" id="ts-place-pick">New place<\/h2>\s*<!-- \/wp:heading -->/', $pattern ), $pattern );
+check( 'place pattern: then a paragraph and a photos block', 1 === preg_match( '/<\/h2>.*?<!-- wp:paragraph -->.*?<!-- wp:' . preg_quote( Days::PHOTOS_BLOCK, '/' ) . ' \/-->\s*$/s', $pattern ) );
+check( 'place pattern escapes its heading', false === strpos( Days::place_pattern( '<b>' ), '<b>' ) );
+check( 'a heading waiting for its first photo is no place heading yet', [] === Days::anchor_times( $pattern ) && null === Days::place_anchor( '<h2 id="ts-place-pick">X</h2>' ) );
+
 // Sections: photos before the first heading are section 0; then each heading owns
 // everything up to the next one.
 $starts = [ 100, 200 ];

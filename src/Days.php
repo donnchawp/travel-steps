@@ -12,6 +12,9 @@ namespace TravelSteps;
  */
 class Days {
 	const ANCHOR_PREFIX = 'ts-place-';
+	// A place heading waiting for its first photo to be picked in the editor. Not a
+	// number, so the trip page treats it as a plain heading until then.
+	const PICK_ANCHOR = 'ts-place-pick';
 	const PHOTOS_BLOCK  = 'travel-steps/photos';
 
 	// How far, in local time, a photo with a time zone can lend it to one without.
@@ -141,13 +144,29 @@ class Days {
 		$blocks = [];
 		foreach ( $places as $place ) {
 			if ( count( $places ) > 1 ) {
-				$name     = htmlspecialchars( '' !== $place['city'] ? $place['city'] : $unnamed, ENT_QUOTES, 'UTF-8' );
-				$blocks[] = "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\" id=\"" . self::ANCHOR_PREFIX . (int) $place['t'] . "\">{$name}</h2>\n<!-- /wp:heading -->";
+				$blocks[] = self::heading( self::ANCHOR_PREFIX . (int) $place['t'], '' !== $place['city'] ? $place['city'] : $unnamed );
 			}
-			$blocks[] = "<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->";
-			$blocks[] = '<!-- wp:' . self::PHOTOS_BLOCK . ' /-->';
+			$blocks[] = self::section_body();
 		}
 		return implode( "\n\n", $blocks );
+	}
+
+	/**
+	 * Block markup for the "Trip place" pattern: a seeded place's blocks, with a heading
+	 * that waits for its first photo to be picked in the editor.
+	 */
+	public static function place_pattern( string $name ): string {
+		return self::heading( self::PICK_ANCHOR, $name ) . "\n\n" . self::section_body();
+	}
+
+	private static function heading( string $anchor, string $name ): string {
+		$name = htmlspecialchars( $name, ENT_QUOTES, 'UTF-8' );
+		return "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\" id=\"{$anchor}\">{$name}</h2>\n<!-- /wp:heading -->";
+	}
+
+	// An empty paragraph to write in, then where the place's photos go.
+	private static function section_body(): string {
+		return "<!-- wp:paragraph -->\n<p></p>\n<!-- /wp:paragraph -->\n\n<!-- wp:" . self::PHOTOS_BLOCK . ' /-->';
 	}
 
 	/**

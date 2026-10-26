@@ -35,10 +35,12 @@ class PhotosBlock {
 				'icon'                  => 'format-gallery',
 				// Only for the editor preview: the section the block sits in, as place start
 				// times, and lead: photos taken before it are shown first, as their own group.
+				// pick: the place heading above waits for its first photo to be picked.
 				'attributes'            => [
 					'start' => [ 'type' => 'integer' ],
 					'end'   => [ 'type' => 'integer' ],
 					'lead'  => [ 'type' => 'integer' ],
+					'pick'  => [ 'type' => 'boolean' ],
 				],
 				'supports'              => [
 					'html'     => false,
@@ -49,12 +51,25 @@ class PhotosBlock {
 				'render_callback'       => [ self::class, 'render' ],
 			]
 		);
+
+		// A place added by hand to a step synced before the trip got there. Its heading
+		// gets its anchor when its first photo is picked in the block below it.
+		register_block_pattern(
+			'travel-steps/place',
+			[
+				'title'       => __( 'Trip place', 'travel-steps-storyteller' ),
+				'description' => __( 'A place heading, a paragraph and its photos. Pick the place’s first photo in the photos block.', 'travel-steps-storyteller' ),
+				'categories'  => [ 'text' ],
+				'postTypes'   => [ Trips::STEP ],
+				'content'     => Days::place_pattern( __( 'New place', 'travel-steps-storyteller' ) ),
+			]
+		);
 	}
 
 	/**
 	 * The editor preview: the step's shown photos taken from start until end, after any
-	 * taken before lead. Anywhere else it renders nothing; the trip page places the real
-	 * photos itself.
+	 * taken before lead; or with pick, all of them to pick the place's first from.
+	 * Anywhere else it renders nothing; the trip page places the real photos itself.
 	 */
 	public static function render( array $attributes ): string {
 		$step = get_post();
@@ -66,6 +81,9 @@ class PhotosBlock {
 			return '';
 		}
 		$groups = Trips::photos_by_step( $trip->ID, Trips::timeline_steps( $trip, true ) )[ $step->ID ] ?? [ 'shown' => [] ];
+		if ( ! empty( $attributes['pick'] ) && $groups['shown'] ) {
+			return self::grid( $trip->ID, $groups['shown'], __( 'Pick the first photo of this place.', 'travel-steps-storyteller' ), 'ts-photos-block-pick' );
+		}
 		$start  = (int) ( $attributes['start'] ?? 0 );
 		$end    = (int) ( $attributes['end'] ?? 0 );
 		$lead   = (int) ( $attributes['lead'] ?? 0 );
@@ -94,19 +112,21 @@ class PhotosBlock {
 	}
 
 	/**
-	 * Thumbnails of photos, then a note, a translated "%s photos…" given their count.
+	 * Thumbnails of photos, each with its time, then a note, a translated "%s photos…"
+	 * given their count.
 	 */
-	private static function grid( int $trip_id, array $photos, string $note ): string {
+	private static function grid( int $trip_id, array $photos, string $note, string $class = '' ): string {
 		$html = '';
 		foreach ( $photos as $photo ) {
 			$html .= sprintf(
-				'<img src="%s" alt="%s" data-asset="%s" loading="lazy">',
+				'<img src="%s" alt="%s" data-asset="%s" data-t="%d" loading="lazy">',
 				esc_url( RestController::photo_url( $trip_id, $photo['id'], 'thumbnail' ) ),
 				esc_attr( $photo['caption'] ?? '' ),
-				esc_attr( $photo['id'] )
+				esc_attr( $photo['id'] ),
+				(int) $photo['t']
 			);
 		}
 		$note = sprintf( $note, number_format_i18n( count( $photos ) ) );
-		return '<div class="ts-photos-block-grid">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
+		return '<div class="' . esc_attr( trim( 'ts-photos-block-grid ' . $class ) ) . '">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
 	}
 }

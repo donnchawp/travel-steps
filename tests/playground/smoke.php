@@ -517,6 +517,15 @@ wp_update_post( [ 'ID' => $d1->ID, 'post_content' => str_replace( 'id="' . Days:
 $html    = $story();
 $heading = strpos( $html, 'id="' . Days::ANCHOR_PREFIX . ( $pick_t[ $sintra_1 ] ?? 0 ) . '"' );
 check( 'picker: once picked, that photo and the ones after it go under the new heading', false !== $heading && false !== strpos( $html, '[GRID 1,2]' ) && strpos( $html, '[GRID 1,2]' ) < $heading && strpos( $html, '[GRID 3,4]' ) > $heading, $html );
+// Picking the first photo of a place that already has a heading gives two headings the
+// same time: the photos stay under the first of them, not at the end of the step.
+wp_update_post( [ 'ID' => $d1->ID, 'post_content' => $d1_story . "\n\n" . str_replace( 'id="' . Days::PICK_ANCHOR . '"', 'id="' . Days::ANCHOR_PREFIX . $sintra_t . '"', $place_pattern['content'] ?? '' ) ] );
+$html = $story();
+$sin  = strpos( $html, '>Sintra</h2>' );
+$new  = strpos( $html, '>New place</h2>' );
+check( 'picker: a place picked twice keeps its photos under its first heading', false !== $sin && false !== $new && false !== strpos( $html, '[GRID 3,4]' ) && strpos( $html, '[GRID 3,4]' ) > $sin && strpos( $html, '[GRID 3,4]' ) < $new, $html );
+$rendered = $preview( [ 'pick' => true, 'taken' => [ $sintra_t ] ] )->get_data()['rendered'] ?? '';
+check( 'picker: photos that already start a place are shown but can\'t be picked', 1 === preg_match( '/<button type="button" class="ts-photos-block-photo" data-t="' . $sintra_t . '" disabled>/', $rendered ) && 1 === preg_match( '/<button type="button" class="ts-photos-block-photo" data-t="' . ( $pick_t[ $lisbon_1 ] ?? 0 ) . '">/', $rendered ), $rendered );
 wp_update_post( [ 'ID' => $d1->ID, 'post_content' => $d1_story ] );
 $GLOBALS['post'] = get_post( $d1->ID );
 wp_set_current_user( 0 );

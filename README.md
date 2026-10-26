@@ -51,7 +51,7 @@ A step shows photos from its date. Favourites in Immich decide which:
 - Sync skips screenshots and other images with no camera make or model in their EXIF, unless they're favourites.
 - Star ratings are ignored. They're often part of a Lightroom workflow, so they don't say which photos are best.
 
-Shown photos sit under the place heading they belong to. Each seeded heading has an anchor with its start time (`id="ts-place-<unix>"`), and gets the photos taken from then until the next heading. You can rename the headings, write between them, or add your own. Delete one and its photos join the section above. Favourites added later show up in the right section without sync touching the story.
+Shown photos sit under the place heading they belong to. Each seeded heading has an anchor with its start time (`id="ts-place-<unix>"`), and gets the photos taken from then until the next heading. You can rename the headings, write between them, or add your own. To add a place the sync missed, insert the "Trip place" pattern where it goes, then click the place's first photo in its Trip photos block; photos that already start a place are dimmed. Delete one and its photos join the section above. Favourites added later show up in the right section without sync touching the story.
 
 The Trip photos block marks where a section's photos go, and previews them in the block editor. Move it to put text after the photos, or insert one under a heading in a step made before the block existed. A section without one gets its photos after its text. Only the first block in a section shows photos.
 

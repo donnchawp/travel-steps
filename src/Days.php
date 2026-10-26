@@ -177,13 +177,14 @@ class Days {
 	}
 
 	/**
-	 * Start times of the place headings in a story, in order of appearance.
+	 * Start times of the place headings in a story, in order of appearance, each once:
+	 * a later heading with the same time as an earlier one starts no section.
 	 *
 	 * @return int[]
 	 */
 	public static function anchor_times( string $content ): array {
 		preg_match_all( '/\sid="' . self::ANCHOR_PREFIX . '(\d+)"/', $content, $m );
-		return array_map( 'intval', $m[1] );
+		return array_values( array_unique( array_map( 'intval', $m[1] ) ) );
 	}
 
 	/**

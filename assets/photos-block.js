@@ -55,21 +55,25 @@
 					if ( start && first ) {
 						lead = Math.min.apply( null, blocks.map( placeTime ).filter( Boolean ) );
 					}
-					return [ start, end, lead, pick, heading ].join( ':' );
+					// Times other place headings start at: picking one would give two headings
+					// the same anchor.
+					var taken = blocks.map( placeTime ).filter( Boolean ).join( ',' );
+					return [ start, end, lead, pick, heading, taken ].join( ':' );
 				},
 				[ props.clientId ]
 			).split( ':' );
 			var pick = 'true' === range[ 3 ];
 			var heading = range[ 4 ];
+			var taken = range[ 5 ] ? range[ 5 ].split( ',' ).map( Number ) : [];
 			var postId = wp.data.useSelect( function ( select ) {
 				return select( 'core/editor' ).getCurrentPostId();
 			}, [] );
 			var update = wp.data.useDispatch( 'core/block-editor' ).updateBlockAttributes;
 
 			// Clicks only pick while the heading waits for its first photo, so a stray tap
-			// can't move a section.
+			// can't move a section. Photos already starting a place are disabled buttons.
 			function onClick( event ) {
-				var photo = pick ? event.target.closest( 'img[data-t]' ) : null;
+				var photo = pick ? event.target.closest( 'button[data-t]:not(:disabled)' ) : null;
 				if ( photo ) {
 					update( heading, { anchor: PREFIX + parseInt( photo.getAttribute( 'data-t' ), 10 ) } );
 				}
@@ -105,6 +109,7 @@
 						end: parseInt( range[ 1 ], 10 ),
 						lead: parseInt( range[ 2 ], 10 ),
 						pick: pick,
+						taken: taken,
 					},
 					urlQueryArgs: { post_id: postId },
 				} )

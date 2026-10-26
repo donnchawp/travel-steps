@@ -19,10 +19,11 @@ class PhotosBlock {
 		wp_register_script(
 			self::HANDLE,
 			TRAVEL_STEPS_PLUGIN_URL . 'assets/photos-block.js',
-			[ 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-server-side-render', 'wp-data' ],
+			[ 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-server-side-render', 'wp-data', 'wp-components', 'wp-i18n' ],
 			$version( 'assets/photos-block.js' ),
 			true
 		);
+		wp_set_script_translations( self::HANDLE, 'travel-steps-storyteller' );
 		wp_register_style( self::HANDLE, TRAVEL_STEPS_PLUGIN_URL . 'assets/photos-block.css', [], $version( 'assets/photos-block.css' ) );
 
 		register_block_type(

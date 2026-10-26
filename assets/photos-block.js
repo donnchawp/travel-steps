@@ -1,14 +1,23 @@
 /**
  * Editor side of the "Trip photos" block: previews the photos of the place it sits
  * under, found from the seeded place headings around it (anchors ts-place-<unix>).
+ * Under a heading still waiting for its first photo (ts-place-pick, from the "Trip
+ * place" pattern) it lists all the step's photos, and clicking one sets that heading's
+ * anchor to its time.
  */
 ( function ( wp ) {
 	var el = wp.element.createElement;
+	var __ = wp.i18n.__;
 	var PREFIX = 'ts-place-';
+	var PICK = 'ts-place-pick';
+
+	function placeAnchor( block ) {
+		var anchor = block && 'core/heading' === block.name ? block.attributes.anchor || '' : '';
+		return 0 === anchor.indexOf( PREFIX ) ? anchor : '';
+	}
 
 	function placeTime( block ) {
-		var anchor = block && 'core/heading' === block.name ? block.attributes.anchor || '' : '';
-		return 0 === anchor.indexOf( PREFIX ) ? parseInt( anchor.slice( PREFIX.length ), 10 ) || 0 : 0;
+		return parseInt( placeAnchor( block ).slice( PREFIX.length ), 10 ) || 0;
 	}
 
 	// Title, icon and the rest come from the server's registration.
@@ -25,9 +34,14 @@
 					} );
 					var start = 0;
 					var end = 0;
+					var pick = 0;
+					var heading = '';
 					var i;
-					for ( i = index - 1; i >= 0 && ! start; i-- ) {
+					// The nearest place heading above: one with a time, or one waiting for it.
+					for ( i = index - 1; i >= 0 && ! heading; i-- ) {
+						pick = PICK === placeAnchor( blocks[ i ] ) ? 1 : 0;
 						start = placeTime( blocks[ i ] );
+						heading = pick || start ? blocks[ i ].clientId : '';
 					}
 					for ( i = index + 1; i < blocks.length && ! end; i++ ) {
 						end = placeTime( blocks[ i ] );
@@ -41,23 +55,56 @@
 					if ( start && first ) {
 						lead = Math.min.apply( null, blocks.map( placeTime ).filter( Boolean ) );
 					}
-					return start + ':' + end + ':' + lead;
+					return [ start, end, lead, pick, heading ].join( ':' );
 				},
 				[ props.clientId ]
 			).split( ':' );
+			var pick = '1' === range[ 3 ];
+			var heading = range[ 4 ];
 			var postId = wp.data.useSelect( function ( select ) {
 				return select( 'core/editor' ).getCurrentPostId();
 			}, [] );
+			var update = wp.data.useDispatch( 'core/block-editor' ).updateBlockAttributes;
+
+			// Clicks only pick while the heading waits for its first photo, so a stray tap
+			// can't move a section.
+			function onClick( event ) {
+				var photo = pick && event.target.closest ? event.target.closest( 'img[data-t]' ) : null;
+				if ( photo ) {
+					update( heading, { anchor: PREFIX + parseInt( photo.getAttribute( 'data-t' ), 10 ) } );
+				}
+			}
 
 			return el(
 				'div',
-				wp.blockEditor.useBlockProps(),
+				wp.blockEditor.useBlockProps( { onClick: onClick } ),
+				heading && ! pick
+					? el(
+							wp.blockEditor.InspectorControls,
+							null,
+							el(
+								wp.components.PanelBody,
+								{ title: __( 'Place', 'travel-steps-storyteller' ) },
+								el(
+									wp.components.Button,
+									{
+										variant: 'secondary',
+										onClick: function () {
+											update( heading, { anchor: PICK } );
+										},
+									},
+									__( 'Change first photo', 'travel-steps-storyteller' )
+								)
+							)
+					  )
+					: null,
 				el( wp.serverSideRender, {
 					block: 'travel-steps/photos',
 					attributes: {
 						start: parseInt( range[ 0 ], 10 ),
 						end: parseInt( range[ 1 ], 10 ),
 						lead: parseInt( range[ 2 ], 10 ),
+						pick: pick,
 					},
 					urlQueryArgs: { post_id: postId },
 				} )

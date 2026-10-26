@@ -38,8 +38,7 @@
 	cursor: pointer;
 }
 
-.ts-photos-block-pick img:hover,
-.ts-photos-block-pick img:focus {
+.ts-photos-block-pick img:hover {
 	outline: 2px solid var(--wp-admin-theme-color, #3858e9);
 	outline-offset: 1px;
 }

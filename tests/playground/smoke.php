@@ -457,12 +457,18 @@ $small = TravelSteps\RestController::shrink( $jpeg( 300, 200 ), 'image/jpeg' );
 check( 'small photos are not enlarged', [ 300, 200 ] === array_slice( getimagesizefromstring( $small['body'] ) ?: [], 0, 2 ) );
 
 // Story rendering: photos under the heading they belong to.
-$by_step = Trips::photos_by_step( $trip_id, Trips::steps( $trip_id ) );
-ob_start();
-View::render_story( get_post( $d1->ID ), array_merge( $by_step[ $d1->ID ]['shown'], $by_step[ $d1->ID ]['rest'] ), function ( $photos ) {
-	echo '[GRID ' . implode( ',', array_map( fn( $p ) => (int) substr( $p['id'], -3 ), $photos ) ) . ']';
-} );
-$html = ob_get_clean();
+$story = function () use ( $d1 ) {
+	$step = get_post( $d1->ID );
+	$by   = Trips::photos_by_step( $step->post_parent, Trips::steps( $step->post_parent ) )[ $d1->ID ];
+	ob_start();
+	View::render_story( $step, array_merge( $by['shown'], $by['rest'] ), function ( $photos ) {
+		$ids = array_map( fn( $p ) => (int) substr( $p['id'], -3 ), $photos );
+		sort( $ids );
+		echo '[GRID ' . implode( ',', $ids ) . ']';
+	} );
+	return ob_get_clean();
+};
+$html = $story();
 $lis  = strpos( $html, '>Lisbon</h2>' );
 $sin  = strpos( $html, '>Sintra</h2>' );
 check( 'story: Lisbon photos after Lisbon heading', false !== $lis && strpos( $html, '[GRID 1,2]' ) > $lis && strpos( $html, '[GRID 1,2]' ) < $sin, $html );
@@ -473,21 +479,23 @@ check( 'story: no photos block markup left in the page', false === strpos( $html
 
 // Editor preview of a photos block: the photos of the section it's in, for editors only.
 $sintra_t = Days::anchor_times( get_post( $d1->ID )->post_content )[1];
+$lisbon_1 = row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'];
+$sintra_1 = row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'];
 $preview  = function ( $attrs ) use ( $get, $d1 ) {
 	return $get( '/wp/v2/block-renderer/' . Days::PHOTOS_BLOCK, [ 'context' => 'edit', 'post_id' => $d1->ID, 'attributes' => $attrs ] );
 };
 wp_set_current_user( 1 );
 $res = $preview( [ 'start' => $sintra_t ] );
 $rendered = $res->get_data()['rendered'] ?? '';
-check( 'preview: Sintra block shows the Sintra favourite', 200 === $res->get_status() && false !== strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ) && false === strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ), [ $res->get_status(), $rendered ] );
+check( 'preview: Sintra block shows the Sintra favourite', 200 === $res->get_status() && false !== strpos( $rendered, $sintra_1 ) && false === strpos( $rendered, $lisbon_1 ), [ $res->get_status(), $rendered ] );
 $rendered = $preview( [ 'start' => 0, 'end' => $sintra_t ] )->get_data()['rendered'] ?? '';
-check( 'preview: first block shows the Lisbon favourite', false !== strpos( $rendered, row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ) && false === strpos( $rendered, row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ), $rendered );
+check( 'preview: first block shows the Lisbon favourite', false !== strpos( $rendered, $lisbon_1 ) && false === strpos( $rendered, $sintra_1 ), $rendered );
 // No block above the first heading (here Sintra's): the first block also shows the photos
 // taken before it, which the trip page puts above that heading (#128).
 $res      = $preview( [ 'start' => $sintra_t, 'lead' => $sintra_t ] );
 $rendered = $res->get_data()['rendered'] ?? '';
 $at       = fn( string $needle ) => strpos( $rendered, $needle );
-[ $lead_at, $lisbon_at, $sintra_at ] = [ $at( 'ts-photos-block-lead' ), $at( row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ), $at( row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'] ) ];
+[ $lead_at, $lisbon_at, $sintra_at ] = [ $at( 'ts-photos-block-lead' ), $at( $lisbon_1 ), $at( $sintra_1 ) ];
 check( 'preview: the first block also shows the photos above the first heading, as their own group first', 200 === $res->get_status() && false !== $lead_at && false !== $lisbon_at && false !== $sintra_at && $lead_at < $lisbon_at && $lisbon_at < $sintra_at, [ $res->get_status(), $rendered ] );
 check( '…and a block without that group shows none', false === strpos( $preview( [ 'start' => $sintra_t ] )->get_data()['rendered'] ?? '', 'ts-photos-block-lead' ) );
 // A place added by hand with the "Trip place" pattern: its photos block lists all the
@@ -498,20 +506,9 @@ $res      = $preview( [ 'pick' => true, 'start' => $sintra_t ] );
 $rendered = $res->get_data()['rendered'] ?? '';
 preg_match_all( '/data-asset="([^"]+)" data-t="(\d+)"/', $rendered, $picks );
 $pick_t   = array_combine( $picks[1], array_map( 'intval', $picks[2] ) );
-$sintra_1 = row( 3, '2025-05-01', '14:00', 0, 0, '', 1 )['id'];
-check( 'picker: all the step’s photos, each with its time, and asks for the first', 200 === $res->get_status() && isset( $pick_t[ row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ], $pick_t[ $sintra_1 ] ) && substr_count( $rendered, '<img' ) === count( $pick_t ) && false !== strpos( $rendered, 'Pick the first photo of this place' ) && false === strpos( $rendered, 'Pin or hide photos' ), [ $res->get_status(), $rendered ] );
+check( 'picker: all the step’s photos, each with its time, and asks for the first', 200 === $res->get_status() && isset( $pick_t[ $lisbon_1 ], $pick_t[ $sintra_1 ] ) && substr_count( $rendered, '<img' ) === count( $pick_t ) && false !== strpos( $rendered, 'Pick the first photo of this place' ) && false === strpos( $rendered, 'Pin or hide photos' ), [ $res->get_status(), $rendered ] );
 check( 'picker: no separate group for photos above the first heading', false === strpos( $preview( [ 'pick' => true, 'lead' => $sintra_t ] )->get_data()['rendered'] ?? '', 'ts-photos-block-lead' ) );
 $d1_story = get_post( $d1->ID )->post_content;
-$story    = function () use ( $d1 ) {
-	$by = Trips::photos_by_step( get_post( $d1->ID )->post_parent, Trips::steps( get_post( $d1->ID )->post_parent ) )[ $d1->ID ];
-	ob_start();
-	View::render_story( get_post( $d1->ID ), array_merge( $by['shown'], $by['rest'] ), function ( $photos ) {
-		$ids = array_map( fn( $p ) => (int) substr( $p['id'], -3 ), $photos );
-		sort( $ids );
-		echo '[GRID ' . implode( ',', $ids ) . ']';
-	} );
-	return ob_get_clean();
-};
 // Synced before reaching Sintra: one section, then the place added with the pattern.
 wp_update_post( [ 'ID' => $d1->ID, 'post_content' => "<!-- wp:paragraph -->\n<p>Morning.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:" . Days::PHOTOS_BLOCK . " /-->\n\n" . ( $place_pattern['content'] ?? '' ) ] );
 $html = $story();

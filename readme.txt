@@ -16,7 +16,7 @@ Travel Steps Storyteller shows a trip on your own WordPress site as a map beside
 
 Visitors never reach Immich. WordPress fetches the photos and serves them itself, so Immich and the original files stay private.
 
-Sync creates a draft step for every day with favourite photos. Each place you visited that day gets a heading and a Trip photos block. You write each step in the block editor and publish it. On the trip page you can pin or hide a photo, or make one the cover. On a phone, press Edit photos first.
+Sync creates a draft step for every day with favourite photos. Each place you visited that day gets a heading and a Trip photos block. If you sync a day before you reach its next place, add that place yourself: insert the Trip place pattern from the block inserter, then click the place's first photo in its Trip photos block. You write each step in the block editor and publish it. On the trip page you can pin or hide a photo, or make one the cover. On a phone, press Edit photos first.
 
 Only published steps of published trips are public. Your home is kept off every map. Photos taken at home show without a place when you chose them for the trip, as uploads, in an Immich album, or as favourites; a trip of Immich photos picked by its dates leaves out the rest. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
 

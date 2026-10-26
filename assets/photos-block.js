@@ -34,12 +34,12 @@
 					} );
 					var start = 0;
 					var end = 0;
-					var pick = 0;
+					var pick = false;
 					var heading = '';
 					var i;
 					// The nearest place heading above: one with a time, or one waiting for it.
 					for ( i = index - 1; i >= 0 && ! heading; i-- ) {
-						pick = PICK === placeAnchor( blocks[ i ] ) ? 1 : 0;
+						pick = PICK === placeAnchor( blocks[ i ] );
 						start = placeTime( blocks[ i ] );
 						heading = pick || start ? blocks[ i ].clientId : '';
 					}
@@ -59,7 +59,7 @@
 				},
 				[ props.clientId ]
 			).split( ':' );
-			var pick = '1' === range[ 3 ];
+			var pick = 'true' === range[ 3 ];
 			var heading = range[ 4 ];
 			var postId = wp.data.useSelect( function ( select ) {
 				return select( 'core/editor' ).getCurrentPostId();
@@ -69,7 +69,7 @@
 			// Clicks only pick while the heading waits for its first photo, so a stray tap
 			// can't move a section.
 			function onClick( event ) {
-				var photo = pick && event.target.closest ? event.target.closest( 'img[data-t]' ) : null;
+				var photo = pick ? event.target.closest( 'img[data-t]' ) : null;
 				if ( photo ) {
 					update( heading, { anchor: PREFIX + parseInt( photo.getAttribute( 'data-t' ), 10 ) } );
 				}

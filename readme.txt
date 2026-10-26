@@ -18,6 +18,8 @@ Visitors never reach Immich. WordPress fetches the photos and serves them itself
 
 Sync creates a draft step for every day with favourite photos. Each place you visited that day gets a heading and a Trip photos block. If you sync a day before you reach its next place, add that place yourself: insert the Trip place pattern from the block inserter, then click the place's first photo in its Trip photos block. You write each step in the block editor and publish it. On the trip page you can pin or hide a photo, or make one the cover. On a phone, press Edit photos first.
 
+Favourites in Immich decide which photos a step shows. Every photo uploaded to a trip counts as a favourite. A step without favourites, such as one you add with Add step, gets an automatic pick spread across its day. The rest of a day's photos wait behind "Show N more photos". Sync skips screenshots unless they're favourites, and ignores star ratings.
+
 Only published steps of published trips are public. Your home is kept off every map. Photos taken at home show without a place when you chose them for the trip, as uploads, in an Immich album, or as favourites; a trip of Immich photos picked by its dates leaves out the rest. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
 
 A trip can also have a password. Logged-in users on its viewer lists see it without one. Its edit page gives a share link that opens it without the password, until the password changes.
@@ -31,6 +33,53 @@ Photos come from an Immich server your WordPress server can reach, or are upload
 1. Upload the plugin with its `vendor/` directory (or run `composer install --no-dev` in it) and activate it.
 2. Open `/travel-steps/settings`. If you're an administrator, enter the Immich and Dawarich URLs under Site. Both are optional. Everyone who makes trips fills in Personal settings: an Immich API key if they use Immich, and a Dawarich key and home location if they want them.
 3. Create a trip at `/travel-steps/new`. For all your Immich photos, set its dates and press Sync. For an Immich album the dates are optional. For uploads, choose "Photos uploaded to this trip", press Save and add photos. Close the media window when they're in, and the trip syncs if anything changed.
+
+== Frequently Asked Questions ==
+
+= Does syncing again overwrite what I wrote? =
+
+No. Sync writes a step once, the first time it sees that day. After that it only updates the step's position on the map. It never changes a step's title, story, date, status or tags. A step you move to the bin stays gone. To get that day back, delete the step permanently from the bin and sync again.
+
+= What does my Immich API key need? =
+
+The `asset.read`, `asset.view` and `album.read` permissions. Everyone who makes trips adds their own key on the settings page, and a trip always uses its author's.
+
+= Which address do I enter for Immich or Dawarich? =
+
+The one your WordPress server reaches it at, which isn't always the one you use in your browser. If they share a Docker network, that's something like `http://dawarich_app:3000`.
+
+= The trip pages aren't found =
+
+Travel Steps needs pretty permalinks. Pick anything but Plain under Settings > Permalinks.
+
+= Is there anything to set up on nginx? =
+
+Yes. Photos uploaded to trips and cached copies of Immich photos are kept in two folders under `uploads`. On Apache, an `.htaccess` file blocks them. nginx ignores that, so add these rules (on multisite, use each site's `uploads/sites/<id>/` path):
+
+    location ^~ /wp-content/uploads/travel-steps/ { deny all; }
+    location ^~ /wp-content/uploads/travel-steps-cache/ { deny all; }
+
+Without them the files are only hidden by their names, which never appear anywhere visitors can see.
+
+= Can I use a CDN or page cache? =
+
+Yes, with care:
+
+* Don't make a CDN cache `/travel-steps/photo/*` regardless of what the site says, such as with Cloudflare's "Cache Everything". Public photos are already marked to be cached for five minutes, and private ones must never be.
+* Don't cache `/travel-steps/*` pages for logged-in users, or for visitors with a cookie whose name starts with `wp-postpass_`. They see drafts, or a protected trip.
+* Let POST requests to `/travel-steps/trip/*` and `/travel-steps/subscription` through to WordPress. The password, subscribe and unsubscribe forms use them.
+
+= Photos uploaded from my phone have no location =
+
+iPhone browsers remove a photo's location unless you turn on Options > Location in the photo picker. Messaging apps remove it too, so upload from your photo library.
+
+= Do uploaded photos keep their location? =
+
+The original is stored as you uploaded it, location included, but it's never sent to anyone. Visitors get copies the site makes, which have no location or other metadata.
+
+= What happens when I delete the plugin? =
+
+Deleting it on the Plugins screen deletes the cached photos and every subscription. Trips, steps, photos uploaded to trips and settings stay. Deactivating it deletes nothing.
 
 == External services ==
 

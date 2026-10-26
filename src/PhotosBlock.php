@@ -36,12 +36,17 @@ class PhotosBlock {
 				'icon'                  => 'format-gallery',
 				// Only for the editor preview: the section the block sits in, as place start
 				// times, and lead: photos taken before it are shown first, as their own group.
-				// pick: the place heading above waits for its first photo to be picked.
+				// pick: the place heading above waits for its first photo to be picked; taken:
+				// the times other place headings start at, which it can't pick.
 				'attributes'            => [
 					'start' => [ 'type' => 'integer' ],
 					'end'   => [ 'type' => 'integer' ],
 					'lead'  => [ 'type' => 'integer' ],
 					'pick'  => [ 'type' => 'boolean' ],
+					'taken' => [
+						'type'  => 'array',
+						'items' => [ 'type' => 'integer' ],
+					],
 				],
 				'supports'              => [
 					'html'     => false,
@@ -69,7 +74,8 @@ class PhotosBlock {
 
 	/**
 	 * The editor preview: the step's shown photos taken from start until end, after any
-	 * taken before lead; or with pick, all of them to pick the place's first from.
+	 * taken before lead; or with pick, all of them to pick the place's first from, as
+	 * buttons, those already starting another place disabled.
 	 * Anywhere else it renders nothing; the trip page places the real photos itself.
 	 */
 	public static function render( array $attributes ): string {
@@ -83,7 +89,8 @@ class PhotosBlock {
 		}
 		$groups = Trips::photos_by_step( $trip->ID, Trips::timeline_steps( $trip, true ) )[ $step->ID ] ?? [ 'shown' => [] ];
 		if ( ! empty( $attributes['pick'] ) && $groups['shown'] ) {
-			return self::grid( $trip->ID, $groups['shown'], __( 'Pick the first photo of this place.', 'travel-steps-storyteller' ), 'ts-photos-block-pick' );
+			$taken = array_map( 'intval', (array) ( $attributes['taken'] ?? [] ) );
+			return self::grid( $trip->ID, $groups['shown'], __( 'Pick the first photo of this place. Dimmed photos already start a place.', 'travel-steps-storyteller' ), $taken );
 		}
 		$start  = (int) ( $attributes['start'] ?? 0 );
 		$end    = (int) ( $attributes['end'] ?? 0 );
@@ -114,20 +121,33 @@ class PhotosBlock {
 
 	/**
 	 * Thumbnails of photos, each with its time, then a note, a translated "%s photos…"
-	 * given their count.
+	 * given their count. With $taken, a picker: each photo is a button, disabled when
+	 * its time is in $taken.
+	 *
+	 * @param int[]|null $taken
 	 */
-	private static function grid( int $trip_id, array $photos, string $note, string $class = '' ): string {
+	private static function grid( int $trip_id, array $photos, string $note, ?array $taken = null ): string {
 		$html = '';
 		foreach ( $photos as $photo ) {
-			$html .= sprintf(
+			$img = sprintf(
 				'<img src="%s" alt="%s" data-asset="%s" data-t="%d" loading="lazy">',
 				esc_url( RestController::photo_url( $trip_id, $photo['id'], 'thumbnail' ) ),
 				esc_attr( $photo['caption'] ?? '' ),
 				esc_attr( $photo['id'] ),
 				(int) $photo['t']
 			);
+			if ( null !== $taken ) {
+				$img = sprintf(
+					'<button type="button" class="ts-photos-block-photo" data-t="%d"%s>%s</button>',
+					(int) $photo['t'],
+					in_array( (int) $photo['t'], $taken, true ) ? ' disabled' : '',
+					$img
+				);
+			}
+			$html .= $img;
 		}
-		$note = sprintf( $note, number_format_i18n( count( $photos ) ) );
-		return '<div class="' . esc_attr( trim( 'ts-photos-block-grid ' . $class ) ) . '">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
+		$note  = sprintf( $note, number_format_i18n( count( $photos ) ) );
+		$class = null === $taken ? 'ts-photos-block-grid' : 'ts-photos-block-grid ts-photos-block-pick';
+		return '<div class="' . $class . '">' . $html . '</div><p class="ts-photos-block-note">' . esc_html( $note ) . '</p>';
 	}
 }

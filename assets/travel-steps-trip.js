@@ -274,7 +274,8 @@
 			return;
 		}
 		// Before a step's first heading, its title and date, the first place is being read.
-		const headings = step.querySelectorAll( '[id^="ts-place-"]' );
+		// A heading still waiting for its first photo (ts-place-pick) is plain text.
+		const headings = step.querySelectorAll( '[id^="ts-place-"]:not(#ts-place-pick)' );
 		const heading = lastAbove( headings, line ) || headings[ 0 ];
 		setActive( step, heading ? heading.id : step.id );
 	}

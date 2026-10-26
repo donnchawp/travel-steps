@@ -108,6 +108,7 @@ check( 'seed has a heading per place', 3 === substr_count( $content, '<!-- wp:he
 check( 'seed has a photos block per place', 3 === substr_count( $content, '<!-- wp:' . Days::PHOTOS_BLOCK . ' /-->' ) );
 check( 'each photos block follows its heading', 1 === preg_match( '/Sintra<\/h2>.*?<!-- wp:paragraph -->.*?<!-- wp:' . preg_quote( Days::PHOTOS_BLOCK, '/' ) . ' \/-->.*?Lisbon<\/h2>/s', $content ) );
 check( 'seed anchors parse back to start times', [ $t, $t + 7200, $t + 18000 ] === Days::anchor_times( $content ) );
+check( 'two headings with the same start time count once', [ 5, 9 ] === Days::anchor_times( '<h2 id="ts-place-5">A</h2><h2 id="ts-place-9">B</h2><h2 id="ts-place-5">C</h2>' ) );
 check( 'seed escapes place names', false === strpos( Days::seed_content( [ [ 't' => 1, 'city' => '<b>', 'lat' => null, 'lon' => null ], [ 't' => 2, 'city' => 'x', 'lat' => null, 'lon' => null ] ] ), '<b>' ) );
 $single = Days::seed_content( [ $places[0] ] );
 check( 'one place needs no headings', false === strpos( $single, 'wp:heading' ) );

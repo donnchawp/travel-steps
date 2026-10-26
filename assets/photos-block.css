@@ -34,11 +34,23 @@
 }
 
 /* Picking a hand-added place's first photo. */
-.ts-photos-block-pick img {
+.ts-photos-block-photo {
+	display: block;
+	padding: 0;
+	border: 0;
+	border-radius: 2px;
+	background: none;
 	cursor: pointer;
 }
 
-.ts-photos-block-pick img:hover {
+.ts-photos-block-photo:hover:not(:disabled),
+.ts-photos-block-photo:focus-visible {
 	outline: 2px solid var(--wp-admin-theme-color, #3858e9);
 	outline-offset: 1px;
+}
+
+/* Already the first photo of another place. */
+.ts-photos-block-photo:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
 }

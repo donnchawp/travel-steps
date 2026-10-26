@@ -21,11 +21,11 @@
 		{
 			"step": "writeFile",
 			"path": "/wordpress/wp-content/mu-plugins/travel-steps-demo.php",
-			"data": "<?php require WP_PLUGIN_DIR . '/travel-steps/demo/fake-services.php';"
+			"data": "<?php require WP_PLUGIN_DIR . '/travel-steps-storyteller/demo/fake-services.php';"
 		},
 		{
 			"step": "runPHP",
-			"code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/travel-steps/demo/setup.php';"
+			"code": "<?php require '/wordpress/wp-load.php'; require WP_PLUGIN_DIR . '/travel-steps-storyteller/demo/setup.php';"
 		}
 	]
 }

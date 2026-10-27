@@ -34,7 +34,11 @@ body.ts-body:not(#ts-none) {
    to <body> again, leaving an empty strip under the bar. */
 html body.ts-body:not(#ts-none) { margin-top: 0 !important; }
 
-.ts-body a { color: var(--ts-accent); }
+/* Matches wp-app's `body.wp-app-body a` (and :hover/:focus) rules, which would otherwise
+   colour links blue; this sheet loads after them, so it wins on order. */
+body.ts-body a,
+body.ts-body a:hover,
+body.ts-body a:focus { color: var(--ts-accent); }
 .ts-muted { color: var(--ts-muted); }
 .ts-empty { color: var(--ts-muted); padding: 2rem 0; }
 

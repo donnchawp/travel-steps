@@ -107,6 +107,10 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 
 == Changelog ==
 
+= Unreleased =
+* If a step's sync missed a place, add it with the Trip place pattern from the block inserter, then click the place's first photo in its Trip photos block. That photo and the ones after it, up to the next place, show under the new heading.
+* Fixes: links on trip pages are the accent colour again, instead of the blue of the app framework's colour scheme.
+
 = 0.6.0 =
 * Travel Steps is now Travel Steps Storyteller, the name it has on WordPress.org. It lives in the folder travel-steps-storyteller, so WordPress sees it as a new plugin: deactivate the old one, remove its travel-steps folder by hand rather than with Delete on the Plugins screen (which deletes subscriptions and cached photos), then add and activate the new one. Trips, steps, settings and links are unchanged. An authentication proxy that lets /wp-content/plugins/travel-steps/* through needs the new folder instead.
 * Visitors can subscribe to a published trip from the end of its page. Once a day, at the hour set on the settings page, each trip with newly published days or photos emails its subscribers one plain-text roundup, with links to the new days and a link to unsubscribe. An email address is confirmed before anything is sent, and logged-in users subscribe with a button. The trip's edit page lists its subscribers and says when the last roundup went, to how many, and how many emails the site's mail refused. Subscriptions are included in WordPress's personal data export and erasure.

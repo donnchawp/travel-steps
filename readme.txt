@@ -109,7 +109,7 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 
 = Unreleased =
 * If a step's sync missed a place, add it with the Trip place pattern from the block inserter, then click the place's first photo in its Trip photos block. That photo and the ones after it, up to the next place, show under the new heading.
-* Fixes: links on trip pages are the accent colour again, instead of the blue of the app framework's colour scheme.
+* Fixes: links on trip pages are the accent colour again, instead of the blue of the app framework's colour scheme; back closes an open photo instead of leaving the trip, on browsers such as Android Firefox that didn't already.
 
 = 0.6.0 =
 * Travel Steps is now Travel Steps Storyteller, the name it has on WordPress.org. It lives in the folder travel-steps-storyteller, so WordPress sees it as a new plugin: deactivate the old one, remove its travel-steps folder by hand rather than with Delete on the Plugins screen (which deletes subscriptions and cached photos), then add and activate the new one. Trips, steps, settings and links are unchanged. An authentication proxy that lets /wp-content/plugins/travel-steps/* through needs the new folder instead.

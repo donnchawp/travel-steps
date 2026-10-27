@@ -308,6 +308,9 @@
 	const strip = dialog.querySelector( '.ts-lightbox-strip' );
 	let current = -1;
 	let target = null; // Where an arrow is scrolling to, so a second press goes one further.
+	// An open lightbox is a history entry of its own, so back closes the photo instead of
+	// leaving the trip. Not every browser closes a modal dialog on back (Android Firefox doesn't).
+	let inHistory = false;
 
 	// Only photos on screen: the ones inside a closed "Show more" don't count.
 	function visibleOpeners() {
@@ -374,6 +377,10 @@
 		const openers = visibleOpeners();
 		strip.replaceChildren( ...openers.map( slide ) );
 		dialog.showModal();
+		if ( ! inHistory ) {
+			history.pushState( null, '' );
+			inHistory = true;
+		}
 		current = openers.indexOf( btn );
 		target = null;
 		strip.scrollTo( { left: current * strip.clientWidth, behavior: 'auto' } );
@@ -383,6 +390,18 @@
 	dialog.addEventListener( 'close', () => {
 		strip.querySelectorAll( 'img' ).forEach( ( img ) => img.removeAttribute( 'src' ) );
 		strip.replaceChildren();
+		// Closed by X, a tap outside, Escape, or a browser's own back handling: drop the entry,
+		// so the next back leaves the trip as it should.
+		if ( inHistory ) {
+			inHistory = false;
+			history.back();
+		}
+	} );
+	window.addEventListener( 'popstate', () => {
+		inHistory = false;
+		if ( dialog.open ) {
+			dialog.close();
+		}
 	} );
 	dialog.querySelector( '.ts-lightbox-close' ).addEventListener( 'click', () => dialog.close() );
 	dialog.querySelector( '.ts-lightbox-prev' ).addEventListener( 'click', () => step( -1 ) );

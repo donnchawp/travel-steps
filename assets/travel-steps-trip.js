@@ -345,17 +345,23 @@
 		} );
 	}
 
+	// A slide's width, fractions and all: clientWidth rounds it, and a phone's 411.43px
+	// rounded to 411 puts photo 500 two hundred pixels short, where it snaps to photo 499.
+	function slideWidth() {
+		return strip.getBoundingClientRect().width;
+	}
+
 	// Arrows and keys go round from the last photo to the first; a swipe stops at the ends.
 	function step( by ) {
 		const count = strip.children.length;
 		const from = target ?? current;
 		target = ( from + by + count ) % count;
 		const wrapped = 1 < Math.abs( target - from );
-		strip.scrollTo( { left: target * strip.clientWidth, behavior: wrapped ? 'auto' : 'smooth' } );
+		strip.scrollTo( { left: target * slideWidth(), behavior: wrapped ? 'auto' : 'smooth' } );
 	}
 
 	strip.addEventListener( 'scroll', () => {
-		const index = Math.round( strip.scrollLeft / strip.clientWidth );
+		const index = Math.round( strip.scrollLeft / slideWidth() );
 		if ( index === target ) {
 			target = null;
 		}
@@ -383,7 +389,7 @@
 		}
 		current = openers.indexOf( btn );
 		target = null;
-		strip.scrollTo( { left: current * strip.clientWidth, behavior: 'auto' } );
+		strip.scrollTo( { left: current * slideWidth(), behavior: 'auto' } );
 		load();
 	} );
 	// A removed img keeps downloading, so each one stops first.

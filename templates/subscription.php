@@ -26,7 +26,7 @@ $result = 'unsubscribed' === ( $_GET[ Subscriptions::NOTICE_ARG ] ?? '' )
 // find nothing: send the browser on. A mail client's one-click POST (RFC 8058) doesn't press
 // the button, so it gets the page.
 // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Reads whether the button was pressed; the link's key was checked.
-if ( $posted && 'unsubscribed' === $result['state'] && isset( $_POST['ts_button'] ) ) {
+if ( $posted && 'unsubscribed' === $result['state'] && isset( $_POST['travel_steps_button'] ) ) {
 	wp_safe_redirect( add_query_arg( Subscriptions::NOTICE_ARG, 'unsubscribed', App::url( 'subscription' ) ), 303 );
 	exit;
 }
@@ -59,7 +59,7 @@ include __DIR__ . '/_header.php';
 	<p><?php echo esc_html( $message ); ?></p>
 	<?php if ( $button ) : ?>
 		<form method="post">
-			<p><button type="submit" class="ts-button" name="ts_button" value="1"><?php echo esc_html( $button ); ?></button></p>
+			<p><button type="submit" class="ts-button" name="travel_steps_button" value="1"><?php echo esc_html( $button ); ?></button></p>
 		</form>
 	<?php elseif ( $shown ) : ?>
 		<p><a class="ts-button" href="<?php echo esc_url( $link ); ?>"><?php esc_html_e( 'View the trip', 'travel-steps-storyteller' ); ?></a></p>

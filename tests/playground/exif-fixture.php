@@ -8,12 +8,12 @@
  *                    lat and lon (degrees), orientation, and xmp_lat and xmp_lon for
  *                    a position written only in XMP, as photo editors do.
  */
-function ts_tagged_jpeg( string $jpeg, array $tags ): string {
+function travel_steps_tagged_jpeg( string $jpeg, array $tags ): string {
 	if ( isset( $tags['xmp_lat'], $tags['xmp_lon'] ) ) {
 		$xmp  = '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
 			. '<rdf:Description rdf:about="" xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="' . $tags['xmp_lat'] . '" exif:GPSLongitude="' . $tags['xmp_lon'] . '"/>'
 			. '</rdf:RDF></x:xmpmeta>';
-		$jpeg = ts_app1( $jpeg, "http://ns.adobe.com/xap/1.0/\0" . $xmp );
+		$jpeg = travel_steps_app1( $jpeg, "http://ns.adobe.com/xap/1.0/\0" . $xmp );
 	}
 	$ifd0 = [];
 	$exif = [];
@@ -35,9 +35,9 @@ function ts_tagged_jpeg( string $jpeg, array $tags ): string {
 	if ( isset( $tags['lat'], $tags['lon'] ) ) {
 		$gps = [
 			0x0001 => [ 2, $tags['lat'] < 0 ? 'S' : 'N' ],
-			0x0002 => [ 5, ts_dms( $tags['lat'] ) ],
+			0x0002 => [ 5, travel_steps_dms( $tags['lat'] ) ],
 			0x0003 => [ 2, $tags['lon'] < 0 ? 'W' : 'E' ],
-			0x0004 => [ 5, ts_dms( $tags['lon'] ) ],
+			0x0004 => [ 5, travel_steps_dms( $tags['lon'] ) ],
 		];
 	}
 	if ( ! $ifd0 && ! $exif && ! $gps ) {
@@ -51,8 +51,8 @@ function ts_tagged_jpeg( string $jpeg, array $tags ): string {
 	if ( $gps ) {
 		$ifd0[0x8825] = [ 4, 0 ];
 	}
-	$exif_at = 8 + strlen( ts_ifd( $ifd0, 8 ) );
-	$exif_ifd = $exif ? ts_ifd( $exif, $exif_at ) : '';
+	$exif_at = 8 + strlen( travel_steps_ifd( $ifd0, 8 ) );
+	$exif_ifd = $exif ? travel_steps_ifd( $exif, $exif_at ) : '';
 	$gps_at   = $exif_at + strlen( $exif_ifd );
 	if ( $exif ) {
 		$ifd0[0x8769] = [ 4, $exif_at ];
@@ -60,14 +60,14 @@ function ts_tagged_jpeg( string $jpeg, array $tags ): string {
 	if ( $gps ) {
 		$ifd0[0x8825] = [ 4, $gps_at ];
 	}
-	$tiff = "II*\0" . pack( 'V', 8 ) . ts_ifd( $ifd0, 8 ) . $exif_ifd . ( $gps ? ts_ifd( $gps, $gps_at ) : '' );
-	return ts_app1( $jpeg, "Exif\0\0" . $tiff );
+	$tiff = "II*\0" . pack( 'V', 8 ) . travel_steps_ifd( $ifd0, 8 ) . $exif_ifd . ( $gps ? travel_steps_ifd( $gps, $gps_at ) : '' );
+	return travel_steps_app1( $jpeg, "Exif\0\0" . $tiff );
 }
 
 /**
  * A JPEG with an APP1 segment (where EXIF and XMP go) added after its start marker.
  */
-function ts_app1( string $jpeg, string $payload ): string {
+function travel_steps_app1( string $jpeg, string $payload ): string {
 	return substr( $jpeg, 0, 2 ) . "\xFF\xE1" . pack( 'n', strlen( $payload ) + 2 ) . $payload . substr( $jpeg, 2 );
 }
 
@@ -76,7 +76,7 @@ function ts_app1( string $jpeg, string $payload ): string {
  * block, followed by the values that don't fit in their entry. Types: 2 text, 3 short,
  * 4 long, 5 a list of [ numerator, denominator ].
  */
-function ts_ifd( array $entries, int $offset ): string {
+function travel_steps_ifd( array $entries, int $offset ): string {
 	ksort( $entries );
 	$data_at = $offset + 2 + 12 * count( $entries ) + 4;
 	$head    = pack( 'v', count( $entries ) );
@@ -110,7 +110,7 @@ function ts_ifd( array $entries, int $offset ): string {
 	return $head . pack( 'V', 0 ) . $data;
 }
 
-function ts_dms( float $degrees ): array {
+function travel_steps_dms( float $degrees ): array {
 	$degrees = abs( $degrees );
 	$d       = (int) floor( $degrees );
 	$m       = (int) floor( ( $degrees - $d ) * 60 );

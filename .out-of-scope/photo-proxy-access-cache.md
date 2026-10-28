@@ -9,7 +9,7 @@ keeps no cached set of a trip's viewable photo IDs.
 comparison, so 304 revalidations pay for it too. For a published trip it calls
 `Trips::shown_photo_ids()`, which:
 
-- decodes the trip's `_ts_photos` JSON;
+- decodes the trip's `_travel_steps_photos` JSON;
 - queries the trip's published steps;
 - groups the photos by step, running `Selection::for_step()` for each step.
 

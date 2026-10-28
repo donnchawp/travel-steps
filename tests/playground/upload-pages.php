@@ -176,7 +176,7 @@ wp_delete_post( $up_immich, true );
 // one: from the name they were uploaded with until a time is saved.
 wp_set_current_user( $ut_author );
 $up_times  = $ut_trip( 'Times', $ut_author, '2025-03-17', '2025-03-19' );
-$up_named  = fn( string $name ) => $sideload( [ 'post_id' => $up_times, TravelSteps\Uploads::REQUEST_FLAG => '1' ], $up_times, $name, ts_tagged_jpeg( $jpeg( 600, 400 ), [] ) );
+$up_named  = fn( string $name ) => $sideload( [ 'post_id' => $up_times, TravelSteps\Uploads::REQUEST_FLAG => '1' ], $up_times, $name, travel_steps_tagged_jpeg( $jpeg( 600, 400 ), [] ) );
 $up_dated  = TravelSteps\Uploads::photo_id( $up_photo( $up_times, '2025:03:17 10:00:00' ) );
 $up_wa     = TravelSteps\Uploads::photo_id( $up_named( 'IMG-20250318-WA0001.jpg' ) );
 $up_shot   = TravelSteps\Uploads::photo_id( $up_named( 'Screenshot 2025-03-18 at 17.42.01.jpg' ) );

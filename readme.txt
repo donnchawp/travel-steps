@@ -108,7 +108,7 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 == Changelog ==
 
 = Unreleased =
-* Trips, steps, places and subscriptions, and the data kept with them, have names that start with travel_steps_ instead of ts_, so they can't clash with another plugin's. The first request after updating renames what's already saved. Core REST serves trips and steps at /wp/v2/travel_steps_trip and /wp/v2/travel_steps_step now. A visitor who subscribed to a trip sees the subscribe form on it again, but stays subscribed.
+* Trips, steps, places and subscriptions, and the data kept with them, have names that start with travel_steps_ instead of ts_, so they can't clash with another plugin's. The first request after updating renames what's already saved. Core REST serves trips and steps at /wp/v2/travel_steps_trip and /wp/v2/travel_steps_step now, and a step's position as the meta _travel_steps_lat and _travel_steps_lon. A visitor who subscribed to a trip sees the subscribe form on it again, but stays subscribed.
 
 = 0.6.1 =
 * If a step's sync missed a place, add it with the Trip place pattern from the block inserter, then click the place's first photo in its Trip photos block. That photo and the ones after it, up to the next place, show under the new heading.

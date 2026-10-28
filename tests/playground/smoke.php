@@ -51,6 +51,8 @@ update_post_meta( $old_photo, TravelSteps\Uploads::META_TAKEN, '2026-01-01 10:00
 // Another plugin's meta with one of the old names, on its own post.
 $other_post = wp_insert_post( [ 'post_title' => 'Not a trip', 'post_status' => 'publish' ] );
 update_post_meta( $other_post, '_ts_status', 'theirs' );
+$other_photo = wp_insert_attachment( [ 'post_title' => 'Not a trip photo', 'post_mime_type' => 'image/jpeg', 'post_status' => 'inherit' ], false, $other_post );
+update_post_meta( $other_photo, '_ts_version', 'theirs' );
 $old_place = wp_insert_term( 'Old place', Trips::PLACE );
 wp_set_object_terms( $old_step, [ $old_place['term_id'] ], Trips::PLACE );
 foreach ( [ $old_trip => 'ts_trip', $old_step => 'ts_step', $old_sub => 'ts_subscription' ] as $id => $type ) {
@@ -61,6 +63,14 @@ $wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => 'ts_place' ], [ 'term_id' =
 delete_option( Trips::NAMES_MOVED );
 wp_cache_flush();
 check( 'names upgrade: the old ts_ trip is gone before the migration', [] === get_posts( [ 'post_type' => Trips::TRIP, 'include' => [ $old_trip ] ] ) );
+// A query that fails leaves the flag unset, so the next request tries again.
+$break_places = fn( $query ) => false !== strpos( $query, "'ts_place'" ) ? 'UPDATE no_such_table SET x = 1' : $query;
+add_filter( 'query', $break_places );
+$wpdb->suppress_errors( true );
+Trips::migrate_names();
+$wpdb->suppress_errors( false );
+remove_filter( 'query', $break_places );
+check( 'names upgrade: a failed query leaves it to run again', ! get_option( Trips::NAMES_MOVED ) );
 Trips::migrate_names();
 check(
 	'names upgrade: trips, steps and subscriptions take the new post types',
@@ -72,12 +82,12 @@ check(
 	[ '2026-01-01', '53.3', 'old@example.org', '2026-01-01 10:00:00' ] === [ get_post_meta( $old_trip, Trips::META_START, true ), get_post_meta( $old_step, Trips::META_LAT, true ), get_post_meta( $old_sub, TravelSteps\Subscriptions::META_EMAIL, true ), get_post_meta( $old_photo, TravelSteps\Uploads::META_TAKEN, true ) ]
 );
 check( 'names upgrade: the step keeps its place', [ 'Old place' ] === wp_get_object_terms( $old_step, Trips::PLACE, [ 'fields' => 'names' ] ) );
-check( 'names upgrade: another plugin’s _ts_ meta stays', 'theirs' === get_post_meta( $other_post, '_ts_status', true ) );
+check( 'names upgrade: another plugin’s _ts_ meta stays, on its posts and photos', [ 'theirs', 'theirs' ] === [ get_post_meta( $other_post, '_ts_status', true ), get_post_meta( $other_photo, '_ts_version', true ) ] );
 $wpdb->update( $wpdb->posts, [ 'post_type' => 'ts_trip' ], [ 'ID' => $old_trip ] );
 Trips::migrate_names();
 check( 'names upgrade: runs once', 'ts_trip' === $wpdb->get_var( $wpdb->prepare( "SELECT post_type FROM {$wpdb->posts} WHERE ID = %d", $old_trip ) ) );
 $wpdb->update( $wpdb->posts, [ 'post_type' => Trips::TRIP ], [ 'ID' => $old_trip ] );
-foreach ( [ $old_photo, $old_sub, $old_step, $old_trip, $other_post ] as $id ) {
+foreach ( [ $old_photo, $old_sub, $old_step, $old_trip, $other_photo, $other_post ] as $id ) {
 	wp_delete_post( $id, true );
 }
 wp_delete_term( $old_place['term_id'], Trips::PLACE );

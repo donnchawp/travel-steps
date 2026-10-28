@@ -142,39 +142,45 @@ class Trips {
 	 * meta keys from their old ts_ prefix to travel_steps_, so they can't clash with
 	 * another plugin's.
 	 *
-	 * Each query only finds old names, so a migration that dies part-way runs again: the
-	 * flag is set last.
+	 * Each query only finds old names, so a migration that fails or dies part-way runs
+	 * again: the flag is set last, and only if every query worked.
 	 */
 	public static function migrate_names(): void {
 		if ( get_option( self::NAMES_MOVED ) ) {
 			return;
 		}
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery
-		$posts = 0;
-		foreach ( [ 'ts_trip' => self::TRIP, 'ts_step' => self::STEP, 'ts_subscription' => Subscriptions::TYPE ] as $old => $new ) {
-			$posts += (int) $wpdb->update( $wpdb->posts, [ 'post_type' => $new ], [ 'post_type' => $old ] );
-		}
-		$terms = $wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => self::PLACE ], [ 'taxonomy' => 'ts_place' ] );
-		// The keys as they were named up to 0.6.1, and only on this plugin's posts and on
-		// attachments (where uploads keep theirs), so another plugin's _ts_ meta stays.
+		$types = [ 'ts_trip' => self::TRIP, 'ts_step' => self::STEP, 'ts_subscription' => Subscriptions::TYPE ];
+		$trips = [ 'ts_trip', self::TRIP ];
+		// The keys as they were named up to 0.6.1, only on this plugin's posts and on photos
+		// uploaded to a trip, so another plugin's _ts_ meta stays. Meta goes first: until a
+		// post has its new type, nothing can give it meta under the new keys.
 		$keys = [
 			'start', 'end', 'album', 'dates_auto', 'source', 'route', 'boxes', 'photos', 'hidden', 'pinned', 'cover', 'stats',
 			'synced', 'sync_error', 'viewers', 'lat', 'lon', 'day', 'photo_id', 'exif', 'taken', 'checked', 'version',
 			'email', 'user', 'status', 'token', 'mailed', 'share', 'roundup_state', 'roundup_last',
 		];
 		$keys  = array_map( fn( $key ) => '_ts_' . $key, $keys );
-		$types = [ self::TRIP, self::STEP, Subscriptions::TYPE, 'attachment' ];
-		$moved = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id SET pm.meta_key = CONCAT( '_travel_steps_', SUBSTRING( pm.meta_key, 5 ) ) WHERE pm.meta_key IN ( " . implode( ',', array_fill( 0, count( $keys ), '%s' ) ) . ' ) AND p.post_type IN ( ' . implode( ',', array_fill( 0, count( $types ), '%s' ) ) . ' )', // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				array_merge( $keys, $types )
-			)
-		);
+		$owned = array_merge( array_keys( $types ), array_values( $types ) );
+		$in    = fn( array $list ) => implode( ',', array_fill( 0, count( $list ), '%s' ) );
+		$set   = "SET pm.meta_key = CONCAT( '_travel_steps_', SUBSTRING( pm.meta_key, 5 ) ) WHERE pm.meta_key IN ( {$in( $keys )} )";
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		// Two queries, not a LEFT JOIN: Playground's SQLite driver drops the posts without a parent.
+		$moved = [
+			$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id $set AND p.post_type IN ( {$in( $owned )} )", array_merge( $keys, $owned ) ) ),
+			$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id JOIN {$wpdb->posts} t ON t.ID = p.post_parent $set AND 'attachment' = p.post_type AND t.post_type IN ( {$in( $trips )} )", array_merge( $keys, $trips ) ) ),
+		];
+		foreach ( $types as $old => $new ) {
+			$moved[] = $wpdb->update( $wpdb->posts, [ 'post_type' => $new ], [ 'post_type' => $old ] );
+		}
+		$moved[] = $wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => self::PLACE ], [ 'taxonomy' => 'ts_place' ] );
 		// phpcs:enable
 		// Cached posts, terms and meta still have the old names.
-		if ( $moved || $posts || $terms ) {
+		if ( array_filter( $moved ) ) {
 			wp_cache_flush();
+		}
+		if ( in_array( false, $moved, true ) ) {
+			return;
 		}
 		add_option( self::NAMES_MOVED, time() );
 	}

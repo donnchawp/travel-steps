@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * logged-in one by their account.
  */
 class Subscriptions {
+	// Short: a post type's name can be at most 20 characters.
 	const TYPE = 'travel_steps_sub';
 
 	const META_EMAIL  = '_travel_steps_email';  // Lower-cased address of a visitor's subscription.

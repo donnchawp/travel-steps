@@ -46,11 +46,17 @@ $old_sub  = wp_insert_post( [ 'post_type' => TravelSteps\Subscriptions::TYPE, 'p
 update_post_meta( $old_trip, Trips::META_START, '2026-01-01' );
 update_post_meta( $old_step, Trips::META_LAT, 53.3 );
 update_post_meta( $old_sub, TravelSteps\Subscriptions::META_EMAIL, 'old@example.org' );
+$old_photo = wp_insert_attachment( [ 'post_title' => 'Old photo', 'post_mime_type' => 'image/jpeg', 'post_status' => 'inherit' ], false, $old_trip );
+update_post_meta( $old_photo, TravelSteps\Uploads::META_TAKEN, '2026-01-01 10:00:00' );
+// Another plugin's meta with one of the old names, on its own post.
+$other_post = wp_insert_post( [ 'post_title' => 'Not a trip', 'post_status' => 'publish' ] );
+update_post_meta( $other_post, '_ts_status', 'theirs' );
 $old_place = wp_insert_term( 'Old place', Trips::PLACE );
 wp_set_object_terms( $old_step, [ $old_place['term_id'] ], Trips::PLACE );
-$wpdb->query( "UPDATE {$wpdb->posts} SET post_type = REPLACE( post_type, 'travel_steps_', 'ts_' ) WHERE ID IN ( $old_trip, $old_step, $old_sub )" );
-$wpdb->query( "UPDATE {$wpdb->posts} SET post_type = 'ts_subscription' WHERE ID = $old_sub" );
-$wpdb->query( "UPDATE {$wpdb->postmeta} SET meta_key = REPLACE( meta_key, '_travel_steps_', '_ts_' ) WHERE post_id IN ( $old_trip, $old_step, $old_sub )" );
+foreach ( [ $old_trip => 'ts_trip', $old_step => 'ts_step', $old_sub => 'ts_subscription' ] as $id => $type ) {
+	$wpdb->update( $wpdb->posts, [ 'post_type' => $type ], [ 'ID' => $id ] );
+}
+$wpdb->query( "UPDATE {$wpdb->postmeta} SET meta_key = REPLACE( meta_key, '_travel_steps_', '_ts_' ) WHERE post_id IN ( $old_trip, $old_step, $old_sub, $old_photo )" );
 $wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => 'ts_place' ], [ 'term_id' => $old_place['term_id'] ] );
 delete_option( Trips::NAMES_MOVED );
 wp_cache_flush();
@@ -62,12 +68,16 @@ check(
 	array_map( 'get_post_type', [ $old_trip, $old_step, $old_sub ] )
 );
 check(
-	'names upgrade: their meta takes the new keys',
-	[ '2026-01-01', '53.3', 'old@example.org' ] === [ get_post_meta( $old_trip, Trips::META_START, true ), get_post_meta( $old_step, Trips::META_LAT, true ), get_post_meta( $old_sub, TravelSteps\Subscriptions::META_EMAIL, true ) ]
+	'names upgrade: their meta, and an upload’s, takes the new keys',
+	[ '2026-01-01', '53.3', 'old@example.org', '2026-01-01 10:00:00' ] === [ get_post_meta( $old_trip, Trips::META_START, true ), get_post_meta( $old_step, Trips::META_LAT, true ), get_post_meta( $old_sub, TravelSteps\Subscriptions::META_EMAIL, true ), get_post_meta( $old_photo, TravelSteps\Uploads::META_TAKEN, true ) ]
 );
 check( 'names upgrade: the step keeps its place', [ 'Old place' ] === wp_get_object_terms( $old_step, Trips::PLACE, [ 'fields' => 'names' ] ) );
-check( 'names upgrade: runs once', (bool) get_option( Trips::NAMES_MOVED ) );
-foreach ( [ $old_sub, $old_step, $old_trip ] as $id ) {
+check( 'names upgrade: another plugin’s _ts_ meta stays', 'theirs' === get_post_meta( $other_post, '_ts_status', true ) );
+$wpdb->update( $wpdb->posts, [ 'post_type' => 'ts_trip' ], [ 'ID' => $old_trip ] );
+Trips::migrate_names();
+check( 'names upgrade: runs once', 'ts_trip' === $wpdb->get_var( $wpdb->prepare( "SELECT post_type FROM {$wpdb->posts} WHERE ID = %d", $old_trip ) ) );
+$wpdb->update( $wpdb->posts, [ 'post_type' => Trips::TRIP ], [ 'ID' => $old_trip ] );
+foreach ( [ $old_photo, $old_sub, $old_step, $old_trip, $other_post ] as $id ) {
 	wp_delete_post( $id, true );
 }
 wp_delete_term( $old_place['term_id'], Trips::PLACE );

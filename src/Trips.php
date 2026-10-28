@@ -27,16 +27,16 @@ class Trips {
 	const META_SOURCE = '_travel_steps_source';         // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';
-	const META_ROUTE  = '_travel_steps_route';      // JSON: list of segments, each a list of [lat, lon, t] ([lat, lon] if synced before 0.6).
-	const META_BOXES  = '_travel_steps_boxes';      // JSON: the route's track as Geo::time_boxes() rows.
-	const META_PHOTOS = '_travel_steps_photos';     // JSON: list of photo rows (see PhotoSource::photos) + step.
-	const META_HIDDEN = '_travel_steps_hidden';     // array of hidden photo ids.
-	const META_PINNED = '_travel_steps_pinned';     // array of photo ids always shown.
-	const META_COVER  = '_travel_steps_cover';      // photo id chosen for the header, else automatic.
-	const META_STATS  = '_travel_steps_stats';      // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
-	const META_SYNCED = '_travel_steps_synced';     // unix timestamp of last sync.
-	const META_ERROR  = '_travel_steps_sync_error'; // last sync error message.
-	const META_VIEWERS = '_travel_steps_viewers';   // array of user ids who see the trip without its password.
+	const META_ROUTE  = '_travel_steps_route';          // JSON: list of segments, each a list of [lat, lon, t] ([lat, lon] if synced before 0.6).
+	const META_BOXES  = '_travel_steps_boxes';          // JSON: the route's track as Geo::time_boxes() rows.
+	const META_PHOTOS = '_travel_steps_photos';         // JSON: list of photo rows (see PhotoSource::photos) + step.
+	const META_HIDDEN = '_travel_steps_hidden';         // array of hidden photo ids.
+	const META_PINNED = '_travel_steps_pinned';         // array of photo ids always shown.
+	const META_COVER  = '_travel_steps_cover';          // photo id chosen for the header, else automatic.
+	const META_STATS  = '_travel_steps_stats';          // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
+	const META_SYNCED = '_travel_steps_synced';         // unix timestamp of last sync.
+	const META_ERROR  = '_travel_steps_sync_error';     // last sync error message.
+	const META_VIEWERS = '_travel_steps_viewers';       // array of user ids who see the trip without its password.
 	// The query argument a share link carries its code in.
 	const SHARE_ARG = 'share';
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
@@ -151,24 +151,31 @@ class Trips {
 		}
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$posts = 0;
 		foreach ( [ 'ts_trip' => self::TRIP, 'ts_step' => self::STEP, 'ts_subscription' => Subscriptions::TYPE ] as $old => $new ) {
-			$wpdb->update( $wpdb->posts, [ 'post_type' => $new ], [ 'post_type' => $old ] );
+			$posts += (int) $wpdb->update( $wpdb->posts, [ 'post_type' => $new ], [ 'post_type' => $old ] );
 		}
-		$wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => self::PLACE ], [ 'taxonomy' => 'ts_place' ] );
+		$terms = $wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => self::PLACE ], [ 'taxonomy' => 'ts_place' ] );
+		// The keys as they were named up to 0.6.1, and only on this plugin's posts and on
+		// attachments (where uploads keep theirs), so another plugin's _ts_ meta stays.
 		$keys = [
-			self::META_START, self::META_END, self::META_ALBUM, self::META_DATES_AUTO, self::META_SOURCE, self::META_ROUTE,
-			self::META_BOXES, self::META_PHOTOS, self::META_HIDDEN, self::META_PINNED, self::META_COVER, self::META_STATS,
-			self::META_SYNCED, self::META_ERROR, self::META_VIEWERS, self::META_LAT, self::META_LON, self::META_DAY,
-			Uploads::META_PHOTO_ID, Uploads::META_EXIF, Uploads::META_TAKEN, Uploads::META_CHECKED, Uploads::META_VERSION,
-			Subscriptions::META_EMAIL, Subscriptions::META_USER, Subscriptions::META_STATUS, Subscriptions::META_TOKEN,
-			Subscriptions::META_MAILED, Subscriptions::META_SHARE, Roundup::META_STATE, Roundup::META_LAST,
+			'start', 'end', 'album', 'dates_auto', 'source', 'route', 'boxes', 'photos', 'hidden', 'pinned', 'cover', 'stats',
+			'synced', 'sync_error', 'viewers', 'lat', 'lon', 'day', 'photo_id', 'exif', 'taken', 'checked', 'version',
+			'email', 'user', 'status', 'token', 'mailed', 'share', 'roundup_state', 'roundup_last',
 		];
-		foreach ( $keys as $new ) {
-			$wpdb->update( $wpdb->postmeta, [ 'meta_key' => $new ], [ 'meta_key' => '_ts_' . substr( $new, strlen( '_travel_steps_' ) ) ] ); // phpcs:ignore WordPress.DB.SlowDBQuery
-		}
+		$keys  = array_map( fn( $key ) => '_ts_' . $key, $keys );
+		$types = [ self::TRIP, self::STEP, Subscriptions::TYPE, 'attachment' ];
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id SET pm.meta_key = CONCAT( '_travel_steps_', SUBSTRING( pm.meta_key, 5 ) ) WHERE pm.meta_key IN ( " . implode( ',', array_fill( 0, count( $keys ), '%s' ) ) . ' ) AND p.post_type IN ( ' . implode( ',', array_fill( 0, count( $types ), '%s' ) ) . ' )', // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				array_merge( $keys, $types )
+			)
+		);
 		// phpcs:enable
 		// Cached posts, terms and meta still have the old names.
-		wp_cache_flush();
+		if ( $moved || $posts || $terms ) {
+			wp_cache_flush();
+		}
 		add_option( self::NAMES_MOVED, time() );
 	}
 

@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.6.0
+Stable tag: 0.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,7 +107,7 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 
 == Changelog ==
 
-= Unreleased =
+= 0.6.1 =
 * If a step's sync missed a place, add it with the Trip place pattern from the block inserter, then click the place's first photo in its Trip photos block. That photo and the ones after it, up to the next place, show under the new heading.
 * Fixes: links on trip pages are the accent colour again, instead of the blue of the app framework's colour scheme; back closes an open photo instead of leaving the trip, on browsers such as Android Firefox that didn't already; on a trip with hundreds of photos, tapping one late in the trip opens it, not the one before, in Chrome and other Chromium browsers on phones.
 

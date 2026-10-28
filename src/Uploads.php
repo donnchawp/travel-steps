@@ -23,11 +23,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Uploads {
 	const REQUEST_FLAG  = 'travel_steps_photo';
-	const META_PHOTO_ID = '_ts_photo_id';
-	const META_EXIF     = '_ts_exif'; // When, where and with what it was taken: see Exif::parse().
-	const META_TAKEN    = '_ts_taken'; // A time the author gave one with none in its EXIF: Y-m-d H:i:s, wall clock.
-	const META_CHECKED  = '_ts_checked'; // Copies has_gps() found none in: file name => "mtime:size".
-	const META_VERSION  = '_ts_version'; // Counts new sets of copies, for the proxy's ETag.
+	const META_PHOTO_ID = '_travel_steps_photo_id';
+	const META_EXIF     = '_travel_steps_exif';    // When, where and with what it was taken: see Exif::parse().
+	const META_TAKEN    = '_travel_steps_taken';   // A time the author gave one with none in its EXIF: Y-m-d H:i:s, wall clock.
+	const META_CHECKED  = '_travel_steps_checked'; // Copies has_gps() found none in: file name => "mtime:size".
+	const META_VERSION  = '_travel_steps_version'; // Counts new sets of copies, for the proxy's ETag.
 	const DIR           = 'travel-steps';
 	// What a trip photo may be: the types browsers show, and HEIC, which WordPress converts.
 	const PHOTO_TYPES   = [ 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/heic', 'image/heif' ];

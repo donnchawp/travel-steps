@@ -25,15 +25,15 @@ class Trips {
 	const META_SOURCE = '_travel_steps_source';         // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';
-	const META_ROUTE  = '_travel_steps_route';      // JSON: list of segments, each a list of [lat, lon].
-	const META_PHOTOS = '_travel_steps_photos';     // JSON: list of photo rows (see PhotoSource::photos) + step.
-	const META_HIDDEN = '_travel_steps_hidden';     // array of hidden photo ids.
-	const META_PINNED = '_travel_steps_pinned';     // array of photo ids always shown.
-	const META_COVER  = '_travel_steps_cover';      // photo id chosen for the header, else automatic.
-	const META_STATS  = '_travel_steps_stats';      // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
-	const META_SYNCED = '_travel_steps_synced';     // unix timestamp of last sync.
-	const META_ERROR  = '_travel_steps_sync_error'; // last sync error message.
-	const META_VIEWERS = '_travel_steps_viewers';   // array of user ids who see the trip without its password.
+	const META_ROUTE  = '_travel_steps_route';          // JSON: list of segments, each a list of [lat, lon].
+	const META_PHOTOS = '_travel_steps_photos';         // JSON: list of photo rows (see PhotoSource::photos) + step.
+	const META_HIDDEN = '_travel_steps_hidden';         // array of hidden photo ids.
+	const META_PINNED = '_travel_steps_pinned';         // array of photo ids always shown.
+	const META_COVER  = '_travel_steps_cover';          // photo id chosen for the header, else automatic.
+	const META_STATS  = '_travel_steps_stats';          // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
+	const META_SYNCED = '_travel_steps_synced';         // unix timestamp of last sync.
+	const META_ERROR  = '_travel_steps_sync_error';     // last sync error message.
+	const META_VIEWERS = '_travel_steps_viewers';       // array of user ids who see the trip without its password.
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
 	const INTRO_TAGS = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
 

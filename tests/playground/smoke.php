@@ -563,6 +563,8 @@ wp_set_current_user( 1 );
 wp_publish_post( $d2->ID );
 
 wp_set_current_user( 0 );
+// Another plugin's Leaflet, registered first under the common handle, mustn't replace ours.
+wp_register_script( 'leaflet', 'https://unpkg.com/leaflet@1.0.0/dist/leaflet.js', [], '1.0.0', true );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'anon trip page renders steps', 2 === substr_count( $html, 'class="ts-step"' ), substr_count( $html, 'class="ts-step"' ) );
 check( 'anon trip page has no edit tools', false === strpos( $html, 'ts-photo-state' ) && false === strpos( $html, 'ts-edit-photos' ) );
@@ -573,8 +575,8 @@ check( 'the swipe strip runs left to right on any page', 1 === preg_match( '/cla
 ob_start();
 do_action( wp_app_get_scoped_hook_name( 'wp_app_head_styles', 'travel-steps' ) );
 $styles  = ob_get_clean();
-$leaflet = wp_scripts()->registered['leaflet']->src ?? '';
-check( 'trip page loads Leaflet from the plugin, not a CDN', str_ends_with( $leaflet, 'travel-steps/assets/vendor/leaflet/leaflet.js' ) && false !== strpos( $styles, 'travel-steps/assets/vendor/leaflet/leaflet.css' ) && false === strpos( $styles, 'unpkg.com' ), [ $leaflet, $styles ] );
+$leaflet = wp_scripts()->registered['travel-steps-leaflet']->src ?? '';
+check( 'trip page loads Leaflet from the plugin, not a CDN or another plugin’s', str_ends_with( $leaflet, 'travel-steps/assets/vendor/leaflet/leaflet.js' ) && false !== strpos( $styles, 'travel-steps/assets/vendor/leaflet/leaflet.css' ) && false === strpos( $styles, 'unpkg.com' ), [ $leaflet, $styles ] );
 
 // All-digit slugs would read as post IDs in trip URLs.
 wp_set_current_user( 1 );

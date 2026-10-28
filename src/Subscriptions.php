@@ -16,14 +16,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * logged-in one by their account.
  */
 class Subscriptions {
-	const TYPE = 'ts_subscription';
+	const TYPE = 'travel_steps_sub';
 
-	const META_EMAIL  = '_ts_email';  // Lower-cased address of a visitor's subscription.
-	const META_USER   = '_ts_user';   // User id of a logged-in visitor's subscription.
-	const META_STATUS = '_ts_status'; // PENDING or CONFIRMED.
-	const META_TOKEN  = '_ts_token';  // Random; the confirm and unsubscribe links carry it.
-	const META_MAILED = '_ts_mailed'; // When the last confirmation email went, unix time.
-	const META_SHARE  = '_ts_share';  // The trip's share code when a logged-in visitor subscribed with its password.
+	const META_EMAIL  = '_travel_steps_email';  // Lower-cased address of a visitor's subscription.
+	const META_USER   = '_travel_steps_user';   // User id of a logged-in visitor's subscription.
+	const META_STATUS = '_travel_steps_status'; // PENDING or CONFIRMED.
+	const META_TOKEN  = '_travel_steps_token';  // Random; the confirm and unsubscribe links carry it.
+	const META_MAILED = '_travel_steps_mailed'; // When the last confirmation email went, unix time.
+	const META_SHARE  = '_travel_steps_share';  // The trip's share code when a logged-in visitor subscribed with its password.
 
 	const PENDING   = 'pending';
 	const CONFIRMED = 'confirmed';
@@ -43,7 +43,7 @@ class Subscriptions {
 	// The query argument the trip page's notices come in.
 	const NOTICE_ARG = 'subscription';
 	// The logged-in form's nonce field: not _wpnonce, which the trip page's photo URLs must never carry.
-	const NONCE_FIELD = 'ts_subscription_nonce';
+	const NONCE_FIELD = 'travel_steps_subscription_nonce';
 
 	public static function register(): void {
 		// Nobody, administrators included, reaches them through wp-admin, REST or XML-RPC:
@@ -273,7 +273,7 @@ class Subscriptions {
 	 * The name of the cookie that recognises a visitor's confirmed subscription to a trip.
 	 */
 	public static function cookie( int $trip_id ): string {
-		return 'ts_subscribed_' . $trip_id . '_' . COOKIEHASH;
+		return 'travel_steps_subscribed_' . $trip_id . '_' . COOKIEHASH;
 	}
 
 	private static function set_cookie( array $sub ): void {
@@ -340,7 +340,7 @@ class Subscriptions {
 	 */
 	public static function handle_post( \WP_Post $trip ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- A public trip's form has no nonce for visitors: a page cache would keep it. needs_nonce() says when it's checked.
-		$action = isset( $_POST['ts_subscription'] ) && is_string( $_POST['ts_subscription'] ) ? sanitize_key( $_POST['ts_subscription'] ) : '';
+		$action = isset( $_POST['travel_steps_subscription'] ) && is_string( $_POST['travel_steps_subscription'] ) ? sanitize_key( $_POST['travel_steps_subscription'] ) : '';
 		if ( ! in_array( $action, [ 'subscribe', 'unsubscribe' ], true ) || ! self::offered( $trip ) || self::cross_site() ) {
 			return;
 		}
@@ -353,9 +353,9 @@ class Subscriptions {
 		} elseif ( 'unsubscribe' === $action ) {
 			$notice = self::unsubscribe_current( $trip );
 		} else {
-			$email = isset( $_POST['ts_email'] ) && is_string( $_POST['ts_email'] ) ? sanitize_email( wp_unslash( $_POST['ts_email'] ) ) : '';
+			$email = isset( $_POST['travel_steps_email'] ) && is_string( $_POST['travel_steps_email'] ) ? sanitize_email( wp_unslash( $_POST['travel_steps_email'] ) ) : '';
 			// The honeypot: people don't see it, so whatever fills it in is a bot.
-			$bot = ! empty( $_POST['ts_website'] );
+			$bot = ! empty( $_POST['travel_steps_website'] );
 			if ( ! $bot && is_email( $email ) ) {
 				self::signup( $trip, $email );
 			}

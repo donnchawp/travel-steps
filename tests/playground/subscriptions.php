@@ -104,7 +104,7 @@ $sb_link = function ( string $url, ?array $post = null ) use ( $sb_request ) {
 	return $page;
 };
 // Pressing a link's button.
-$sb_press = fn( string $url ) => $sb_link( $url, [ 'ts_button' => '1' ] );
+$sb_press = fn( string $url ) => $sb_link( $url, [ 'travel_steps_button' => '1' ] );
 // A mail client's one-click unsubscribe (RFC 8058): a POST to the link with this body.
 $sb_one_click = fn( string $url ) => $sb_link( $url, [ 'List-Unsubscribe' => 'One-Click' ] );
 // The POST form on a link's page, if it has one: its action (null when it has none, so
@@ -129,9 +129,9 @@ $sb_url_in = fn( string $text, string $do ) => preg_match( '#https?://\S*do=' . 
 // Signing up as a visitor.
 [ $sb_pub, $sb_pub_steps ] = $sb_trip( 'Lisbon in May' );
 $page = $sb_page( $sb_pub );
-check( 'subscribe: a public trip’s page has the email form', false !== strpos( $page, 'name="ts_email"' ) && false !== strpos( $page, 'name="ts_website"' ), substr( $page, 0, 300 ) );
+check( 'subscribe: a public trip’s page has the email form', false !== strpos( $page, 'name="travel_steps_email"' ) && false !== strpos( $page, 'name="travel_steps_website"' ), substr( $page, 0, 300 ) );
 $sb_mails = [];
-$to       = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => ' Mary@Example.org ', 'ts_website' => '' ] );
+$to       = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => ' Mary@Example.org ', 'travel_steps_website' => '' ] );
 check( '…signing up goes back to the trip with “check your email”', is_string( $to ) && false !== strpos( $to, 'subscription=check' ), $to );
 $pending = $sb_subs( $sb_pub );
 check( '…and makes a pending subscription for the address', 1 === count( $pending ) && 'pending' === $pending[0]['status'] && 'mary@example.org' === $pending[0]['email'], $pending );
@@ -143,19 +143,19 @@ check( '…and the trip page says to check your email', false !== strpos( $page,
 
 $sb_mails = [];
 foreach ( [ 'Mary@example.org', 'MARY@example.org' ] as $again ) {
-	$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => $again, 'ts_website' => '' ] );
+	$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => $again, 'travel_steps_website' => '' ] );
 }
 check( 'subscribe: signing up again the same day sends nothing more', [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), $sb_mails );
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'bot@example.org', 'ts_website' => 'http://spam.example' ] );
+$to = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'bot@example.org', 'travel_steps_website' => 'http://spam.example' ] );
 check( 'subscribe: a filled-in honeypot gets the same answer and nothing is sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'not an address', 'ts_website' => '' ] );
+$to = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'not an address', 'travel_steps_website' => '' ] );
 check( 'subscribe: an address that isn’t one gets the same answer, nothing sent', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
 // Another signup for the address is under way: it holds the lock while this one comes in.
 $sb_lock = Subscriptions::signup_lock( $sb_pub, 'Racer@Example.org' );
-$to      = Lock::run( $sb_lock, fn() => $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'racer@example.org', 'ts_website' => '' ] ) );
+$to      = Lock::run( $sb_lock, fn() => $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'racer@example.org', 'travel_steps_website' => '' ] ) );
 check( 'subscribe: a signup made while another for the address is under way gets the same answer, nothing sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 1 === count( $sb_subs( $sb_pub ) ), [ $to, $sb_mails ] );
 check( '…and the lock is named by a hash of the address, not the address', $sb_lock === Subscriptions::signup_lock( $sb_pub, 'racer@example.org' ) && 1 === preg_match( '/^travel_steps_signup_lock_' . $sb_pub . '_[0-9a-f]{32}$/', $sb_lock ) && strlen( $sb_lock ) <= 191, $sb_lock );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'racer@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'racer@example.org', 'travel_steps_website' => '' ] );
 check( '…and once it’s done, signing up works again', 1 === count( $sb_mails ) && 2 === count( $sb_subs( $sb_pub ) ), $sb_mails );
 foreach ( $sb_subs( $sb_pub ) as $sb_racer ) {
 	if ( 'racer@example.org' === $sb_racer['email'] ) {
@@ -167,14 +167,14 @@ foreach ( $sb_subs( $sb_pub ) as $sb_racer ) {
 $sb_refuse_all = fn() => false;
 $sb_mails      = [];
 add_filter( 'pre_wp_mail', $sb_refuse_all, 20 );
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unlucky@example.org', 'ts_website' => '' ] );
+$to = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'unlucky@example.org', 'travel_steps_website' => '' ] );
 remove_filter( 'pre_wp_mail', $sb_refuse_all, 20 );
 check( 'subscribe: when the confirmation email is refused, the visitor is told the same', false !== strpos( (string) $to, 'subscription=check' ), $to );
 // $sb_mails holds the refused attempt too: its capture filter runs before the refusing one at 20.
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unlucky@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'unlucky@example.org', 'travel_steps_website' => '' ] );
 check( '…and trying again at once sends one', 2 === count( $sb_mails ) && 1 === count( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'unlucky@example.org' ] ) ), $sb_mails );
 add_filter( 'pre_wp_mail', $sb_refuse_all, 20 );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'nevermailed@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'nevermailed@example.org', 'travel_steps_website' => '' ] );
 remove_filter( 'pre_wp_mail', $sb_refuse_all, 20 );
 Subscriptions::expire_pending();
 check( 'subscribe: a signup whose email was refused is dropped by the daily run', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'nevermailed@example.org' ] ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'unlucky@example.org' ] ), $sb_subs( $sb_pub ) );
@@ -187,9 +187,9 @@ $sb_sweep_mid_send = function () {
 	return true;
 };
 add_filter( 'pre_wp_mail', $sb_sweep_mid_send, 20 );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'swept@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'swept@example.org', 'travel_steps_website' => '' ] );
 remove_filter( 'pre_wp_mail', $sb_sweep_mid_send, 20 );
-$sb_orphans = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( "SELECT COUNT(*) FROM {$GLOBALS['wpdb']->postmeta} m LEFT JOIN {$GLOBALS['wpdb']->posts} p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.ID IS NULL", '_ts_mailed' ) );
+$sb_orphans = (int) $GLOBALS['wpdb']->get_var( $GLOBALS['wpdb']->prepare( "SELECT COUNT(*) FROM {$GLOBALS['wpdb']->postmeta} m LEFT JOIN {$GLOBALS['wpdb']->posts} p ON p.ID = m.post_id WHERE m.meta_key = %s AND p.ID IS NULL", '_travel_steps_mailed' ) );
 check( 'subscribe: a signup the daily run drops while its email goes leaves no stray sent time behind', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'swept@example.org' ] ) && 0 === $sb_orphans, $sb_orphans );
 $sb_mails = [];
 
@@ -205,12 +205,12 @@ check( 'confirm: the button confirms the subscription', 'confirmed' === ( $sb_su
 check( '…and sets a cookie that recognises the subscriber on this browser', ! empty( $_COOKIE[ Subscriptions::cookie( $sb_pub ) ] ) );
 check( '…and records the trip’s roundup baseline, so the first roundup is only what comes after', is_array( get_post_meta( $sb_pub, Roundup::META_STATE, true ) ) );
 $page = $sb_page( $sb_pub );
-check( '…so the trip page offers Unsubscribe in place of the form', false === strpos( $page, 'name="ts_email"' ) && false !== strpos( $page, 'value="unsubscribe"' ) );
+check( '…so the trip page offers Unsubscribe in place of the form', false === strpos( $page, 'name="travel_steps_email"' ) && false !== strpos( $page, 'value="unsubscribe"' ) );
 $sb_mails = [];
-$to       = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'mary@example.org', 'ts_website' => '' ] );
+$to       = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'mary@example.org', 'travel_steps_website' => '' ] );
 check( 'subscribe: an address already subscribed gets the same answer, and no email', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && 'confirmed' === $sb_subs( $sb_pub )[0]['status'] );
 $bad = preg_replace( '/key=[^&]+/', 'key=wrong', $confirm );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'jo@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'jo@example.org', 'travel_steps_website' => '' ] );
 $jo_confirm = $sb_url_in( end( $sb_mails )['message'] ?? '', 'confirm' );
 $jo_bad = preg_replace( '/key=[^&]+/', 'key=wrong', $jo_confirm );
 $page   = $sb_link( $jo_bad );
@@ -220,27 +220,27 @@ $jo = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'jo@example.org
 check( 'confirm: a wrong key confirms nothing, opened or pressed', 'pending' === ( $jo['status'] ?? '' ), $jo );
 
 // Unsubscribing with the button, as the visitor the cookie names.
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe' ] );
+$to = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'unsubscribe' ] );
 check( 'unsubscribe: the button drops the subscription the cookie names', false !== strpos( (string) $to, 'subscription=unsubscribed' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'mary@example.org' ] ), [ $to, $sb_subs( $sb_pub ) ] );
-check( '…and the page has the form again', false !== strpos( $sb_page( $sb_pub ), 'name="ts_email"' ) );
+check( '…and the page has the form again', false !== strpos( $sb_page( $sb_pub ), 'name="travel_steps_email"' ) );
 
 // Logged-in visitors subscribe their account with a button.
 wp_set_current_user( $sb_friend );
 $page = $sb_page( $sb_pub );
-check( 'logged in: the page has a Subscribe button and no address field', false !== strpos( $page, 'value="subscribe"' ) && false === strpos( $page, 'name="ts_email"' ) );
+check( 'logged in: the page has a Subscribe button and no address field', false !== strpos( $page, 'value="subscribe"' ) && false === strpos( $page, 'name="travel_steps_email"' ) );
 $sb_mails = [];
 $nonce    = wp_create_nonce( 'travel_steps_subscription_' . $sb_pub );
-$to       = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => $nonce ] );
+$to       = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => $nonce ] );
 $mine     = wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] );
 check( 'logged in: Subscribe subscribes the account at once, with no email', false !== strpos( (string) $to, 'subscription=subscribed' ) && 1 === count( $mine ) && 'confirmed' === current( $mine )['status'] && [] === $sb_mails, [ $to, $mine, $sb_mails ] );
 check( '…and the page then offers Unsubscribe', false !== strpos( $sb_page( $sb_pub ), 'value="unsubscribe"' ) );
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => $nonce ] );
+$to = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => $nonce ] );
 check( 'logged in: Unsubscribe ends it', false !== strpos( (string) $to, 'subscription=unsubscribed' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] ) );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => $nonce ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => $nonce ] );
 wp_set_current_user( 0 );
 
 // The unsubscribe link in an email, opened or posted by a mail client's button.
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'link@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'link@example.org', 'travel_steps_website' => '' ] );
 $sb_press( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
 $link_sub = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'link@example.org' ] ) );
 $sb_unsub  = Subscriptions::link( $link_sub, 'unsubscribe' );
@@ -255,21 +255,21 @@ $page = $sb_link( (string) $to );
 check( '…which says it’s done, with no button', false !== strpos( (string) $page, 'You’re unsubscribed' ) && null === $sb_form( (string) $page ) );
 $page = $sb_link( $sb_unsub );
 check( '…and opening the link again says it doesn’t work', false !== stripos( $page, 'doesn’t work' ) && null === $sb_form( (string) $page ) );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'post@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'post@example.org', 'travel_steps_website' => '' ] );
 $post_sub = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
 $page     = $sb_one_click( Subscriptions::link( $post_sub, 'unsubscribe' ) );
 check( 'unsubscribe link: a mail client’s one-click POST ends it too', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'post@example.org' ] ) );
 check( '…and gets the page, not a redirect', false !== strpos( (string) $page, 'You’re unsubscribed' ), $page );
 
 // A pending subscription expires after 7 days.
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'late@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'late@example.org', 'travel_steps_website' => '' ] );
 $late = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'late@example.org' ] ) );
 update_post_meta( $late['id'], Subscriptions::META_MAILED, time() - 8 * DAY_IN_SECONDS );
 $page = $sb_link( Subscriptions::link( $late, 'confirm' ) );
 check( 'confirm: opening a link older than 7 days says it has expired, and keeps the signup for the daily run', false !== stripos( $page, 'expired' ) && null === $sb_form( (string) $page ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'late@example.org' ] ) );
 $page = $sb_press( Subscriptions::link( $late, 'confirm' ) );
 check( 'confirm: pressing on a link older than 7 days says it has expired, and the signup is gone', false !== stripos( $page, 'expired' ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'late@example.org' ] ) );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'later@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'later@example.org', 'travel_steps_website' => '' ] );
 $later = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'later@example.org' ] ) );
 update_post_meta( $later['id'], Subscriptions::META_MAILED, time() - 8 * DAY_IN_SECONDS );
 Subscriptions::expire_pending();
@@ -279,16 +279,16 @@ check( '…and the daily run drops expired signups nobody confirmed', ! wp_list_
 $sb_home  = wp_parse_url( home_url() );
 $sb_home  = $sb_home['scheme'] . '://' . $sb_home['host'] . ( isset( $sb_home['port'] ) ? ':' . $sb_home['port'] : '' );
 $sb_mails = [];
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'crosssite@example.org', 'ts_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'cross-site' ] );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'origin@example.org', 'ts_website' => '' ], [], [ 'HTTP_ORIGIN' => 'https://elsewhere.example' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'crosssite@example.org', 'travel_steps_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'cross-site' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'origin@example.org', 'travel_steps_website' => '' ], [], [ 'HTTP_ORIGIN' => 'https://elsewhere.example' ] );
 check( 'a post from another site’s page is refused, by Sec-Fetch-Site or by Origin', ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'crosssite@example.org' ] ) && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'origin@example.org' ] ) && [] === $sb_mails, $sb_mails );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'sameorigin@example.org', 'ts_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'same-origin', 'HTTP_ORIGIN' => $sb_home ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'sameorigin@example.org', 'travel_steps_website' => '' ], [], [ 'HTTP_SEC_FETCH_SITE' => 'same-origin', 'HTTP_ORIGIN' => $sb_home ] );
 check( '…while one from the trip page itself is taken', (bool) wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'sameorigin@example.org' ] ) && 1 === count( $sb_mails ), $sb_mails );
 
 // At most 20 confirmation emails go out across the site in an hour.
 delete_option( Subscriptions::SENT_OPTION );
 $sb_mails = [];
-$sb_cap   = fn( int $n ) => $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => "cap$n@example.org", 'ts_website' => '' ] );
+$sb_cap   = fn( int $n ) => $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => "cap$n@example.org", 'travel_steps_website' => '' ] );
 // Another signup somewhere on the site holds the cap's lock while this one comes in.
 $to = Lock::run( Subscriptions::CAP_LOCK, fn() => $sb_cap( 0 ) );
 check( 'cap: a signup made while another takes a place gets the same answer, nothing sent or kept', false !== strpos( (string) $to, 'subscription=check' ) && [] === $sb_mails && ! wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap0@example.org' ] ) && [] === get_option( Subscriptions::SENT_OPTION, [] ), [ $to, $sb_mails ] );
@@ -308,12 +308,12 @@ check( '…and the error log says once that the hour’s emails are used up, nam
 wp_delete_file( $sb_log );
 $sb_old = current( wp_list_filter( $sb_subs( $sb_pub ), [ 'email' => 'cap1@example.org' ] ) );
 update_post_meta( $sb_old['id'], Subscriptions::META_MAILED, time() - 2 * DAY_IN_SECONDS );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', 'ts_email' => $sb_old['email'], 'ts_website' => '' ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => $sb_old['email'], 'travel_steps_website' => '' ] );
 check( '…nor does a pending signup asking for its email again', 20 === count( $sb_mails ), count( $sb_mails ) );
 wp_set_current_user( $sb_friend );
-$to = $sb_page( $sb_pub, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_pub ) ] );
+$to = $sb_page( $sb_pub, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_pub ) ] );
 check( 'cap: a logged-in visitor still subscribes', false !== strpos( (string) $to, 'subscription=subscribed' ) && wp_list_filter( $sb_subs( $sb_pub ), [ 'user' => $sb_friend ] ), $to );
-$sb_page( $sb_pub, [ 'ts_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_pub ) ] );
+$sb_page( $sb_pub, [ 'travel_steps_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_pub ) ] );
 wp_set_current_user( 0 );
 // An hour on.
 update_option( Subscriptions::SENT_OPTION, array_map( fn( $t ) => $t - HOUR_IN_SECONDS - 1, (array) get_option( Subscriptions::SENT_OPTION, [] ) ) );
@@ -337,22 +337,22 @@ $sb_enter = function ( ?string $password ) {
 [ $sb_prot, $sb_prot_steps ] = $sb_trip( 'Secret Lisbon', 'tagus' );
 $sb_enter( null );
 $page = $sb_page( $sb_prot );
-check( 'protected: without the password there’s no form', false === strpos( (string) $page, 'name="ts_email"' ) && false !== strpos( (string) $page, 'name="post_password"' ) );
+check( 'protected: without the password there’s no form', false === strpos( (string) $page, 'name="travel_steps_email"' ) && false !== strpos( (string) $page, 'name="post_password"' ) );
 $sb_mails = [];
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'sneaky@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'sneaky@example.org', 'travel_steps_website' => '' ] );
 check( '…and posting to it subscribes nobody', [] === $sb_subs( $sb_prot ) && [] === $sb_mails );
 $sb_enter( 'tagus' );
-check( 'protected: with the password there’s the form', false !== strpos( $sb_page( $sb_prot ), 'name="ts_email"' ) );
+check( 'protected: with the password there’s the form', false !== strpos( $sb_page( $sb_prot ), 'name="travel_steps_email"' ) );
 check( '…carrying a nonce, since a protected trip’s page is never cached', false !== strpos( $sb_page( $sb_prot ), 'name="' . Subscriptions::NONCE_FIELD . '"' ) );
 check( '…and no referer field, which would carry a share link’s code', false === strpos( $sb_page( $sb_prot ), '_wp_http_referer' ) );
 $sb_mails = [];
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'forged@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'forged@example.org', 'travel_steps_website' => '' ] );
 check( 'protected: a post without the nonce, as another site’s form would send, subscribes nobody and sends nothing', ! wp_list_filter( $sb_subs( $sb_prot ), [ 'email' => 'forged@example.org' ] ) && [] === $sb_mails, $sb_mails );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'kin@example.org', 'travel_steps_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 $sb_press( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'pending@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'pending@example.org', 'travel_steps_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 wp_set_current_user( $sb_friend );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 wp_set_current_user( 0 );
 check( 'protected: visitors with the password subscribe', 3 === count( $sb_subs( $sb_prot ) ), $sb_subs( $sb_prot ) );
 
@@ -366,7 +366,7 @@ check( '…and the logged-in subscriber no longer gets the roundup', ! Roundup::
 wp_set_current_user( $sb_friend );
 $sb_enter( 'douro' );
 check( '…so they’re offered Subscribe again', false !== strpos( $sb_page( $sb_prot ), 'value="subscribe"' ) );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 check( '…which brings it back', 1 === count( $sb_subs( $sb_prot ) ) && Roundup::reaches( get_post( $sb_prot ), $sb_subs( $sb_prot )[0] ) );
 wp_set_current_user( 0 );
 $sb_enter( null );
@@ -388,11 +388,11 @@ $sb_add_photos = function ( int $trip, array $rows ) {
 	update_post_meta( $trip, Trips::META_PHOTOS, wp_slash( wp_json_encode( array_merge( Trips::photos( $trip ), $rows ) ) ) );
 };
 [ $sb_rt, [ $sb_rt_day1, $sb_rt_day2 ] ] = $sb_trip( 'Roundup Lisbon' );
-$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'ana@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_rt, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'ana@example.org', 'travel_steps_website' => '' ] );
 $sb_press( $sb_url_in( end( $sb_mails )['message'], 'confirm' ) );
-$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'unconfirmed@example.org', 'ts_website' => '' ] );
+$sb_page( $sb_rt, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'unconfirmed@example.org', 'travel_steps_website' => '' ] );
 wp_set_current_user( $sb_friend );
-$sb_page( $sb_rt, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_rt ) ] );
+$sb_page( $sb_rt, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_rt ) ] );
 wp_set_current_user( 0 );
 check( 'roundup: nothing is sent for what the trip had when they subscribed', [] === $sb_run() );
 
@@ -491,7 +491,7 @@ check( '…and once published again, sends what was added meanwhile', 'Roundup L
 
 // A protected trip's links carry its share code, and a subscriber who lost access is skipped.
 $sb_enter( 'douro' );
-$sb_page( $sb_prot, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'kin@example.org', 'ts_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
+$sb_page( $sb_prot, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'kin@example.org', 'travel_steps_website' => '', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_prot ) ] );
 $sb_kin_confirm = $sb_url_in( end( $sb_mails )['message'], 'confirm' );
 $sb_enter( null );
 $sb_code = Trips::share_code( get_post( $sb_prot ) );
@@ -522,10 +522,10 @@ check( 'password change: an old email’s link, as confirm, doesn’t show the n
 // One address with an account subscription and an email-only one gets one email, and one unsubscribe ends both.
 [ $sb_two, [ , $sb_two_day2 ] ] = $sb_trip( 'Both ways Lisbon' );
 $sb_both = function () use ( $sb_two, $sb_page, $sb_press, $sb_url_in, &$sb_mails, $sb_friend ) {
-	$sb_page( $sb_two, [ 'ts_subscription' => 'subscribe', 'ts_email' => 'Friend@example.org', 'ts_website' => '' ] );
+	$sb_page( $sb_two, [ 'travel_steps_subscription' => 'subscribe', 'travel_steps_email' => 'Friend@example.org', 'travel_steps_website' => '' ] );
 	$sb_press( $sb_url_in( end( $sb_mails )['message'] ?? '', 'confirm' ) );
 	wp_set_current_user( $sb_friend );
-	$sb_page( $sb_two, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
+	$sb_page( $sb_two, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
 	wp_set_current_user( 0 );
 };
 $sb_new_day = function ( string $title, string $date ) use ( $sb_two ) {
@@ -546,7 +546,7 @@ $sb_new_day( 'Sintra', '2025-05-03' );
 check( '…so the next roundup goes to nobody', [] === $sb_run() );
 $sb_both();
 wp_set_current_user( $sb_friend );
-$sb_page( $sb_two, [ 'ts_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
+$sb_page( $sb_two, [ 'travel_steps_subscription' => 'unsubscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
 wp_set_current_user( 0 );
 check( 'one address: the logged-in Unsubscribe button ends both too', [] === $sb_subs( $sb_two ), $sb_subs( $sb_two ) );
 $sb_new_day( 'Cascais', '2025-05-04' );
@@ -558,7 +558,7 @@ check( 'one address: a mail client’s one-click unsubscribe ends both too', [] 
 // Deleting a user deletes their account's subscriptions.
 $sb_gone = wp_insert_user( [ 'user_login' => 'sb_gone', 'user_email' => 'gone@example.org', 'user_pass' => wp_generate_password(), 'role' => 'subscriber' ] );
 wp_set_current_user( $sb_gone );
-$sb_page( $sb_two, [ 'ts_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
+$sb_page( $sb_two, [ 'travel_steps_subscription' => 'subscribe', Subscriptions::NONCE_FIELD => wp_create_nonce( 'travel_steps_subscription_' . $sb_two ) ] );
 wp_set_current_user( 1 );
 $sb_gone_subs = wp_list_filter( $sb_subs( $sb_two ), [ 'user' => $sb_gone ] );
 require_once ABSPATH . 'wp-admin/includes/user.php';

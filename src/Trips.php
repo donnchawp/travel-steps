@@ -9,32 +9,34 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Trip and step post types, and the form handlers that edit them.
  *
- * A trip is a `ts_trip` post. Each step is a `ts_step` post whose post_parent is the
- * trip, so its story can be written in the block editor.
+ * A trip is a `travel_steps_trip` post. Each step is a `travel_steps_step` post whose
+ * post_parent is the trip, so its story can be written in the block editor.
  */
 class Trips {
-	const TRIP  = 'ts_trip';
-	const STEP  = 'ts_step';
-	const PLACE = 'ts_place';
+	const TRIP  = 'travel_steps_trip';
+	const STEP  = 'travel_steps_step';
+	const PLACE = 'travel_steps_place';
+	// Set once migrate_names() has moved the old ts_ names.
+	const NAMES_MOVED = 'travel_steps_names_moved';
 
 	// Trip meta.
-	const META_START  = '_ts_start';       // Y-m-d, site timezone.
-	const META_END    = '_ts_end';         // Y-m-d, inclusive.
-	const META_ALBUM  = '_ts_album';       // Immich album id (optional).
-	const META_DATES_AUTO = '_ts_dates_auto'; // [ first, last ]: the dates sync took from a trip's uploads or album, '' for one set by hand.
-	const META_SOURCE = '_ts_source';      // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
+	const META_START  = '_travel_steps_start';          // Y-m-d, site timezone.
+	const META_END    = '_travel_steps_end';            // Y-m-d, inclusive.
+	const META_ALBUM  = '_travel_steps_album';          // Immich album id (optional).
+	const META_DATES_AUTO = '_travel_steps_dates_auto'; // [ first, last ]: the dates sync took from a trip's uploads or album, '' for one set by hand.
+	const META_SOURCE = '_travel_steps_source';         // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';
-	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon, t] ([lat, lon] if synced before 0.6).
-	const META_BOXES  = '_ts_boxes';       // JSON: the route's track as Geo::time_boxes() rows.
-	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
-	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.
-	const META_PINNED = '_ts_pinned';      // array of photo ids always shown.
-	const META_COVER  = '_ts_cover';       // photo id chosen for the header, else automatic.
-	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
-	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
-	const META_ERROR  = '_ts_sync_error';  // last sync error message.
-	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.
+	const META_ROUTE  = '_travel_steps_route';      // JSON: list of segments, each a list of [lat, lon, t] ([lat, lon] if synced before 0.6).
+	const META_BOXES  = '_travel_steps_boxes';      // JSON: the route's track as Geo::time_boxes() rows.
+	const META_PHOTOS = '_travel_steps_photos';     // JSON: list of photo rows (see PhotoSource::photos) + step.
+	const META_HIDDEN = '_travel_steps_hidden';     // array of hidden photo ids.
+	const META_PINNED = '_travel_steps_pinned';     // array of photo ids always shown.
+	const META_COVER  = '_travel_steps_cover';      // photo id chosen for the header, else automatic.
+	const META_STATS  = '_travel_steps_stats';      // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
+	const META_SYNCED = '_travel_steps_synced';     // unix timestamp of last sync.
+	const META_ERROR  = '_travel_steps_sync_error'; // last sync error message.
+	const META_VIEWERS = '_travel_steps_viewers';   // array of user ids who see the trip without its password.
 	// The query argument a share link carries its code in.
 	const SHARE_ARG = 'share';
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
@@ -44,9 +46,9 @@ class Trips {
 	const TAG_START = '(?:[a-z]|/[a-z]|!--)';
 
 	// Step meta. A step is a day: the date part of its post date.
-	const META_LAT  = '_ts_lat';
-	const META_LON  = '_ts_lon';
-	const META_DAY  = '_ts_day';   // Y-m-d sync created the step for; kept even if you move it.
+	const META_LAT  = '_travel_steps_lat';
+	const META_LON  = '_travel_steps_lon';
+	const META_DAY  = '_travel_steps_day'; // Y-m-d sync created the step for; kept even if you move it.
 
 	// WP_Query's single-post-ID args, each with the conversion it applies. Any of them wins
 	// over post__in, so exclude_from_query() checks them and match_nothing() drops them.
@@ -133,6 +135,41 @@ class Trips {
 				]
 			);
 		}
+	}
+
+	/**
+	 * Once, on upgrade from 0.6.1 or earlier: move the post types, the taxonomy and the
+	 * meta keys from their old ts_ prefix to travel_steps_, so they can't clash with
+	 * another plugin's.
+	 *
+	 * Each query only finds old names, so a migration that dies part-way runs again: the
+	 * flag is set last.
+	 */
+	public static function migrate_names(): void {
+		if ( get_option( self::NAMES_MOVED ) ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		foreach ( [ 'ts_trip' => self::TRIP, 'ts_step' => self::STEP, 'ts_subscription' => Subscriptions::TYPE ] as $old => $new ) {
+			$wpdb->update( $wpdb->posts, [ 'post_type' => $new ], [ 'post_type' => $old ] );
+		}
+		$wpdb->update( $wpdb->term_taxonomy, [ 'taxonomy' => self::PLACE ], [ 'taxonomy' => 'ts_place' ] );
+		$keys = [
+			self::META_START, self::META_END, self::META_ALBUM, self::META_DATES_AUTO, self::META_SOURCE, self::META_ROUTE,
+			self::META_BOXES, self::META_PHOTOS, self::META_HIDDEN, self::META_PINNED, self::META_COVER, self::META_STATS,
+			self::META_SYNCED, self::META_ERROR, self::META_VIEWERS, self::META_LAT, self::META_LON, self::META_DAY,
+			Uploads::META_PHOTO_ID, Uploads::META_EXIF, Uploads::META_TAKEN, Uploads::META_CHECKED, Uploads::META_VERSION,
+			Subscriptions::META_EMAIL, Subscriptions::META_USER, Subscriptions::META_STATUS, Subscriptions::META_TOKEN,
+			Subscriptions::META_MAILED, Subscriptions::META_SHARE, Roundup::META_STATE, Roundup::META_LAST,
+		];
+		foreach ( $keys as $new ) {
+			$wpdb->update( $wpdb->postmeta, [ 'meta_key' => $new ], [ 'meta_key' => '_ts_' . substr( $new, strlen( '_travel_steps_' ) ) ] ); // phpcs:ignore WordPress.DB.SlowDBQuery
+		}
+		// phpcs:enable
+		// Cached posts, terms and meta still have the old names.
+		wp_cache_flush();
+		add_option( self::NAMES_MOVED, time() );
 	}
 
 	/**

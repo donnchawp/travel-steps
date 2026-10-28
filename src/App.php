@@ -40,6 +40,7 @@ class App extends BaseApp {
 		// We're already inside init (priority 10), so register directly rather than
 		// via nested add_action( 'init', … ) which won't fire reliably.
 		Trips::register_post_types();
+		Trips::migrate_names();
 		Settings::migrate();
 		// Activation hooks don't run on update, so the first request after one moves the cache.
 		RestController::migrate_cache();

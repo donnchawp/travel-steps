@@ -42,8 +42,8 @@ $pw_set   = function ( int $trip, string $password ) {
 $refused = fn( int $status ) => in_array( $status, [ 401, 403, 404 ], true );
 // What core REST does with a trip: 'open' if it serves and lists it, 'shut' if it does neither.
 $pw_core = function ( int $trip ) use ( $get, $refused ) {
-	$status = $get( '/wp/v2/ts_trip/' . $trip )->get_status();
-	$listed = in_array( $trip, array_column( $get( '/wp/v2/ts_trip', [ 'include' => [ $trip ] ] )->get_data(), 'id' ), true );
+	$status = $get( '/wp/v2/travel_steps_trip/' . $trip )->get_status();
+	$listed = in_array( $trip, array_column( $get( '/wp/v2/travel_steps_trip', [ 'include' => [ $trip ] ] )->get_data(), 'id' ), true );
 	if ( 200 === $status && $listed ) {
 		return 'open';
 	}
@@ -60,7 +60,7 @@ $pw_reach = function ( int $trip, int $step ) use ( $render, $get, $pw_core, $pw
 		'proxy' => RestController::photo_answer( $trip, $pw_photo, 'thumbnail', '' ),
 		'photo' => RestController::access( $trip, $pw_photo ),
 		'cover' => RestController::access( $trip, $pw_cover ),
-		'step'  => $get( '/wp/v2/ts_step/' . $step )->get_status(),
+		'step'  => $get( '/wp/v2/travel_steps_step/' . $step )->get_status(),
 		'list'  => $render( 'index.php', '' ),
 		'core'  => $pw_core( $trip ),
 	];
@@ -131,7 +131,7 @@ check( '…with a trailing slash too, but not with anything more or less', [ 7, 
 check( 'password: not listed to a visitor', false === strpos( $seen['list'], 'Hidden Lisbon' ) );
 check( '…and core REST neither serves nor lists it to them', 'shut' === $seen['core'], $seen['core'] );
 // Core's ?password= isn't a way in: the trip page's cookie is the only one.
-$res = $get( '/wp/v2/ts_trip/' . $pw_a, [ 'password' => 'open sesame' ] );
+$res = $get( '/wp/v2/travel_steps_trip/' . $pw_a, [ 'password' => 'open sesame' ] );
 check( '…not even with core’s ?password= and the right password', $refused( $res->get_status() ), [ $res->get_status(), $res->get_data() ] );
 
 // A trip page render that redirects: where to, or null if it rendered, leaving the page in $page.
@@ -292,7 +292,7 @@ foreach ( [ 'author' => $alice, 'editor' => $eddie ] as $role => $user ) {
 	wp_set_current_user( $user );
 	$seen = $pw_reach( $pw_a, $pw_a_step );
 	check( "the trip’s $role sees it without the password", false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 'private' === $seen['photo'] );
-	$edit = $get( '/wp/v2/ts_trip/' . $pw_a, [ 'context' => 'edit' ] );
+	$edit = $get( '/wp/v2/travel_steps_trip/' . $pw_a, [ 'context' => 'edit' ] );
 	check( "…core REST serves and lists it to them, for editing too", 'open' === $seen['core'] && 200 === $edit->get_status() && 'new sesame' === ( $edit->get_data()['password'] ?? null ), [ $seen['core'], $edit->get_status() ] );
 	check( "…listed to them with a “Password protected” badge", 1 === preg_match( '#<span class="ts-badge">Password protected</span>(?:(?!</a>).)*Hidden Lisbon#s', $seen['list'] ) );
 	check( "the {$role}’s cover and photo URLs are everyone’s, with no nonce", $pw_plain( $seen['list'], $pw_cover ) && $pw_plain( $seen['page'], $pw_cover ) && $pw_plain( $seen['page'], $pw_photo ) );
@@ -331,7 +331,7 @@ check( 'on neither list: the password form', ! $pw_sees( $hal, $pw_a, $pw_a_step
 wp_set_current_user( $hal );
 $pw_seen = $pw_core( $pw_a );
 check( '…and core REST neither serves nor lists it to them', 'shut' === $pw_seen, $pw_seen );
-$res = $get( '/wp/v2/ts_trip/' . $pw_a, [ 'password' => 'new sesame' ] );
+$res = $get( '/wp/v2/travel_steps_trip/' . $pw_a, [ 'password' => 'new sesame' ] );
 check( '…not even with core’s ?password= and the right password', $refused( $res->get_status() ), [ $res->get_status(), $res->get_data() ] );
 $pw_enter( 'new sesame' );
 check( '…in with the password, but still not listed to them', $pw_sees( $hal, $pw_a, $pw_a_step ) && ! $pw_listed( $hal, 'Hidden Lisbon' ) );
@@ -418,15 +418,15 @@ $ct_asks = function ( int $trip, string $word ) use ( $ct_total ) {
 	$post = get_post( $trip );
 	$at   = strtotime( $post->post_date . ' UTC' );
 	return [
-		'slug'   => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $trip ], 'slug' => [ $post->post_name ] ] ),
-		'dates'  => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $trip ], 'after' => gmdate( 'Y-m-d\TH:i:s', $at - 60 ), 'before' => gmdate( 'Y-m-d\TH:i:s', $at + 60 ) ] ),
-		'search' => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $trip ], 'search' => $word, 'search_columns' => [ 'post_content' ] ] ),
+		'slug'   => $ct_total( '/wp/v2/travel_steps_trip', [ 'include' => [ $trip ], 'slug' => [ $post->post_name ] ] ),
+		'dates'  => $ct_total( '/wp/v2/travel_steps_trip', [ 'include' => [ $trip ], 'after' => gmdate( 'Y-m-d\TH:i:s', $at - 60 ), 'before' => gmdate( 'Y-m-d\TH:i:s', $at + 60 ) ] ),
+		'search' => $ct_total( '/wp/v2/travel_steps_trip', [ 'include' => [ $trip ], 'search' => $word, 'search_columns' => [ 'post_content' ] ] ),
 	];
 };
 $ct_none = [ 'slug' => 0, 'dates' => 0, 'search' => 0 ];
 $ct_one  = [ 'slug' => 1, 'dates' => 1, 'search' => 1 ];
 // X-WP-Total for a step, found by a word from its story, with and without include.
-$ct_step = fn( int $step, string $word ) => [ $ct_total( '/wp/v2/ts_step', [ 'search' => $word ] ), $ct_total( '/wp/v2/ts_step', [ 'search' => $word, 'include' => [ $step ] ] ) ];
+$ct_step = fn( int $step, string $word ) => [ $ct_total( '/wp/v2/travel_steps_step', [ 'search' => $word ] ), $ct_total( '/wp/v2/travel_steps_step', [ 'search' => $word, 'include' => [ $step ] ] ) ];
 
 foreach ( [ 'a visitor' => [ 0, null ], 'a visitor with a wrong password' => [ 0, 'quokka?' ], 'a user on neither list' => [ $hal, null ] ] as $who => [ $user, $password ] ) {
 	wp_set_current_user( $user );
@@ -463,7 +463,7 @@ foreach ( [ 'draft' => $ct_draft, 'private' => $ct_private, 'future' => $ct_futu
 	foreach ( [ 'another author' => $bob, 'an editor' => $eddie ] as $who => $user ) {
 		wp_set_current_user( $user );
 		foreach ( [ $status, 'any' ] as $asked ) {
-			$ct_seen[ get_post_status( $trip ) ][ $who ][] = $ct_total( '/wp/v2/ts_trip', [ 'status' => [ $asked ], 'include' => [ $trip ] ] );
+			$ct_seen[ get_post_status( $trip ) ][ $who ][] = $ct_total( '/wp/v2/travel_steps_trip', [ 'status' => [ $asked ], 'include' => [ $trip ] ] );
 		}
 	}
 }
@@ -521,17 +521,17 @@ $pw_enter( null );
 $ct_seen = [ $ct_asks( $ct_open, 'Dingo' ), $ct_step( $ct_open_step, 'Dingo' ) ];
 check( 'core REST’s counts: a trip without a password and its step count for a visitor', [ $ct_one, [ 1, 1 ] ] === $ct_seen, $ct_seen );
 $ct_seen = [
-	'only hidden' => $ct_total( '/wp/v2/ts_trip', [ 'include' => [ $ct_hidden ] ] ),
-	'mixed'       => array_column( $get( '/wp/v2/ts_trip', [ 'include' => [ $ct_hidden, $ct_open ] ] )->get_data(), 'id' ),
-	'step'        => $ct_total( '/wp/v2/ts_step', [ 'include' => [ $ct_hidden_step, $ct_draft_step ] ] ),
+	'only hidden' => $ct_total( '/wp/v2/travel_steps_trip', [ 'include' => [ $ct_hidden ] ] ),
+	'mixed'       => array_column( $get( '/wp/v2/travel_steps_trip', [ 'include' => [ $ct_hidden, $ct_open ] ] )->get_data(), 'id' ),
+	'step'        => $ct_total( '/wp/v2/travel_steps_step', [ 'include' => [ $ct_hidden_step, $ct_draft_step ] ] ),
 ];
 check( '…include naming only hidden posts matches nothing, and drops them from the rest', [ 'only hidden' => 0, 'mixed' => [ $ct_open ], 'step' => 0 ] === $ct_seen, $ct_seen );
-$ct_seen = $ct_total( '/wp/v2/ts_trip', [ 'exclude' => [ $ct_open ], 'slug' => [ get_post( $ct_open )->post_name, get_post( $ct_hidden )->post_name ] ] );
+$ct_seen = $ct_total( '/wp/v2/travel_steps_trip', [ 'exclude' => [ $ct_open ], 'slug' => [ get_post( $ct_open )->post_name, get_post( $ct_hidden )->post_name ] ] );
 check( '…and an exclude in the request still applies alongside the hidden trips', 0 === $ct_seen, $ct_seen );
-// Steps have no parent parameter, but a plugin's rest_ts_step_query filter may add one.
+// Steps have no parent parameter, but a plugin's rest_travel_steps_step_query filter may add one.
 $ct_parent = fn( $args ) => [ 'post_parent__in' => [ $ct_hidden, $ct_draft ] ] + $args;
 add_filter( 'rest_' . Trips::STEP . '_query', $ct_parent );
-$ct_seen = [ $ct_step( $ct_hidden_step, 'Quokka' ), $ct_total( '/wp/v2/ts_step', [] ) ];
+$ct_seen = [ $ct_step( $ct_hidden_step, 'Quokka' ), $ct_total( '/wp/v2/travel_steps_step', [] ) ];
 remove_filter( 'rest_' . Trips::STEP . '_query', $ct_parent );
 check( '…and steps asked for by hidden trips match nothing', [ [ 0, 0 ], 0 ] === $ct_seen, $ct_seen );
 // p, page_id and attachment_id win over post__in, and a numeric post_parent over
@@ -544,44 +544,44 @@ $ct_by = function ( string $route, string $type, array $vars ) use ( $ct_total )
 	return $total;
 };
 $ct_seen = [
-	'p'             => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => $ct_hidden ] ),
-	'page_id'       => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'page_id' => $ct_hidden ] ),
-	'attachment_id' => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'attachment_id' => $ct_hidden ] ),
-	'post_parent'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent' => $ct_hidden ] ),
-	'open p'        => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => $ct_open ] ),
-	'open parent'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent' => $ct_open ] ),
+	'p'             => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'p' => $ct_hidden ] ),
+	'page_id'       => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'page_id' => $ct_hidden ] ),
+	'attachment_id' => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'attachment_id' => $ct_hidden ] ),
+	'post_parent'   => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'post_parent' => $ct_hidden ] ),
+	'open p'        => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'p' => $ct_open ] ),
+	'open parent'   => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'post_parent' => $ct_open ] ),
 ];
 check( '…and a hidden trip named by p, page_id, attachment_id or post_parent matches nothing', [ 'p' => 0, 'page_id' => 0, 'attachment_id' => 0, 'post_parent' => 0, 'open p' => 1, 'open parent' => 1 ] === $ct_seen, $ct_seen );
 // WP_Query replaces its whole WHERE clause with one for page_id, post_parent__not_in and
 // all, so a step named by it must still be left out when its trip is hidden. As in core,
 // page_id wins when p is set too.
 $ct_seen = [
-	'page_id'      => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'page_id' => $ct_hidden_step ] ),
-	'open page_id' => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'page_id' => $ct_open_step ] ),
-	'p, page_id'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => $ct_hidden_step ] ),
-	'page_id, p'   => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => $ct_open_step ] ),
+	'page_id'      => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'page_id' => $ct_hidden_step ] ),
+	'open page_id' => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'page_id' => $ct_open_step ] ),
+	'p, page_id'   => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => $ct_hidden_step ] ),
+	'page_id, p'   => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => $ct_open_step ] ),
 ];
 check( '…and a step of a hidden trip named by page_id matches nothing, whatever p says', [ 'page_id' => 0, 'open page_id' => 1, 'p, page_id' => 0, 'page_id, p' => 1 ] === $ct_seen, $ct_seen );
 // WP_Query reads a page_id that isn't a number, or isn't scalar, as 0 and ignores it,
 // so p still names the step.
 $ct_seen = [
-	'string'    => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => 'x' ] ),
-	'array'     => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => [ $ct_hidden_step ] ] ),
-	'hidden p'  => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => 'x' ] ),
+	'string'    => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => 'x' ] ),
+	'array'     => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'p' => $ct_open_step, 'page_id' => [ $ct_hidden_step ] ] ),
+	'hidden p'  => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'p' => $ct_hidden_step, 'page_id' => 'x' ] ),
 ];
 check( '…and a page_id that WP_Query reads as 0 leaves p to name the step', [ 'string' => 1, 'array' => 1, 'hidden p' => 0 ] === $ct_seen, $ct_seen );
 // WP_Query turns these into the hidden trip's ID: (int) for p, subpost_id through
 // attachment_id, and absint for each entry of an __in list.
 $ct_seen = [
-	'p'               => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => "{$ct_hidden}abc" ] ),
-	'subpost_id'      => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'subpost_id' => $ct_hidden ] ),
-	'post__in'        => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'post__in' => [ "0{$ct_hidden}" ] ] ),
-	'post__in space'  => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'post__in' => [ "{$ct_hidden} " ] ] ),
-	'post_parent__in' => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent__in' => [ "0{$ct_hidden}" ] ] ),
-	'open p'          => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'p' => "{$ct_open}abc" ] ),
-	'open subpost_id' => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'subpost_id' => $ct_open ] ),
-	'open post__in'   => $ct_by( '/wp/v2/ts_trip', Trips::TRIP, [ 'post__in' => [ "0{$ct_open}", "0{$ct_hidden}" ] ] ),
-	'open parent__in' => $ct_by( '/wp/v2/ts_step', Trips::STEP, [ 'post_parent__in' => [ "0{$ct_open}" ] ] ),
+	'p'               => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'p' => "{$ct_hidden}abc" ] ),
+	'subpost_id'      => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'subpost_id' => $ct_hidden ] ),
+	'post__in'        => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'post__in' => [ "0{$ct_hidden}" ] ] ),
+	'post__in space'  => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'post__in' => [ "{$ct_hidden} " ] ] ),
+	'post_parent__in' => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'post_parent__in' => [ "0{$ct_hidden}" ] ] ),
+	'open p'          => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'p' => "{$ct_open}abc" ] ),
+	'open subpost_id' => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'subpost_id' => $ct_open ] ),
+	'open post__in'   => $ct_by( '/wp/v2/travel_steps_trip', Trips::TRIP, [ 'post__in' => [ "0{$ct_open}", "0{$ct_hidden}" ] ] ),
+	'open parent__in' => $ct_by( '/wp/v2/travel_steps_step', Trips::STEP, [ 'post_parent__in' => [ "0{$ct_open}" ] ] ),
 ];
 $ct_want = [ 'p' => 0, 'subpost_id' => 0, 'post__in' => 0, 'post__in space' => 0, 'post_parent__in' => 0, 'open p' => 1, 'open subpost_id' => 1, 'open post__in' => 1, 'open parent__in' => 1 ];
 check( '…and so does one named the way WP_Query reads it: a p of "<id>abc", a subpost_id, or an __in entry of "0<id>"', $ct_want === $ct_seen, $ct_seen );
@@ -596,7 +596,7 @@ $ct_strays = [
 	wp_insert_post( [ 'post_type' => Trips::STEP, 'post_title' => 'Bunyip alone', 'post_status' => 'publish' ] ),
 	wp_insert_post( [ 'post_type' => Trips::STEP, 'post_title' => 'Bunyip on a page', 'post_status' => 'publish', 'post_parent' => $ct_page ] ),
 ];
-$ct_seen = $ct_total( '/wp/v2/ts_step', [ 'search' => 'Bunyip' ] );
+$ct_seen = $ct_total( '/wp/v2/travel_steps_step', [ 'search' => 'Bunyip' ] );
 check( 'core REST’s step count: nothing of steps without a trip', 0 === $ct_seen && $ct_page === get_post( $ct_strays[2] )->post_parent, $ct_seen );
 foreach ( array_merge( $ct_strays, [ $ct_page ] ) as $ct_post ) {
 	wp_delete_post( $ct_post, true );

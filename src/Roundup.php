@@ -20,8 +20,8 @@ class Roundup {
 	const LOCK = 'travel_steps_roundup_lock';
 
 	// Trip meta.
-	const META_STATE = '_ts_roundup_state'; // array{steps: array<int, string>, photos: array<int, string[]>, hidden: array<int, string[]>}: as at the last roundup.
-	const META_LAST  = '_ts_roundup_last';  // array{time: int, days: int, photos: int, updated: int, recipients: int, sent: int, failed: int}: the last roundup sent.
+	const META_STATE = '_travel_steps_roundup_state'; // array{steps: array<int, string>, photos: array<int, string[]>, hidden: array<int, string[]>}: as at the last roundup.
+	const META_LAST  = '_travel_steps_roundup_last';  // array{time: int, days: int, photos: int, updated: int, recipients: int, sent: int, failed: int}: the last roundup sent.
 
 	/**
 	 * Run at the next hour the site settings name, unless that's scheduled already. A

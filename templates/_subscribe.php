@@ -33,7 +33,7 @@ $notices = [
 		<?php endif; ?>
 		<?php if ( $subscribed ) : ?>
 			<p class="ts-muted"><?php esc_html_e( 'You get an email on days when new days or photos are added to this trip.', 'travel-steps-storyteller' ); ?></p>
-			<button type="submit" class="ts-button ts-button-secondary" name="ts_subscription" value="unsubscribe"><?php esc_html_e( 'Unsubscribe', 'travel-steps-storyteller' ); ?></button>
+			<button type="submit" class="ts-button ts-button-secondary" name="travel_steps_subscription" value="unsubscribe"><?php esc_html_e( 'Unsubscribe', 'travel-steps-storyteller' ); ?></button>
 		<?php elseif ( is_user_logged_in() ) : ?>
 			<p class="ts-muted">
 				<?php
@@ -41,16 +41,16 @@ $notices = [
 				echo esc_html( sprintf( __( 'Get an email at %s on days when new days or photos are added to this trip.', 'travel-steps-storyteller' ), wp_get_current_user()->user_email ) );
 				?>
 			</p>
-			<button type="submit" class="ts-button" name="ts_subscription" value="subscribe"><?php esc_html_e( 'Subscribe', 'travel-steps-storyteller' ); ?></button>
+			<button type="submit" class="ts-button" name="travel_steps_subscription" value="subscribe"><?php esc_html_e( 'Subscribe', 'travel-steps-storyteller' ); ?></button>
 		<?php else : ?>
 			<label for="ts-subscribe-email"><?php esc_html_e( 'Get an email on days when new days or photos are added to this trip.', 'travel-steps-storyteller' ); ?></label>
 			<div class="ts-subscribe-row">
-				<input type="email" id="ts-subscribe-email" name="ts_email" required autocomplete="email" placeholder="<?php esc_attr_e( 'Your email address', 'travel-steps-storyteller' ); ?>">
-				<button type="submit" class="ts-button" name="ts_subscription" value="subscribe"><?php esc_html_e( 'Subscribe', 'travel-steps-storyteller' ); ?></button>
+				<input type="email" id="ts-subscribe-email" name="travel_steps_email" required autocomplete="email" placeholder="<?php esc_attr_e( 'Your email address', 'travel-steps-storyteller' ); ?>">
+				<button type="submit" class="ts-button" name="travel_steps_subscription" value="subscribe"><?php esc_html_e( 'Subscribe', 'travel-steps-storyteller' ); ?></button>
 			</div>
 			<?php // People don't see this field; bots fill it in. ?>
 			<p class="ts-subscribe-trap" aria-hidden="true">
-				<label><?php esc_html_e( 'Leave this empty', 'travel-steps-storyteller' ); ?> <input type="text" name="ts_website" tabindex="-1" autocomplete="off"></label>
+				<label><?php esc_html_e( 'Leave this empty', 'travel-steps-storyteller' ); ?> <input type="text" name="travel_steps_website" tabindex="-1" autocomplete="off"></label>
 			</p>
 		<?php endif; ?>
 	</form>

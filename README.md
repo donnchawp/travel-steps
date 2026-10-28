@@ -14,14 +14,14 @@ Visitors never reach Immich. WordPress fetches the photos and serves them itself
 
 ## How it works
 
-A trip is a `ts_trip` post with a date range. Its photos come from Immich (everything taken in those dates, or one album) or are uploaded to it. A step is a `ts_step` post, a child of the trip, and holds one day.
+A trip is a `travel_steps_trip` post with a date range. Its photos come from Immich (everything taken in those dates, or one album) or are uploaded to it. A step is a `travel_steps_step` post, a child of the trip, and holds one day.
 
 Sync works like this:
 
 1. If Dawarich is set up, it fetches your points for those dates. It drops the points near home, and GPS glitches, which are points you'd have had to travel faster than 1,080 km/h to reach.
 2. It fetches the album's photos, or all photos taken during those dates if there's no album. A photo without GPS gets the position you were at when you took it. Immich only names a place from a photo's own GPS, so any photo with a position but no town or country gets a town named offline, from the GeoNames data the plugin ships. A camera that records no time zone gets the offset of the nearest phone photo that does (or the site's), so its photos from abroad aren't hours off. Photos are kept by the local date they were taken, so the first morning and last evening of a trip in another time zone aren't cut off.
 3. It creates a draft step for each day with favourites. The day is the local date the photos were taken (Immich's `localDateTime`).
-4. It groups each new day's favourites into places. A new place starts when a favourite is more than 2 km from the current one (an administrator can change that) and in a different town. A day with several places gets a heading for each in its story, and a place tag (`ts_place`) for each. Each place also gets an empty paragraph to write in and a Trip photos block. The title lists the places, such as "Lisbon, Sintra".
+4. It groups each new day's favourites into places. A new place starts when a favourite is more than 2 km from the current one (an administrator can change that) and in a different town. A day with several places gets a heading for each in its story, and a place tag (`travel_steps_place`) for each. Each place also gets an empty paragraph to write in and a Trip photos block. The title lists the places, such as "Lisbon, Sintra".
 5. It simplifies the route (your Dawarich points, or else the photos with GPS in time order), splits it at big jumps such as flights and ferries, and caches it on the trip. A route made from photos has its GPS glitches dropped too. The distance follows the whole route, jumps included, so flights count.
 
 A trip of uploads uses every photo uploaded to it, and needs no dates. Leave them empty and they're taken from its first and last photo, and move as you add or delete photos. A date you change yourself stays put.
@@ -83,7 +83,7 @@ A protected trip's roundup links carry its share code. Changing its password del
 
 Every email has an unsubscribe link, and `List-Unsubscribe` headers so mail clients can show their own button. The form answers the same whether an address is new, waiting to confirm or subscribed already, and sends an address at most one confirmation email per trip a day. The whole site sends at most 20 confirmation emails an hour: past that, a signup is told to check its email but nothing is sent or kept, so a script can't make the site email strangers by the thousand. Logged-in visitors subscribing their account get no email and aren't capped. A confirmation email the site's mail refuses doesn't count against the address's one a day (it still counts toward the site's 20), so the visitor can try again at once. A hidden field catches bots. The confirm and unsubscribe links open a page with a button that does it, so mail scanners that open every link in an email change nothing. An unconfirmed signup is deleted after 7 days.
 
-The trip's edit page lists its subscribers with a Remove button each, and says when the last roundup went and what it listed. If some of its emails didn't go, because the site's mail refused them or the run stopped part-way, it says how many, without naming anyone, and they aren't sent again. Subscriptions are `ts_subscription` posts under the trip, out of wp-admin, REST and XML-RPC. WordPress's personal data export and erase tools find them by email address. Deleting a trip deletes its subscriptions, and deleting the plugin deletes them all.
+The trip's edit page lists its subscribers with a Remove button each, and says when the last roundup went and what it listed. If some of its emails didn't go, because the site's mail refused them or the run stopped part-way, it says how many, without naming anyone, and they aren't sent again. Subscriptions are `travel_steps_subscription` posts under the trip, out of wp-admin, REST and XML-RPC. WordPress's personal data export and erase tools find them by email address. Deleting a trip deletes its subscriptions, and deleting the plugin deletes them all.
 
 On a site whose cron only runs on page loads, roundups go out with the first visit after the hour.
 
@@ -119,7 +119,7 @@ Some logged-in users skip the password:
 
 The trips page lists a protected trip only to those users. It never lists it to logged-out visitors, even ones who entered its password. A protected trip's photos and map data are always sent as `private`, never for shared caches.
 
-Core REST (`/wp/v2/ts_trip`) serves and lists a protected trip only to people the trip page lets in. Anyone else sees nothing of it, not even its title, and core's `?password=` parameter doesn't open it. Trips and steps someone can't see are left out of core REST's queries, as well as its answers, so the counts it sends (`X-WP-Total`) leave them out too, whatever a request filters by. Copies of a trip's photos that a CDN or browser kept from before it had a password expire as usual (see Proxies and caches).
+Core REST (`/wp/v2/travel_steps_trip`) serves and lists a protected trip only to people the trip page lets in. Anyone else sees nothing of it, not even its title, and core's `?password=` parameter doesn't open it. Trips and steps someone can't see are left out of core REST's queries, as well as its answers, so the counts it sends (`X-WP-Total`) leave them out too, whatever a request filters by. Copies of a trip's photos that a CDN or browser kept from before it had a password expire as usual (see Proxies and caches).
 
 Cached photos (`uploads/travel-steps-cache/`) and photos uploaded to a trip (`uploads/travel-steps/<trip id>/`) should only be reached through the photo proxy. Both folders get an `.htaccess` deny rule, which Apache obeys, and every folder inside them gets an empty `index.html`, so none can be listed. nginx ignores `.htaccess`, so there the only protection is the file names, which appear nowhere a visitor can see:
 

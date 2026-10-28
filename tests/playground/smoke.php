@@ -361,24 +361,24 @@ $get = function ( $route, $params = [] ) {
 	return rest_do_request( $req );
 };
 wp_set_current_user( 0 );
-$list = $get( '/wp/v2/ts_step' );
+$list = $get( '/wp/v2/travel_steps_step' );
 check( 'anon: no steps of a draft trip in the list', 200 === $list->get_status() && 0 === count( $list->get_data() ), [ $list->get_status(), count( (array) $list->get_data() ) ] );
-$one = $get( '/wp/v2/ts_step/' . $d1->ID );
+$one = $get( '/wp/v2/travel_steps_step/' . $d1->ID );
 check( 'anon: single step of a draft trip refused', $one->get_status() >= 400, $one->get_status() );
-$places = $get( '/wp/v2/ts_place' );
+$places = $get( '/wp/v2/travel_steps_place' );
 check( 'anon: place terms refused', $places->get_status() >= 400, $places->get_status() );
 check( 'anon: no photos of a draft trip', [] === Trips::shown_photo_ids( get_post( $trip_id ) ) );
 
 wp_set_current_user( 1 );
-$list = $get( '/wp/v2/ts_step', [ 'parent' => $trip_id, 'status' => 'any', 'context' => 'edit' ] );
+$list = $get( '/wp/v2/travel_steps_step', [ 'parent' => $trip_id, 'status' => 'any', 'context' => 'edit' ] );
 check( 'editor: sees steps of the draft trip', 200 === $list->get_status() && 2 === count( $list->get_data() ), [ $list->get_status(), $list->get_data() ] );
-check( 'editor: place terms readable', 200 === $get( '/wp/v2/ts_place' )->get_status() );
+check( 'editor: place terms readable', 200 === $get( '/wp/v2/travel_steps_place' )->get_status() );
 
 // Publish the trip; unpublish day 2.
 wp_publish_post( $trip_id );
 wp_update_post( [ 'ID' => $d2->ID, 'post_status' => 'draft' ] );
 wp_set_current_user( 0 );
-$list = $get( '/wp/v2/ts_step' );
+$list = $get( '/wp/v2/travel_steps_step' );
 check( 'anon: published step of a published trip is listed', 1 === count( $list->get_data() ), count( (array) $list->get_data() ) );
 $ids = Trips::shown_photo_ids( get_post( $trip_id ) );
 check( 'anon: photos only from the published day', isset( $ids[ row( 1, '2025-05-01', '09:00', 0, 0, '', 1 )['id'] ] ) && ! isset( $ids[ row( 5, '2025-05-02', '11:00', 0, 0, '', 1 )['id'] ] ), array_keys( $ids ) );
@@ -756,7 +756,7 @@ $sideload    = function ( array $request, int $post_id, string $name, string $by
 	$_REQUEST = [];
 	return $id;
 };
-$upload      = fn( array $request, int $post_id, int $width = 3000, int $height = 2000, array $tags = [] ) => $sideload( $request, $post_id, 'IMG_1234.jpg', ts_tagged_jpeg( $jpeg( $width, $height ), $tags ) );
+$upload      = fn( array $request, int $post_id, int $width = 3000, int $height = 2000, array $tags = [] ) => $sideload( $request, $post_id, 'IMG_1234.jpg', travel_steps_tagged_jpeg( $jpeg( $width, $height ), $tags ) );
 $is_media = fn( $id ) => is_int( $id ) && 0 !== strpos( (string) get_post_meta( $id, '_wp_attached_file', true ), 'travel-steps/' ) && '' === TravelSteps\Uploads::photo_id( $id ) && 'inherit' === get_post( $id )->post_status;
 $base     = wp_get_upload_dir()['basedir'];
 $photo    = $upload( $as_photo, $photos_trip );
@@ -895,9 +895,9 @@ $leaky  = $upload_photo( $doolin );
 check( 'core’s Imagick editor keeps GPS in the copies it makes (so the checks below can fail)', is_int( $leaky ) && $gps_in( get_attached_file( $leaky ) ), is_wp_error( $leaky ) ? $leaky->get_error_message() : get_attached_file( $leaky ) );
 check( 'a copy with GPS in it is never served', is_wp_error( TravelSteps\Uploads::image( $leaky, 'preview' ) ) );
 $guard = fn( string $body ) => TravelSteps\Uploads::has_gps( [ 'body' => $body, 'type' => 'image/jpeg' ] );
-check( 'GPS guard: finds GPS in EXIF', $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), $doolin ) ) );
-check( 'GPS guard: finds GPS in XMP', $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), [ 'xmp_lat' => '53,1.314N', 'xmp_lon' => '9,22.752W' ] ) ) );
-check( 'GPS guard: doesn’t trust EXIF it can’t read', $guard( ts_app1( $jpeg( 30, 20 ), "Exif\0\0\xFF\xFF" ) ) );
+check( 'GPS guard: finds GPS in EXIF', $guard( travel_steps_tagged_jpeg( $jpeg( 30, 20 ), $doolin ) ) );
+check( 'GPS guard: finds GPS in XMP', $guard( travel_steps_tagged_jpeg( $jpeg( 30, 20 ), [ 'xmp_lat' => '53,1.314N', 'xmp_lon' => '9,22.752W' ] ) ) );
+check( 'GPS guard: doesn’t trust EXIF it can’t read', $guard( travel_steps_app1( $jpeg( 30, 20 ), "Exif\0\0\xFF\xFF" ) ) );
 $png = ( function () {
 	ob_start();
 	imagepng( imagecreatetruecolor( 30, 20 ) );
@@ -906,7 +906,7 @@ $png = ( function () {
 // A PNG's EXIF is a chunk after its header, with no "Exif" marker and nothing exif_read_data() reads.
 $exif_chunk = "II*\0" . pack( 'V', 8 );
 check( 'GPS guard: doesn’t trust EXIF in a PNG', TravelSteps\Uploads::has_gps( [ 'body' => substr( $png, 0, 33 ) . pack( 'N', strlen( $exif_chunk ) ) . 'eXIf' . $exif_chunk . pack( 'N', crc32( 'eXIf' . $exif_chunk ) ) . substr( $png, 33 ), 'type' => 'image/png' ] ) && ! TravelSteps\Uploads::has_gps( [ 'body' => $png, 'type' => 'image/png' ] ) );
-check( 'GPS guard: lets through a photo without EXIF, or with EXIF but no GPS', ! $guard( $jpeg( 30, 20 ) ) && ! $guard( ts_tagged_jpeg( $jpeg( 30, 20 ), array_diff_key( $doolin, [ 'lat' => 1, 'lon' => 1 ] ) ) ) );
+check( 'GPS guard: lets through a photo without EXIF, or with EXIF but no GPS', ! $guard( $jpeg( 30, 20 ) ) && ! $guard( travel_steps_tagged_jpeg( $jpeg( 30, 20 ), array_diff_key( $doolin, [ 'lat' => 1, 'lon' => 1 ] ) ) ) );
 
 $editor = PlaygroundImagick::class;
 $tagged = $upload_photo( $doolin );
@@ -926,7 +926,7 @@ check( 'trip photo turned on its side: WordPress has its size as displayed', [ 6
 $upright = array_map( fn( $i ) => array_slice( getimagesizefromstring( $i['body'] ?? '' ) ?: [], 0, 2 ), array_intersect_key( $served( $turned ), [ 'medium' => 1, 'preview' => 1 ] ) );
 check( 'trip photo turned on its side: sizes the proxy makes are upright too', [ 'medium' => [ 600, 900 ], 'preview' => [ 600, 900 ] ] === $upright, $upright );
 $preview = TravelSteps\Uploads::image( $tagged, 'preview' );
-file_put_contents( $preview['file'], ts_tagged_jpeg( $jpeg( 40, 30 ), $doolin ) );
+file_put_contents( $preview['file'], travel_steps_tagged_jpeg( $jpeg( 40, 30 ), $doolin ) );
 check( 'a checked copy that changes on disk is checked again', is_wp_error( TravelSteps\Uploads::image( $tagged, 'preview' ) ) );
 check( 'trip photo: Imagick reads the same metadata as exif_read_data()', TravelSteps\Exif::parse( exif_read_data( $original ) ) === TravelSteps\Exif::parse( TravelSteps\Exif::imagick( $original ) ), TravelSteps\Exif::imagick( $original ) );
 

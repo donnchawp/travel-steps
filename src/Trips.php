@@ -9,38 +9,38 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Trip and step post types, and the form handlers that edit them.
  *
- * A trip is a `ts_trip` post. Each step is a `ts_step` post whose post_parent is the
- * trip, so its story can be written in the block editor.
+ * A trip is a `travel_steps_trip` post. Each step is a `travel_steps_step` post whose
+ * post_parent is the trip, so its story can be written in the block editor.
  */
 class Trips {
-	const TRIP  = 'ts_trip';
-	const STEP  = 'ts_step';
-	const PLACE = 'ts_place';
+	const TRIP  = 'travel_steps_trip';
+	const STEP  = 'travel_steps_step';
+	const PLACE = 'travel_steps_place';
 
 	// Trip meta.
-	const META_START  = '_ts_start';       // Y-m-d, site timezone.
-	const META_END    = '_ts_end';         // Y-m-d, inclusive.
-	const META_ALBUM  = '_ts_album';       // Immich album id (optional).
-	const META_DATES_AUTO = '_ts_dates_auto'; // [ first, last ]: the dates sync took from a trip's uploads or album, '' for one set by hand.
-	const META_SOURCE = '_ts_source';      // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
+	const META_START  = '_travel_steps_start';          // Y-m-d, site timezone.
+	const META_END    = '_travel_steps_end';            // Y-m-d, inclusive.
+	const META_ALBUM  = '_travel_steps_album';          // Immich album id (optional).
+	const META_DATES_AUTO = '_travel_steps_dates_auto'; // [ first, last ]: the dates sync took from a trip's uploads or album, '' for one set by hand.
+	const META_SOURCE = '_travel_steps_source';         // SOURCE_UPLOADS or SOURCE_IMMICH; empty means Immich.
 	const SOURCE_UPLOADS = 'uploads';
 	const SOURCE_IMMICH  = 'immich';
-	const META_ROUTE  = '_ts_route';       // JSON: list of segments, each a list of [lat, lon].
-	const META_PHOTOS = '_ts_photos';      // JSON: list of photo rows (see PhotoSource::photos) + step.
-	const META_HIDDEN = '_ts_hidden';      // array of hidden photo ids.
-	const META_PINNED = '_ts_pinned';      // array of photo ids always shown.
-	const META_COVER  = '_ts_cover';       // photo id chosen for the header, else automatic.
-	const META_STATS  = '_ts_stats';       // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
-	const META_SYNCED = '_ts_synced';      // unix timestamp of last sync.
-	const META_ERROR  = '_ts_sync_error';  // last sync error message.
-	const META_VIEWERS = '_ts_viewers';    // array of user ids who see the trip without its password.
+	const META_ROUTE  = '_travel_steps_route';          // JSON: list of segments, each a list of [lat, lon].
+	const META_PHOTOS = '_travel_steps_photos';         // JSON: list of photo rows (see PhotoSource::photos) + step.
+	const META_HIDDEN = '_travel_steps_hidden';         // array of hidden photo ids.
+	const META_PINNED = '_travel_steps_pinned';         // array of photo ids always shown.
+	const META_COVER  = '_travel_steps_cover';          // photo id chosen for the header, else automatic.
+	const META_STATS  = '_travel_steps_stats';          // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
+	const META_SYNCED = '_travel_steps_synced';         // unix timestamp of last sync.
+	const META_ERROR  = '_travel_steps_sync_error';     // last sync error message.
+	const META_VIEWERS = '_travel_steps_viewers';       // array of user ids who see the trip without its password.
 	// The inline tags a trip's intro can have and still be edited as text on its edit page.
 	const INTRO_TAGS = [ 'a', 'abbr', 'b', 'br', 'code', 'em', 'i', 'kbd', 'mark', 's', 'span', 'strong', 'sub', 'sup' ];
 
 	// Step meta. A step is a day: the date part of its post date.
-	const META_LAT  = '_ts_lat';
-	const META_LON  = '_ts_lon';
-	const META_DAY  = '_ts_day';   // Y-m-d sync created the step for; kept even if you move it.
+	const META_LAT  = '_travel_steps_lat';
+	const META_LON  = '_travel_steps_lon';
+	const META_DAY  = '_travel_steps_day'; // Y-m-d sync created the step for; kept even if you move it.
 
 	// WP_Query's single-post-ID args, each with the conversion it applies. Any of them wins
 	// over post__in, so exclude_from_query() checks them and match_nothing() drops them.

@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.6.1
+Stable tag: 0.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,7 +107,7 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 
 == Changelog ==
 
-= Unreleased =
+= 0.6.2 =
 * Trips, steps, places and subscriptions, and the data kept with them, have names that start with travel_steps_ instead of ts_, so they can't clash with another plugin's. The first request after updating renames what's already saved. Core REST serves trips and steps at /wp/v2/travel_steps_trip and /wp/v2/travel_steps_step now, and a step's position as the meta _travel_steps_lat and _travel_steps_lon. A visitor who subscribed to a trip sees the subscribe form on it again, but stays subscribed.
 * Trip pages load Leaflet under the handle travel-steps-leaflet, so a map plugin that registers its own Leaflet as leaflet can't replace the copy that ships with this one.
 

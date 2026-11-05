@@ -20,7 +20,7 @@ Sync creates a draft step for every day with favourite photos. Each place you vi
 
 Favourites in Immich decide which photos a step shows. Every photo uploaded to a trip counts as a favourite. A step without favourites, such as one you add with Add step, gets an automatic pick spread across its day. The rest of a day's photos wait behind "Show N more photos". Sync skips screenshots unless they're favourites, and ignores star ratings.
 
-Only published steps of published trips are public. Your home is kept off every map. Photos taken at home show without a place when you chose them for the trip, as uploads, in an Immich album, or as favourites; a trip of Immich photos picked by its dates leaves out the rest. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
+Only published steps of published trips are public. A published trip's route, distance and country count cover all its dates though, unpublished days included. To keep a day's whereabouts private, leave it outside the trip's dates. Your home is kept off every map. Photos taken at home show without a place when you chose them for the trip, as uploads, in an Immich album, or as favourites; a trip of Immich photos picked by its dates leaves out the rest. A step with no position, such as a day at home, shows on the timeline without a marker on the map.
 
 A trip can also have a password. Logged-in users on its viewer lists see it without one. Its edit page gives a share link that opens it without the password, until the password changes.
 

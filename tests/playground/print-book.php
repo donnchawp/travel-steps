@@ -202,3 +202,48 @@ check( 'book: an editor sees an unpublished step’s chosen photo', false !== st
 $pb_page = $pb_body( $pb_print( $pb_n, $pb_friend ) );
 check( '…a logged-in visitor doesn’t', false === strpos( $pb_page, $pb_late['id'] ) && false === strpos( $pb_page, 'Draft story' ) );
 wp_set_current_user( 0 );
+
+// The trip page: choosing photos, and who gets its Print button.
+[ $pb_o ] = $pb_trip( 'Chosen Porto' );
+$pb_spare = row( 68, '2025-05-01', '16:00', 41.5, -8.4, 'Braga', false );
+update_post_meta( $pb_o, Trips::META_PHOTOS, wp_slash( wp_json_encode( array_merge( $pb_rows, [ $pb_spare ] ) ) ) );
+wp_set_current_user( 1 );
+$rest_post( "/travel-steps/v1/trips/$pb_o/photo-state", [ 'asset' => $pb_id( 66 ), 'state' => 'hidden' ] );
+$pb_do( $pb_o, $pb_id( 62 ), 'add' );
+$pb_do( $pb_o, $pb_id( 61 ), 'add' );
+wp_set_current_user( 1 );
+$pb_page   = $render( 'trip.php', (string) $pb_o );
+$pb_figure = function ( string $page, string $asset ) {
+	return preg_match( '#<figure[^>]*data-asset="' . preg_quote( $asset, '#' ) . '".*?</figure>#s', $page, $m ) ? $m[0] : '';
+};
+check( 'trip page: an editor gets a Print toggle on a shown photo', false !== strpos( $pb_figure( $pb_page, $pb_id( 61 ) ), 'ts-photo-print' ) );
+check( '…and on one behind “Show more”', false !== strpos( $pb_figure( $pb_page, $pb_spare['id'] ), 'ts-photo-print' ) );
+check( '…not on a hidden one', '' !== $pb_figure( $pb_page, $pb_id( 66 ) ) && false === strpos( $pb_figure( $pb_page, $pb_id( 66 ) ), 'ts-photo-print' ) );
+check( '…labelled Print, with Make lead beside it', false !== strpos( $pb_figure( $pb_page, $pb_id( 61 ) ), '>Print<' ) && false !== strpos( $pb_figure( $pb_page, $pb_id( 61 ) ), '>Make lead<' ) );
+$pb_section = fn( string $figure ) => preg_match( '#data-print-section="([^"]+)"#', $figure, $m ) ? $m[1] : '';
+check( '…photos of one place share a section', '' !== $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_id( 62 ) ) ) );
+check( '…another place’s don’t', $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) !== $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_spare['id'] ) ) );
+check( '…and the page holds the chosen list, in order', false !== strpos( $pb_page, 'data-print-ids="' . esc_attr( wp_json_encode( [ $pb_id( 62 ), $pb_id( 61 ) ] ) ) . '"' ) );
+wp_set_current_user( 0 );
+$pb_page = $render( 'trip.php', (string) $pb_o );
+check( '…a visitor gets none of that', false === strpos( $pb_page, 'ts-photo-print' ) && false === strpos( $pb_page, 'data-print-ids' ) && false === strpos( $pb_page, 'data-print-section' ) );
+wp_set_current_user( $pb_friend );
+$pb_page = $render( 'trip.php', (string) $pb_o );
+check( '…nor does someone logged in who can’t edit', false === strpos( $pb_page, 'ts-photo-print' ) && false === strpos( $pb_page, 'data-print-ids' ) );
+
+$pb_button = function ( int $trip, int $user ) use ( $render ) {
+	wp_set_current_user( $user );
+	return false !== strpos( $render( 'trip.php', (string) $trip ), 'href="' . esc_url( Trips::url( get_post( $trip ), 'print' ) ) . '"' );
+};
+check( 'Print button: a logged-out visitor gets none', ! $pb_button( $pb_o, 0 ) );
+check( '…a logged-in visitor gets it once photos are chosen', $pb_button( $pb_o, $pb_friend ) );
+check( '…but not before', ! $pb_button( $pb_e, $pb_friend ) );
+check( '…an editor always does', $pb_button( $pb_e, 1 ) );
+check( '…nor if only an unpublished step has them', ! $pb_button( $pb_n, $pb_friend ) && $pb_button( $pb_n, 1 ) );
+wp_set_current_user( 0 );
+$_GET[ Trips::SHARE_ARG ] = $pb_code;
+$pb_page = $render( 'trip.php', (string) $pb_j );
+unset( $_GET[ Trips::SHARE_ARG ], $_COOKIE[ $pb_name ] );
+header_remove( 'Set-Cookie' );
+check( '…nor does a logged-out visitor with a share link', false !== strpos( $pb_page, 'Secret' ) || false !== strpos( $pb_page, 'Porto story' ) ? false === strpos( $pb_page, 'href="' . esc_url( $pb_print_url ) . '"' ) : false );
+wp_set_current_user( 0 );

@@ -27,13 +27,19 @@ $authed     = $can_edit || Trips::by_login( $trip );
 $steps      = Trips::timeline_steps( $trip, $can_edit );
 $by_step    = Trips::photos_by_step( $trip->ID, $steps );
 $pinned     = array_flip( Trips::pinned( $trip->ID ) );
+// Which section each photo is in, for those who choose photos to print. Hidden ones aren't in it.
+$print_sections = $can_curate ? View::print_sections( $trip->ID, $steps ) : [];
 
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
 $cover_id     = Trips::cover( $trip->ID );
 $uploads      = Trips::uses_uploads( $trip->ID ); // Every upload is a favourite: no heart.
-$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $can_curate, $cover_id, $uploads ) {
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $can_curate, $cover_id, $uploads, $print_sections ) {
+	$print_section = $print_sections[ $photo['id'] ] ?? '';
 	?>
-	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
+	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>"
+		<?php if ( '' !== $print_section ) : ?>
+			data-print-section="<?php echo esc_attr( $print_section ); ?>"
+		<?php endif; ?>>
 		<button type="button" class="ts-photo-open"
 			data-full="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
 			data-caption="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>"
@@ -52,7 +58,15 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 				<button type="button" class="ts-photo-state" data-set="pinned" aria-pressed="<?php echo 'pinned' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Always show this photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Pin', 'travel-steps-storyteller' ); ?></button>
 				<button type="button" class="ts-photo-state" data-set="hidden" aria-pressed="<?php echo 'hidden' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Never show this photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Hide', 'travel-steps-storyteller' ); ?></button>
 				<button type="button" class="ts-photo-cover" aria-pressed="<?php echo $cover_id === $photo['id'] ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Use as the trip’s header photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Cover', 'travel-steps-storyteller' ); ?></button>
+				<?php if ( '' !== $print_section ) : ?>
+					<button type="button" class="ts-photo-print" aria-pressed="false" title="<?php esc_attr_e( 'Include in the print version', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Print', 'travel-steps-storyteller' ); ?></button>
+					<button type="button" class="ts-photo-lead" title="<?php esc_attr_e( 'Print this photo first, alone on its page', 'travel-steps-storyteller' ); ?>" hidden><?php esc_html_e( 'Make lead', 'travel-steps-storyteller' ); ?></button>
+				<?php endif; ?>
 			</span>
+			<?php if ( '' !== $print_section ) : ?>
+				<?php // The script fills this in: it's on the photo as "Show more" photos sit away from their section. ?>
+				<span class="ts-photo-print-tag" hidden></span>
+			<?php endif; ?>
 		<?php endif; ?>
 	</figure>
 	<?php
@@ -89,6 +103,14 @@ include __DIR__ . '/_header.php';
 <article class="ts-trip"
 	data-api="<?php echo esc_url( rest_url( RestController::NS . '/trips/' . $trip->ID ) ); ?>"
 	data-nonce="<?php echo esc_attr( $authed ? wp_create_nonce( 'wp_rest' ) : '' ); ?>"
+	<?php if ( $can_curate ) : ?>
+		data-print-ids="<?php echo esc_attr( (string) wp_json_encode( Trips::print_ids( $trip->ID ) ) ); ?>"
+		data-print-lead="<?php esc_attr_e( 'Lead', 'travel-steps-storyteller' ); ?>"
+		<?php /* translators: %1$s: the photo's place among its section's chosen photos, %2$s: how many are chosen */ ?>
+		data-print-of="<?php esc_attr_e( '%1$s of %2$s', 'travel-steps-storyteller' ); ?>"
+		<?php /* translators: %s: a chosen photo's label, such as "4 of 4" */ ?>
+		data-print-many="<?php esc_attr_e( '%s, best with 3', 'travel-steps-storyteller' ); ?>"
+	<?php endif; ?>
 	<?php if ( $shared ) : ?>
 		data-clean-url="<?php echo esc_url( Trips::url( $trip ) ); ?>"
 	<?php endif; ?>>

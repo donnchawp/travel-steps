@@ -303,7 +303,7 @@ class View {
 	/**
 	 * A step's non-hidden photos by time, from Trips::photos_by_step().
 	 *
-	 * @param array{shown: array, rest: array, hidden: array} $groups
+	 * @param array{shown: array, rest: array} $groups
 	 */
 	public static function visible_photos( array $groups ): array {
 		$photos = array_merge( $groups['shown'], $groups['rest'] );

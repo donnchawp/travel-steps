@@ -239,6 +239,10 @@ check( '…a logged-in visitor gets it once photos are chosen', $pb_button( $pb_
 check( '…but not before', ! $pb_button( $pb_e, $pb_friend ) );
 check( '…an editor always does', $pb_button( $pb_e, 1 ) );
 check( '…nor if only an unpublished step has them', ! $pb_button( $pb_n, $pb_friend ) && $pb_button( $pb_n, 1 ) );
+[ $pb_h ] = $pb_trip( 'Hidden Porto' );
+$pb_do( $pb_h, $pb_id( 61 ), 'add' );
+$rest_post( "/travel-steps/v1/trips/$pb_h/photo-state", [ 'asset' => $pb_id( 61 ), 'state' => 'hidden' ] );
+check( '…nor if the only photo chosen is hidden', ! $pb_button( $pb_h, $pb_friend ) && $pb_button( $pb_h, 1 ) );
 wp_set_current_user( 0 );
 $_GET[ Trips::SHARE_ARG ] = $pb_code;
 $pb_page = $render( 'trip.php', (string) $pb_j );

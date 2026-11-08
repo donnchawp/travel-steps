@@ -33,8 +33,9 @@ check( 'two photos: each alone', [ 'landscape', 'portrait' ] === $layouts( Print
 check( 'three: lead, then two landscapes stacked', [ 'landscape', 'stack' ] === $layouts( PrintLayout::pages( [ photo( 1 ), photo( 2 ), photo( 3 ) ] ) ) );
 check( 'three: two portraits side by side', [ 'landscape', 'pair' ] === $layouts( PrintLayout::pages( [ photo( 1 ), photo( 2, 2000, 3000 ), photo( 3, 2000, 3000 ) ] ) ) );
 check( 'three: a landscape and a portrait side by side', [ 'landscape', 'pair' ] === $layouts( PrintLayout::pages( [ photo( 1 ), photo( 2 ), photo( 3, 2000, 3000 ) ] ) ) );
-check( 'four: lead, then three together', [ 'landscape', 'three' ] === $layouts( PrintLayout::pages( [ photo( 1 ), photo( 2 ), photo( 3 ), photo( 4 ) ] ) ) );
-check( 'five: lead, three, then one alone', [ 'landscape', 'three', 'landscape' ] === $layouts( PrintLayout::pages( array_map( 'photo', [ 1, 2, 3, 4, 5 ] ) ) ) );
+check( 'four: lead, two together, then one alone', [ 'landscape', 'stack', 'landscape' ] === $layouts( PrintLayout::pages( [ photo( 1 ), photo( 2 ), photo( 3 ), photo( 4 ) ] ) ) );
+check( 'five: three pages, the lead, then two and two', [ 'landscape', 'stack', 'stack' ] === $layouts( PrintLayout::pages( array_map( 'photo', [ 1, 2, 3, 4, 5 ] ) ) ) );
+check( 'six: a fourth page, for the one left over', [ 'landscape', 'stack', 'stack', 'landscape' ] === $layouts( PrintLayout::pages( array_map( 'photo', [ 1, 2, 3, 4, 5, 6 ] ) ) ) );
 check( 'the lead keeps its place', [ 7 ] === $nums( PrintLayout::pages( [ photo( 7 ), photo( 1 ) ] )[0]['photos'] ) );
 check( 'no photos: no pages', [] === PrintLayout::pages( [] ) );
 

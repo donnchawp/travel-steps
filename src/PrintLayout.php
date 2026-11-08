@@ -4,7 +4,8 @@ namespace TravelSteps;
 
 /**
  * How a trip's print version lays out the photos chosen for a section: its lead alone on
- * a page, then the others together. Pure functions, no WordPress dependencies.
+ * a page, then the others two to a page. So the five that work best fill three pages,
+ * and with its text page a section takes four. Pure functions, no WordPress dependencies.
  *
  * A section's lead is whichever of its photos comes first in the trip's list of chosen
  * photos. Its others print in the order they were taken.
@@ -15,10 +16,11 @@ class PrintLayout {
 	const PORTRAIT  = 'portrait';
 	const STACK     = 'stack';
 	const PAIR      = 'pair';
-	const THREE     = 'three';
 
-	// A page holds at most this many photos besides a lead's page.
-	const MAX_ON_PAGE = 3;
+	// How many photos a page after the lead's holds.
+	const MAX_ON_PAGE = 2;
+	// How many photos a section is best with. More are allowed, and the trip page says so.
+	const BEST = 5;
 
 	/**
 	 * A section's chosen photos: its lead, then the others in time order.
@@ -78,16 +80,14 @@ class PrintLayout {
 	}
 
 	/**
-	 * A page of one to three photos. A photo whose size isn't known counts as landscape.
+	 * A page of one or two photos. A photo whose size isn't known counts as landscape.
 	 */
 	private static function page( array $photos ): array {
 		$portrait = fn( array $photo ) => (int) ( $photo['h'] ?? 0 ) > (int) ( $photo['w'] ?? 0 );
 		if ( 1 === count( $photos ) ) {
 			$layout = $portrait( $photos[0] ) ? self::PORTRAIT : self::LANDSCAPE;
-		} elseif ( 2 === count( $photos ) ) {
-			$layout = $portrait( $photos[0] ) || $portrait( $photos[1] ) ? self::PAIR : self::STACK;
 		} else {
-			$layout = self::THREE;
+			$layout = $portrait( $photos[0] ) || $portrait( $photos[1] ) ? self::PAIR : self::STACK;
 		}
 		return [ 'layout' => $layout, 'photos' => $photos ];
 	}

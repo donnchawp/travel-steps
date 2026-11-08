@@ -27,28 +27,62 @@
 			img.addEventListener( 'error', () => resolve( false ), { once: true } );
 		} );
 
-	// Text that fits on a page is centred on it. Longer text stays a plain block, as a
-	// centred box doesn't break across pages reliably in every browser. Measured once
-	// images in the text have their height.
-	const centreShortText = () => {
+	// Lays out the book for double-sided printing, once images in the text have their
+	// height, measuring at the print stylesheet's sizes. Text that fits on a page is centred
+	// on it. Longer text stays a plain block, as a centred box doesn't break across pages
+	// reliably in every browser. Each text page starts on a left page, the even numbers,
+	// with a blank page before it if need be: browsers ignore break-before: left.
+	const layOutBook = () => {
 		const ruler = document.createElement( 'div' );
-		ruler.style.height = '230mm';
+		ruler.style.height = '255mm'; // The shorter paper's printable height, Letter's.
 		document.body.append( ruler );
-		const fits = ruler.offsetHeight;
+		const page = ruler.offsetHeight;
 		ruler.remove();
-		// Measured as it would print: centred text sits in a narrower column, so wraps more.
-		document.querySelectorAll( '.ts-book-text' ).forEach( ( text ) => {
-			text.classList.add( 'is-short' );
+		const pagesOf = ( height ) => Math.max( 1, Math.ceil( height / page ) );
+
+		document.body.style.setProperty( 'font-size', '11pt', 'important' );
+		root.style.maxWidth = '186mm';
+		root.style.padding = '0';
+		const texts = Array.from( root.querySelectorAll( '.ts-book-text' ) );
+		const textPages = new Map( texts.map( ( text ) => {
+			text.style.paddingTop = '0';
 			text.style.minHeight = '0';
-			text.classList.toggle( 'is-short', text.offsetHeight < fits );
+			text.classList.add( 'is-short' );
+			const fits = text.offsetHeight < page * 0.98;
+			text.classList.toggle( 'is-short', fits );
+			const pages = fits ? 1 : pagesOf( text.offsetHeight );
+			text.style.paddingTop = '';
 			text.style.minHeight = '';
-		} );
+			return [ text, pages ];
+		} ) );
+		const cover = root.querySelector( '.ts-print-cover' );
+		let printed = cover ? pagesOf( cover.offsetHeight ) : 0;
+		document.body.style.removeProperty( 'font-size' );
+		root.style.maxWidth = '';
+		root.style.padding = '';
+
+		root.querySelectorAll( '.ts-book-blank' ).forEach( ( blank ) => blank.remove() );
+		texts.concat( Array.from( root.querySelectorAll( '.ts-book-photos' ) ) )
+			.sort( ( a, b ) => ( a.compareDocumentPosition( b ) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1 ) )
+			.forEach( ( section ) => {
+				if ( textPages.has( section ) ) {
+					if ( 0 === printed % 2 ) {
+						const blank = document.createElement( 'div' );
+						blank.className = 'ts-book-blank';
+						section.before( blank );
+						printed++;
+					}
+					printed += textPages.get( section );
+				} else {
+					printed++;
+				}
+			} );
 	};
 
 	button.disabled = true;
 	status.textContent = status.dataset.loading;
 	const ready = Promise.all( images.map( settled ) ).then( ( loaded ) => {
-		centreShortText();
+		layOutBook();
 		button.disabled = false;
 		status.textContent = loaded.every( Boolean ) ? status.dataset.tip : status.dataset.failed;
 	} );

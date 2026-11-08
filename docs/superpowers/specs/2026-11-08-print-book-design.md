@@ -53,7 +53,7 @@ Each non-hidden photo on the trip page, including those behind "Show more", gets
 
 - The first photo chosen in a section is its lead. A **Make lead** button appears on the section's other chosen photos.
 - Removing the lead makes the next chosen photo, by time, the lead.
-- The section shows how many of its photos are chosen. A fourth or later photo is allowed, with a warning that the book works best with three.
+- The section shows how many of its photos are chosen. A sixth or later photo is allowed, with a warning that the book works best with five.
 - Changes save straight away and update the page without a reload, as Pin and Hide do.
 
 Storage is one ordered list of photo ids in trip meta, `_travel_steps_print`, written through a new REST route that takes the same permission as `photo-state`. The route refuses photos that aren't in the trip. A section's lead is whichever of its photos comes first in the list; its other photos print in time order.
@@ -82,6 +82,8 @@ The step's day, date and any badge; the step's title on its first section in the
 
 Text that fits on a page is centred on it horizontally and vertically. Longer text starts at the top and runs on to further pages.
 
+Every text page starts on a left page, an even page number, with a blank page before it if it would land on the right. Browsers ignore `break-before: left`, so the print script counts pages and adds the blanks, measuring text and the cover at print sizes against Letter's 255mm height.
+
 The first section of a step in the book always gets this page, even with only the day, date and title on it, so a step's photos never print before its title. A later section with no text and no heading skips this page.
 
 ### Photo pages
@@ -93,7 +95,9 @@ Every photo uses the `preview` size. All sizes must fit both A4 and US Letter (p
 | 1 | Lead alone |
 | 2 | Lead alone, then the other alone |
 | 3 | Lead alone, then the other two together |
-| 4 or more | Lead alone, then the rest, up to three to a page |
+| 4 | Lead alone, two together, then the last alone |
+| 5 (recommended) | Lead alone, then two pages of two: three pages, so a section with a one-page text page takes four and needs no blank page |
+| 6 or more | Lead alone, then the rest two to a page |
 
 - A landscape alone prints across the page, 186mm wide.
 - A portrait alone prints about 137×183mm, centred.
@@ -127,7 +131,7 @@ Remove the `travel_steps_print_size` filter, which has never been released, and 
 
 - Logged-out visitors can't open the print page at all, beyond not getting the button.
 - First chosen photo is the lead; "Make lead" changes it.
-- A fourth photo warns and doesn't block.
+- A sixth photo warns and doesn't block.
 - Photos behind "Show more" can be chosen; hidden ones can't print.
 - A step's title prints on its first section in the book only.
 - Long text runs on to further pages.

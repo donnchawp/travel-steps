@@ -474,7 +474,7 @@
 			let label = 0 === place
 				? root.dataset.printLead
 				: root.dataset.printOf.replace( '%1$s', place + 1 ).replace( '%2$s', chosen.length );
-			if ( chosen.length > 3 ) {
+			if ( chosen.length > Number( root.dataset.printBest ) ) {
 				label = root.dataset.printMany.replace( '%s', label );
 			}
 			tag.textContent = label;

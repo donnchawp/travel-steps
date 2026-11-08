@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * A short book of the photos chosen on the trip page, to print or save as a PDF: a cover
  * page, then for each place with photos chosen, its text on a page, its lead photo alone,
- * then its other photos together (see PrintLayout). Logged-in users only.
+ * then its other photos two to a page (see PrintLayout). Logged-in users only.
  *
  * Every photo is the preview size, the largest the photo proxy serves and the one
  * CacheFill keeps, so the print works from the cache when Immich can't be reached.

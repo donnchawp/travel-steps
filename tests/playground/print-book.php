@@ -223,6 +223,7 @@ check( '…labelled Print, with Make lead beside it', false !== strpos( $pb_figu
 $pb_section = fn( string $figure ) => preg_match( '#data-print-section="([^"]+)"#', $figure, $m ) ? $m[1] : '';
 check( '…photos of one place share a section', '' !== $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_id( 62 ) ) ) );
 check( '…another place’s don’t', $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) !== $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_spare['id'] ) ) );
+check( '…and the page says how many work best', false !== strpos( $render( 'trip.php', (string) $pb_o ), 'data-print-best="' . \TravelSteps\PrintLayout::BEST . '"' ) && false !== strpos( $render( 'trip.php', (string) $pb_o ), '%s, best with 5' ) );
 check( '…and the page holds the chosen list, in order', false !== strpos( $pb_page, 'data-print-ids="' . esc_attr( wp_json_encode( [ $pb_id( 62 ), $pb_id( 61 ) ] ) ) . '"' ) );
 wp_set_current_user( 0 );
 $pb_page = $render( 'trip.php', (string) $pb_o );

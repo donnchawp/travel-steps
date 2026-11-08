@@ -108,7 +108,7 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 == Changelog ==
 
 = Unreleased =
-* A trip can print as a short book of photos you choose. Press Print on the photos you want on the trip's page, which changes nothing visitors see. The Print button then opens a cover page and, for each place with photos chosen, its text on a page, its lead photo alone, and its other photos together. Print it, or save it as a PDF to keep. Printing takes a login.
+* A trip can print as a short book of photos you choose. Press Print on the photos you want on the trip's page, which changes nothing visitors see. The Print button then opens a cover page and, for each place with photos chosen, its text on a page, its lead photo alone, and its other photos two to a page. Five photos a place work best. Print it, or save it as a PDF to keep. Printing takes a login.
 
 = 0.6.2 =
 * Trips, steps, places and subscriptions, and the data kept with them, have names that start with travel_steps_ instead of ts_, so they can't clash with another plugin's. The first request after updating renames what's already saved. Core REST serves trips and steps at /wp/v2/travel_steps_trip and /wp/v2/travel_steps_step now, and a step's position as the meta _travel_steps_lat and _travel_steps_lon. A visitor who subscribed to a trip sees the subscribe form on it again, but stays subscribed.

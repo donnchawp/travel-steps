@@ -108,8 +108,9 @@ include __DIR__ . '/_header.php';
 		data-print-lead="<?php esc_attr_e( 'Lead', 'travel-steps-storyteller' ); ?>"
 		<?php /* translators: %1$s: the photo's place among its section's chosen photos, %2$s: how many are chosen */ ?>
 		data-print-of="<?php esc_attr_e( '%1$s of %2$s', 'travel-steps-storyteller' ); ?>"
-		<?php /* translators: %s: a chosen photo's label, such as "4 of 4" */ ?>
-		data-print-many="<?php esc_attr_e( '%s, best with 3', 'travel-steps-storyteller' ); ?>"
+		data-print-best="<?php echo (int) \TravelSteps\PrintLayout::BEST; ?>"
+		<?php /* translators: %1$s: a chosen photo's label, such as "6 of 6", %2$d: how many photos a section is best with */ ?>
+		data-print-many="<?php echo esc_attr( sprintf( __( '%%s, best with %d', 'travel-steps-storyteller' ), \TravelSteps\PrintLayout::BEST ) ); ?>"
 	<?php endif; ?>
 	<?php if ( $shared ) : ?>
 		data-clean-url="<?php echo esc_url( Trips::url( $trip ) ); ?>"

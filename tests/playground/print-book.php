@@ -59,7 +59,7 @@ $pb_seen = $render( 'trip.php', (string) $pb_a );
 [ $pb_b ] = $pb_trip( 'Unprinted Porto' );
 wp_set_current_user( 0 );
 $pb_plain = $render( 'trip.php', (string) $pb_b );
-$pb_assets = fn( string $page ) => array_values( array_unique( array_filter( array_map( fn( $n ) => false !== strpos( $page, $n ) ? $n : '', array_column( $pb_rows, 'id' ) ) ) ) );
+$pb_assets = fn( string $page ) => array_values( array_filter( array_column( $pb_rows, 'id' ), fn( $n ) => false !== strpos( $page, $n ) ) );
 check( '…and a visitor’s trip page has the same photos as a trip with none chosen', $pb_assets( $pb_seen ) === $pb_assets( $pb_plain ) && 6 === count( $pb_assets( $pb_seen ) ), $pb_assets( $pb_seen ) );
 
 // Removing: chosen out of time order, the next chosen leads.
@@ -244,5 +244,5 @@ $_GET[ Trips::SHARE_ARG ] = $pb_code;
 $pb_page = $render( 'trip.php', (string) $pb_j );
 unset( $_GET[ Trips::SHARE_ARG ], $_COOKIE[ $pb_name ] );
 header_remove( 'Set-Cookie' );
-check( '…nor does a logged-out visitor with a share link', false !== strpos( $pb_page, 'Secret' ) || false !== strpos( $pb_page, 'Porto story' ) ? false === strpos( $pb_page, 'href="' . esc_url( $pb_print_url ) . '"' ) : false );
+check( '…nor does a logged-out visitor with a share link', ( false !== strpos( $pb_page, 'Secret' ) || false !== strpos( $pb_page, 'Porto story' ) ) && false === strpos( $pb_page, 'href="' . esc_url( $pb_print_url ) . '"' ) );
 wp_set_current_user( 0 );

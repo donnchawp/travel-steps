@@ -168,9 +168,7 @@ class RestController {
 		foreach ( $steps as $index => $step ) {
 			// Same label as the timeline: the day number.
 			$number  = Trips::day_of_trip( $trip->ID, $step ) ?: $index + 1;
-			$groups  = $by_step[ $step->ID ] ?? [ 'shown' => [], 'rest' => [] ];
-			$photos  = array_merge( $groups['shown'], $groups['rest'] );
-			usort( $photos, fn( $a, $b ) => $a['t'] <=> $b['t'] );
+			$photos  = View::visible_photos( $by_step[ $step->ID ] ?? [ 'shown' => [], 'rest' => [] ] );
 			$markers = array_merge( $markers, View::markers( $step, $photos, $number ) );
 			$areas   = array_merge( $areas, View::areas( $step, $photos, $boxes ) );
 			$on_day  = View::legs( $step, $photos, $route );
@@ -233,21 +231,19 @@ class RestController {
 		$ids     = Trips::print_ids( $trip_id );
 		if ( 'remove' === $action ) {
 			$ids = array_values( array_diff( $ids, [ $asset ] ) );
-		} elseif ( ! in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true ) ) {
-			return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
+		} elseif ( ! Trips::has_photo( $trip_id, $asset ) ) {
+			return self::not_in_trip();
 		} elseif ( 'lead' === $action ) {
-			$ids = array_merge( [ $asset ], array_values( array_diff( $ids, [ $asset ] ) ) );
+			$ids = array_merge( [ $asset ], array_diff( $ids, [ $asset ] ) );
 		} elseif ( ! in_array( $asset, $ids, true ) ) {
 			$ids[] = $asset;
 		}
 		update_post_meta( $trip_id, Trips::META_PRINT, $ids );
-		return new \WP_REST_Response(
-			[
-				'asset'  => $asset,
-				'action' => $action,
-				'ids'    => $ids,
-			]
-		);
+		return new \WP_REST_Response( [ 'ids' => $ids ] );
+	}
+
+	private static function not_in_trip(): \WP_Error {
+		return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
 	}
 
 	/**
@@ -260,10 +256,10 @@ class RestController {
 		$asset   = (string) $request['asset'];
 		if ( '' === $asset ) {
 			delete_post_meta( $trip_id, Trips::META_COVER );
-		} elseif ( in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true ) ) {
+		} elseif ( Trips::has_photo( $trip_id, $asset ) ) {
 			update_post_meta( $trip_id, Trips::META_COVER, $asset );
 		} else {
-			return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
+			return self::not_in_trip();
 		}
 		CacheFill::schedule( $trip_id );
 		return new \WP_REST_Response(
@@ -297,8 +293,7 @@ class RestController {
 		if ( ! current_user_can( 'edit_post', $trip_id ) ) {
 			return Trips::share_matches( $trip, $share ) && View::cover_id( $trip_id ) === $asset ? 'private' : '';
 		}
-		$synced = in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true );
-		return $synced || ( Trips::can_edit_trip( $trip_id ) && Uploads::attachment( $trip_id, $asset ) ) ? 'private' : '';
+		return Trips::has_photo( $trip_id, $asset ) || ( Trips::can_edit_trip( $trip_id ) && Uploads::attachment( $trip_id, $asset ) ) ? 'private' : '';
 	}
 
 	/**

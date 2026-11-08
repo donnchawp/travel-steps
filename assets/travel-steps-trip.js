@@ -453,14 +453,14 @@
 	/* ---------- Photos to print (editors) ---------- */
 
 	const printFigures = Array.from( root.querySelectorAll( '.ts-photo[data-print-section]' ) );
+	const sectionOf = new Map( printFigures.map( ( figure ) => [ figure.dataset.asset, figure.dataset.printSection ] ) );
 
 	// Shows the list of chosen photos on the page. As on the print page, a section's lead is
 	// the first of its photos in the list. A photo in the list that's hidden has no figure.
 	function showPrintIds( ids ) {
 		const bySection = {};
-		const inSection = new Set( printFigures.map( ( figure ) => figure.dataset.asset ) );
-		ids.filter( ( id ) => inSection.has( id ) ).forEach( ( id ) => {
-			const section = printFigures.find( ( figure ) => figure.dataset.asset === id ).dataset.printSection;
+		ids.filter( ( id ) => sectionOf.has( id ) ).forEach( ( id ) => {
+			const section = sectionOf.get( id );
 			( bySection[ section ] = bySection[ section ] || [] ).push( id );
 		} );
 		printFigures.forEach( ( figure ) => {

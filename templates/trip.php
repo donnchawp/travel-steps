@@ -28,7 +28,7 @@ $steps      = Trips::timeline_steps( $trip, $can_edit );
 $by_step    = Trips::photos_by_step( $trip->ID, $steps );
 $pinned     = array_flip( Trips::pinned( $trip->ID ) );
 // Which section each photo is in, for those who choose photos to print. Hidden ones aren't in it.
-$print_sections = $can_curate ? View::print_sections( $trip->ID, $steps ) : [];
+$print_sections = $can_curate ? View::print_sections( $steps, $by_step ) : [];
 
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
 $cover_id     = Trips::cover( $trip->ID );
@@ -129,7 +129,7 @@ include __DIR__ . '/_header.php';
 				<?php endforeach; ?>
 			</ul>
 			<?php // Printing takes a login. Editors get the button with nothing chosen, as the print page tells them what to do. ?>
-			<?php $can_print = is_user_logged_in() && ( $can_edit || View::has_print_book( $trip, $steps ) ); ?>
+			<?php $can_print = is_user_logged_in() && ( $can_edit || View::has_print_book( $trip->ID, $by_step ) ); ?>
 			<?php if ( $can_curate || $can_print ) : ?>
 				<p class="ts-form-actions">
 					<?php if ( $can_curate ) : ?>
@@ -178,17 +178,7 @@ include __DIR__ . '/_header.php';
 				<section class="ts-step" id="step-<?php echo (int) $step->ID; ?>" data-step="<?php echo (int) $step->ID; ?>">
 					<div class="ts-step-marker" aria-hidden="true"><?php echo (int) $day ?: (int) $index + 1; ?></div>
 					<div class="ts-step-body">
-						<p class="ts-step-meta">
-							<?php if ( $day > 0 ) : ?>
-								<?php /* translators: %d: day number of the trip */ ?>
-								<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps-storyteller' ), $day ) ); ?></span>
-							<?php endif; ?>
-							<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
-							<?php $badge = View::step_badge( $trip, $step ); ?>
-							<?php if ( $badge ) : ?>
-								<span class="<?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['text'] ); ?></span>
-							<?php endif; ?>
-						</p>
+						<?php include __DIR__ . '/_step-meta.php'; ?>
 						<h2><?php echo esc_html( get_the_title( $step ) ); ?></h2>
 						<?php if ( $places && ! is_wp_error( $places ) ) : ?>
 							<ul class="ts-places">

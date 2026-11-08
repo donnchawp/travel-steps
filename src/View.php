@@ -249,9 +249,9 @@ class View {
 	 * blocks before it are "before", and those after it "after".
 	 *
 	 * @param array $photos Photos to show, sorted by time.
-	 * @return list<array{index: int, before: array, after: array, photos: array}>
+	 * @return list<array{before: array, after: array, photos: array}>
 	 */
-	public static function story_sections( \WP_Post $step, array $photos ): array {
+	private static function story_sections( \WP_Post $step, array $photos ): array {
 		$starts = Days::anchor_times( $step->post_content );
 		sort( $starts );
 		$sections = [];
@@ -283,7 +283,6 @@ class View {
 			}
 
 			$out[] = [
-				'index'  => $chunk['section'],
 				'before' => $parts[0],
 				'after'  => $parts[1],
 				'photos' => $sections[ $chunk['section'] ] ?? [],
@@ -291,9 +290,8 @@ class View {
 			unset( $sections[ $chunk['section'] ] );
 		}
 		// Headings nested inside other blocks: their photos go at the end.
-		foreach ( $sections as $index => $rest ) {
+		foreach ( $sections as $rest ) {
 			$out[] = [
-				'index'  => $index,
 				'before' => [],
 				'after'  => [],
 				'photos' => $rest,
@@ -307,7 +305,7 @@ class View {
 	 *
 	 * @param array{shown: array, rest: array, hidden: array} $groups
 	 */
-	private static function visible_photos( array $groups ): array {
+	public static function visible_photos( array $groups ): array {
 		$photos = array_merge( $groups['shown'], $groups['rest'] );
 		usort( $photos, fn( $a, $b ) => (int) $a['t'] <=> (int) $b['t'] );
 		return $photos;
@@ -318,18 +316,16 @@ class View {
 	 * photos chosen, in the order they were chosen. A step's first section always has a text page, for its
 	 * title. A later one has one if it has a heading or text.
 	 *
-	 * @param \WP_Post[] $steps The steps the current user may see.
-	 * @return list<array{step: \WP_Post, sections: list<array{before: array, after: array, chosen: array, text_page: bool, first: bool}>}>
+	 * @param \WP_Post[] $steps   The steps the current user may see.
+	 * @param array      $by_step Those steps' photos, from Trips::photos_by_step().
+	 * @return list<array{step: \WP_Post, sections: list<array{text: array, chosen: array, text_page: bool, first: bool}>}>
 	 */
-	public static function print_book( \WP_Post $trip, array $steps ): array {
-		$ids = Trips::print_ids( $trip->ID );
-		if ( ! $ids ) {
-			return [];
-		}
-		$by_step = Trips::photos_by_step( $trip->ID, $steps );
+	public static function print_book( int $trip_id, array $steps, array $by_step ): array {
+		$ids     = Trips::print_ids( $trip_id );
+		$visible = Trips::visible_photos_by_step( $by_step );
 		$book    = [];
 		foreach ( $steps as $step ) {
-			if ( empty( $by_step[ $step->ID ] ) ) {
+			if ( ! array_intersect( $visible[ $step->ID ] ?? [], $ids ) ) {
 				continue;
 			}
 			$sections = [];
@@ -339,31 +335,31 @@ class View {
 					continue;
 				}
 				$first      = ! $sections;
+				$text       = array_merge( $section['before'], $section['after'] );
 				$sections[] = [
-					'before'    => $section['before'],
-					'after'     => $section['after'],
+					'text'      => $text,
 					'chosen'    => $chosen,
-					'text_page' => $first || '' !== trim( serialize_blocks( array_merge( $section['before'], $section['after'] ) ) ),
+					'text_page' => $first || '' !== trim( serialize_blocks( $text ) ),
 					'first'     => $first,
 				];
 			}
-			if ( $sections ) {
-				$book[] = [
-					'step'     => $step,
-					'sections' => $sections,
-				];
-			}
+			$book[] = [
+				'step'     => $step,
+				'sections' => $sections,
+			];
 		}
 		return $book;
 	}
 
 	/**
-	 * Whether the current user would find any chosen photos in the trip's print version.
+	 * Whether print_book() would have anything in it: every visible photo is in a section,
+	 * so it's whether any chosen photo is visible.
 	 *
-	 * @param \WP_Post[] $steps The steps the current user may see.
+	 * @param array $by_step The photos of the steps the current user may see, from Trips::photos_by_step().
 	 */
-	public static function has_print_book( \WP_Post $trip, array $steps ): bool {
-		return (bool) self::print_book( $trip, $steps );
+	public static function has_print_book( int $trip_id, array $by_step ): bool {
+		$visible = Trips::photo_id_set( Trips::visible_photos_by_step( $by_step ) );
+		return (bool) array_intersect_key( $visible, array_flip( Trips::print_ids( $trip_id ) ) );
 	}
 
 	/**
@@ -371,34 +367,28 @@ class View {
 	 * section's index, which together name a section across the page.
 	 *
 	 * @param \WP_Post[] $steps
+	 * @param array      $by_step Those steps' photos, from Trips::photos_by_step().
 	 * @return array<string, string> Keyed by photo id.
 	 */
-	public static function print_sections( int $trip_id, array $steps ): array {
-		$by_step  = Trips::photos_by_step( $trip_id, $steps );
+	public static function print_sections( array $steps, array $by_step ): array {
 		$sections = [];
 		foreach ( $steps as $step ) {
 			if ( empty( $by_step[ $step->ID ] ) ) {
 				continue;
 			}
-			foreach ( self::story_sections( $step, self::visible_photos( $by_step[ $step->ID ] ) ) as $section ) {
-				foreach ( $section['photos'] as $photo ) {
-					$sections[ $photo['id'] ] = $step->ID . '-' . $section['index'];
-				}
+			$starts = Days::anchor_times( $step->post_content );
+			sort( $starts );
+			foreach ( array_merge( $by_step[ $step->ID ]['shown'], $by_step[ $step->ID ]['rest'] ) as $photo ) {
+				$sections[ $photo['id'] ] = $step->ID . '-' . Days::section_index( $starts, (int) $photo['t'] );
 			}
 		}
 		return $sections;
 	}
 
 	/**
-	 * Echo a print section's heading and text, without its photos.
-	 *
-	 * @param array{before: array, after: array} $section
+	 * Echo blocks through the content filter, if they come to anything.
 	 */
-	public static function render_section_text( array $section ): void {
-		self::render_blocks( array_merge( $section['before'], $section['after'] ) );
-	}
-
-	private static function render_blocks( array $blocks ): void {
+	public static function render_blocks( array $blocks ): void {
 		$html = trim( serialize_blocks( $blocks ) );
 		if ( '' !== $html ) {
 			echo '<div class="ts-content">' . apply_filters( 'the_content', $html ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core content filter.

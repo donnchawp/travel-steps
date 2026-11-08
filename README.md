@@ -73,6 +73,21 @@ Photos are picked when the page loads, so pin and hide take effect at once. New 
 
 To add a step by hand, click **Add step**, set its date in the block editor and write it up. It shows that day's photos, and the next sync places it on the map.
 
+## Printing a trip
+
+The Print button on a trip's page opens it laid out for paper: a cover page with the header photo, dates, stats and intro, then each step on a new page, with its story and the photos visitors see under their place headings. Each place after a step's first also starts a page. There's no map. The browser's print dialog prints it, or saves it as a PDF to keep or share offline. Its button waits for every photo to load first.
+
+Each photo prints large or medium. Medium photos print side by side, in rows of two: six to a page if they're landscape, four if a row has a portrait or square photo. A large landscape photo prints across the page, two to a page, and a large portrait one on a page of its own. A row of photos never splits across pages, so the first row after a step's story fills whatever room the story leaves. A place's text moves to the next page with its first row of photos if they don't fit together, unless that row is a large portrait, which fills a page. By default a photo prints large when it's the only one of its place, as on the trip page, or a panorama (at least twice as wide as it's tall), unless its original is under 1200 pixels on its long side. To decide differently, filter it:
+
+```php
+// Print every favourite large.
+add_filter( 'travel_steps_print_size', fn( $size, $photo, $of_place ) => $photo['fav'] ? 'large' : $size, 10, 3 );
+```
+
+`$photo` is the photo's row: `w` and `h` (its original's pixels, upright), `fav`, `caption`, `t` and so on. `$of_place` is how many photos its place has. Return `'large'` or `'medium'`.
+
+Large photos are the preview size, the largest the proxy serves, and medium ones the medium size, which keeps the PDF smaller. The proxy makes both from the preview, which the photo cache keeps for Immich trips. So once a trip's photos are cached, it prints even when Immich is down. The layout fits both A4 and US Letter, but the browser picks the paper, so check the print dialog.
+
 ## Subscribing to a trip
 
 A published trip's page ends with a form to subscribe to it. A visitor enters an email address and confirms from the link emailed to them. Someone logged in gets a Subscribe button that subscribes their account at once, and the email goes to its current address. Subscribers see an Unsubscribe button there instead: logged-in ones by their account, others by a cookie set when they confirm, so on another browser they see the form again. On a protected trip, only people who can see the trip get the form.
@@ -154,6 +169,7 @@ The place names used offline ship in `data/geonames/`. They're towns of 500 peop
 |---|---|
 | `/travel-steps/` | Everyone: published trips (editors also see drafts, and password-protected trips are listed only to their editors and viewer lists) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox, or a password form for a protected trip. Editors can pin and hide photos. |
+| `/travel-steps/trip/{slug}/print` | The trip laid out for printing or saving as a PDF (see Printing a trip). Whoever can see the trip can print it. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, photos (Immich or uploads), visibility, sync, step list |
 | `/travel-steps/subscription` | Anyone with a link from a subscription email: confirms or ends that subscription |
 | `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius, photos to pick, how long cached photos are kept and the hour roundups go out |

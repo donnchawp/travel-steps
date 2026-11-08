@@ -1,0 +1,81 @@
+/* ---------- A trip's print version (templates/trip-print.php) ----------
+   Sized in millimetres to fit both A4 and US Letter with the margins below: the printable
+   area is at least 186mm × 255mm. A row is never split across pages, so a half-page row
+   leaves two to a page, and the first row after a step's story fills the space left there.
+   Portrait, as the tall row is taller than a landscape page. */
+
+@page { size: portrait; margin: 12mm; }
+
+.ts-print {
+	--ts-print-third: 78mm; /* Three of these and their gaps fit Letter's 255mm, and a 4:3 photo with a caption fits one. */
+	--ts-print-half: 120mm; /* Two of these and their gaps fit Letter's 255mm. */
+	--ts-print-full: 245mm;
+	--ts-print-gap: 4mm;
+	max-width: 192mm;
+	margin: 0 auto;
+	padding: 1.5rem 16px 4rem;
+}
+
+/* Only on screen: back to the trip, and the print button. */
+.ts-print-bar {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: .5rem 1rem;
+	padding: .6rem 16px;
+	background: var(--ts-surface);
+	border-bottom: 1px solid var(--ts-line);
+}
+.ts-print-status { flex: 1; color: var(--ts-muted); font-size: .9rem; }
+.ts-print-button:disabled { opacity: .6; cursor: progress; }
+
+.ts-print-cover h1 { margin: .2rem 0 .6rem; font-size: 2.4rem; line-height: 1.1; }
+.ts-print-cover-img { display: block; width: 100%; max-height: 150mm; object-fit: cover; border-radius: 4px; margin-bottom: 6mm; }
+.ts-print-dates { margin: 0; font-weight: 600; color: var(--ts-muted); }
+.ts-print-cover .ts-stats { margin-bottom: 6mm; }
+
+/* Each step starts a page. */
+.ts-print-step { break-before: page; padding-top: 2rem; }
+.ts-print-step h2 { margin: .1rem 0 .5rem; font-size: 1.6rem; break-after: avoid; }
+.ts-print .ts-content h2, .ts-print .ts-content h3 { break-after: avoid; }
+.ts-print .ts-content p { orphans: 3; widows: 3; }
+
+.ts-print-row {
+	display: grid;
+	gap: var(--ts-print-gap);
+	height: var(--ts-print-half);
+	margin: var(--ts-print-gap) 0;
+	break-inside: avoid;
+}
+.ts-print-row.is-low, .ts-print-row.is-pair { grid-template-columns: 1fr 1fr; }
+.ts-print-row.is-low { height: var(--ts-print-third); }
+.ts-print-row.is-tall { height: var(--ts-print-full); }
+/* A place's text stays with its first row of photos. A tall row fills a page, so it can't. */
+.ts-print .ts-content:has(+ .ts-print-row:not(.is-tall)) { break-after: avoid; }
+/* Each place after a step's first starts a page. The first stays under the step's title,
+   unless photos taken before it come between them. */
+.ts-print-row ~ .ts-content:has(> [id^="ts-place-"]:first-child),
+.ts-content:has(> [id^="ts-place-"]:first-child) ~ .ts-content:has(> [id^="ts-place-"]:first-child) { break-before: page; }
+
+/* The photo keeps its shape inside its cell, centred, with the caption just under it. */
+.ts-print-photo { display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 0; min-height: 0; margin: 0; }
+.ts-print-photo img { flex: 0 1 auto; max-width: 100%; max-height: 100%; width: auto; height: auto; min-height: 0; object-fit: contain; }
+.ts-print-photo figcaption { padding-top: 1.5mm; color: var(--ts-muted); font-size: 8.5pt; line-height: 1.3; text-align: center; }
+
+@media print {
+	html body.ts-body:not(#ts-none) { background: #fff; color: #000; font-size: 11pt; }
+	.ts-print-bar, .wp-app-masterbar, #wpadminbar { display: none !important; }
+	html { margin-top: 0 !important; }
+	.ts-print { max-width: none; padding: 0; }
+	.ts-print-step { padding-top: 0; }
+	/* Keep the badge and place chips' fills, which browsers drop by default. */
+	.ts-print .ts-badge, .ts-print .ts-places li { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+/* On a phone the paper sizes would overflow: let rows follow the screen instead. */
+@media screen and (max-width: 720px) {
+	.ts-print { --ts-print-third: 40vw; --ts-print-half: 70vw; --ts-print-full: 130vw; }
+}

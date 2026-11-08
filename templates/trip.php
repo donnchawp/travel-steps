@@ -1,6 +1,5 @@
 <?php
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template variables are render-local state.
-// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from the password form's redirect.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -9,33 +8,9 @@ use TravelSteps\Subscriptions;
 use TravelSteps\Trips;
 use TravelSteps\View;
 
-$trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
-// Core does this for a singular post with a password; this route isn't one, so a page
-// cache could otherwise keep the unlocked trip and serve it to everyone. The password
-// form posts here too: that sets core's cookie and redirects. A share link sets its own
-// cookie, and shows the trip in the same request.
-$shared = false;
-if ( $trip && Trips::is_protected( $trip ) ) {
-	nocache_headers();
-	// For page caches that go by this rather than the headers.
-	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
-		define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Page caches' own constant.
-	}
-	Trips::handle_password_post( $trip );
-	$shared = Trips::handle_share_link( $trip );
-}
-if ( $trip && Trips::needs_password( $trip ) ) {
-	include __DIR__ . '/_password.php';
+$trip = include __DIR__ . '/_trip-gate.php';
+if ( ! $trip ) {
 	return;
-}
-if ( ! $trip || ! Trips::can_view( $trip ) ) {
-	include __DIR__ . '/_notfound.php';
-	return;
-}
-// In with the password: drop the form's flag, so a copied link doesn't carry it.
-if ( isset( $_GET['tried'] ) ) {
-	wp_safe_redirect( Trips::url( $trip ) );
-	exit;
 }
 // The subscribe form posts here, so only those who can see the trip get this far.
 Subscriptions::handle_post( $trip );
@@ -130,13 +105,15 @@ include __DIR__ . '/_header.php';
 					<li><strong><?php echo esc_html( $value ); ?></strong> <?php echo esc_html( $label ); ?></li>
 				<?php endforeach; ?>
 			</ul>
-			<?php if ( $can_curate ) : ?>
-				<p class="ts-form-actions">
+			<p class="ts-form-actions">
+				<?php if ( $can_curate ) : ?>
 					<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
 					<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
 					<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps-storyteller' ); ?></button>
-				</p>
-			<?php endif; ?>
+				<?php endif; ?>
+				<?php // A share link's visitor has its cookie by now, so the plain URL lets them in. ?>
+				<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'print' ) ); ?>"><?php esc_html_e( 'Print', 'travel-steps-storyteller' ); ?></a>
+			</p>
 		</div>
 	</header>
 

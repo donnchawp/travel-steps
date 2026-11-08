@@ -456,19 +456,21 @@ class Trips {
 	}
 
 	/**
-	 * The password form posts to the trip page, so a protected trip needs no route besides
-	 * its own: a site may close wp-login.php to visitors. This does what core's
+	 * The password form posts to the page it's on, so a protected trip needs no route of
+	 * its own for it: a site may close wp-login.php to visitors. This does what core's
 	 * wp-login.php?action=postpass does: sets its cookie to a hash of whatever was typed,
-	 * without checking it, and sends the visitor back to the trip with "tried", where
+	 * without checking it, and sends the visitor back to that page with "tried", where
 	 * needs_password() decides. No nonce, as in core: a forged post can only set a cookie
 	 * for a password the forger already knows. Returns if there's nothing to handle.
+	 *
+	 * @param string $suffix The page's url() suffix, which the page sets, not the request.
 	 */
-	public static function handle_password_post( \WP_Post $trip ): void {
+	public static function handle_password_post( \WP_Post $trip, string $suffix = '' ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- As core's form handler.
 		if ( ! isset( $_POST['post_password'] ) || 'publish' !== $trip->post_status || ! self::is_protected( $trip ) ) {
 			return;
 		}
-		$to = add_query_arg( 'tried', '1', self::url( $trip ) );
+		$to = add_query_arg( 'tried', '1', self::url( $trip, $suffix ) );
 		if ( is_string( $_POST['post_password'] ) ) {
 			require_once ABSPATH . WPINC . '/class-phpass.php';
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hashed, as core does: sanitising would change the password.

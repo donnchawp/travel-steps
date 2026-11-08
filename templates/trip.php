@@ -1,6 +1,5 @@
 <?php
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Template variables are render-local state.
-// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only flag from the password form's redirect.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -9,33 +8,9 @@ use TravelSteps\Subscriptions;
 use TravelSteps\Trips;
 use TravelSteps\View;
 
-$trip = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
-// Core does this for a singular post with a password; this route isn't one, so a page
-// cache could otherwise keep the unlocked trip and serve it to everyone. The password
-// form posts here too: that sets core's cookie and redirects. A share link sets its own
-// cookie, and shows the trip in the same request.
-$shared = false;
-if ( $trip && Trips::is_protected( $trip ) ) {
-	nocache_headers();
-	// For page caches that go by this rather than the headers.
-	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
-		define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Page caches' own constant.
-	}
-	Trips::handle_password_post( $trip );
-	$shared = Trips::handle_share_link( $trip );
-}
-if ( $trip && Trips::needs_password( $trip ) ) {
-	include __DIR__ . '/_password.php';
+$trip = include __DIR__ . '/_trip-gate.php';
+if ( ! $trip ) {
 	return;
-}
-if ( ! $trip || ! Trips::can_view( $trip ) ) {
-	include __DIR__ . '/_notfound.php';
-	return;
-}
-// In with the password: drop the form's flag, so a copied link doesn't carry it.
-if ( isset( $_GET['tried'] ) ) {
-	wp_safe_redirect( Trips::url( $trip ) );
-	exit;
 }
 // The subscribe form posts here, so only those who can see the trip get this far.
 Subscriptions::handle_post( $trip );
@@ -52,13 +27,19 @@ $authed     = $can_edit || Trips::by_login( $trip );
 $steps      = Trips::timeline_steps( $trip, $can_edit );
 $by_step    = Trips::photos_by_step( $trip->ID, $steps );
 $pinned     = array_flip( Trips::pinned( $trip->ID ) );
+// Which section each photo is in, for those who choose photos to print. Hidden ones aren't in it.
+$print_sections = $can_curate ? View::print_sections( $trip->ID, $steps ) : [];
 
 // Grids use the medium size; a photo shown alone fills the column, so it gets the preview.
 $cover_id     = Trips::cover( $trip->ID );
 $uploads      = Trips::uses_uploads( $trip->ID ); // Every upload is a favourite: no heart.
-$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $can_curate, $cover_id, $uploads ) {
+$render_photo = function ( array $photo, string $state, string $size = 'medium' ) use ( $trip, $can_curate, $cover_id, $uploads, $print_sections ) {
+	$print_section = $print_sections[ $photo['id'] ] ?? '';
 	?>
-	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
+	<figure class="ts-photo is-<?php echo esc_attr( $state ); ?>" data-asset="<?php echo esc_attr( $photo['id'] ); ?>" data-state="<?php echo esc_attr( $state ); ?>"
+		<?php if ( '' !== $print_section ) : ?>
+			data-print-section="<?php echo esc_attr( $print_section ); ?>"
+		<?php endif; ?>>
 		<button type="button" class="ts-photo-open"
 			data-full="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
 			data-caption="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>"
@@ -77,7 +58,15 @@ $render_photo = function ( array $photo, string $state, string $size = 'medium' 
 				<button type="button" class="ts-photo-state" data-set="pinned" aria-pressed="<?php echo 'pinned' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Always show this photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Pin', 'travel-steps-storyteller' ); ?></button>
 				<button type="button" class="ts-photo-state" data-set="hidden" aria-pressed="<?php echo 'hidden' === $state ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Never show this photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Hide', 'travel-steps-storyteller' ); ?></button>
 				<button type="button" class="ts-photo-cover" aria-pressed="<?php echo $cover_id === $photo['id'] ? 'true' : 'false'; ?>" title="<?php esc_attr_e( 'Use as the trip’s header photo', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Cover', 'travel-steps-storyteller' ); ?></button>
+				<?php if ( '' !== $print_section ) : ?>
+					<button type="button" class="ts-photo-print" aria-pressed="false" title="<?php esc_attr_e( 'Include in the print version', 'travel-steps-storyteller' ); ?>"><?php esc_html_e( 'Print', 'travel-steps-storyteller' ); ?></button>
+					<button type="button" class="ts-photo-lead" title="<?php esc_attr_e( 'Print this photo first, alone on its page', 'travel-steps-storyteller' ); ?>" hidden><?php esc_html_e( 'Make lead', 'travel-steps-storyteller' ); ?></button>
+				<?php endif; ?>
 			</span>
+			<?php if ( '' !== $print_section ) : ?>
+				<?php // The script fills this in: it's on the photo as "Show more" photos sit away from their section. ?>
+				<span class="ts-photo-print-tag" hidden></span>
+			<?php endif; ?>
 		<?php endif; ?>
 	</figure>
 	<?php
@@ -114,6 +103,15 @@ include __DIR__ . '/_header.php';
 <article class="ts-trip"
 	data-api="<?php echo esc_url( rest_url( RestController::NS . '/trips/' . $trip->ID ) ); ?>"
 	data-nonce="<?php echo esc_attr( $authed ? wp_create_nonce( 'wp_rest' ) : '' ); ?>"
+	<?php if ( $can_curate ) : ?>
+		data-print-ids="<?php echo esc_attr( (string) wp_json_encode( Trips::print_ids( $trip->ID ) ) ); ?>"
+		data-print-lead="<?php esc_attr_e( 'Lead', 'travel-steps-storyteller' ); ?>"
+		<?php /* translators: %1$s: the photo's place among its section's chosen photos, %2$s: how many are chosen */ ?>
+		data-print-of="<?php esc_attr_e( '%1$s of %2$s', 'travel-steps-storyteller' ); ?>"
+		data-print-best="<?php echo (int) \TravelSteps\PrintLayout::BEST; ?>"
+		<?php /* translators: %1$s: a chosen photo's label, such as "6 of 6", %2$d: how many photos a section is best with */ ?>
+		data-print-many="<?php echo esc_attr( sprintf( __( '%%s, best with %d', 'travel-steps-storyteller' ), \TravelSteps\PrintLayout::BEST ) ); ?>"
+	<?php endif; ?>
 	<?php if ( $shared ) : ?>
 		data-clean-url="<?php echo esc_url( Trips::url( $trip ) ); ?>"
 	<?php endif; ?>>
@@ -130,11 +128,18 @@ include __DIR__ . '/_header.php';
 					<li><strong><?php echo esc_html( $value ); ?></strong> <?php echo esc_html( $label ); ?></li>
 				<?php endforeach; ?>
 			</ul>
-			<?php if ( $can_curate ) : ?>
+			<?php // Printing takes a login. Editors get the button with nothing chosen, as the print page tells them what to do. ?>
+			<?php $can_print = is_user_logged_in() && ( $can_edit || View::has_print_book( $trip, $steps ) ); ?>
+			<?php if ( $can_curate || $can_print ) : ?>
 				<p class="ts-form-actions">
-					<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
-					<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
-					<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps-storyteller' ); ?></button>
+					<?php if ( $can_curate ) : ?>
+						<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
+						<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
+						<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps-storyteller' ); ?></button>
+					<?php endif; ?>
+					<?php if ( $can_print ) : ?>
+						<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'print' ) ); ?>"><?php esc_html_e( 'Print', 'travel-steps-storyteller' ); ?></a>
+					<?php endif; ?>
 				</p>
 			<?php endif; ?>
 		</div>

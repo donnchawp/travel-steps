@@ -450,6 +450,60 @@
 		} );
 	} );
 
+	/* ---------- Photos to print (editors) ---------- */
+
+	const printFigures = Array.from( root.querySelectorAll( '.ts-photo[data-print-section]' ) );
+
+	// Shows the list of chosen photos on the page. As on the print page, a section's lead is
+	// the first of its photos in the list. A photo in the list that's hidden has no figure.
+	function showPrintIds( ids ) {
+		const bySection = {};
+		const inSection = new Set( printFigures.map( ( figure ) => figure.dataset.asset ) );
+		ids.filter( ( id ) => inSection.has( id ) ).forEach( ( id ) => {
+			const section = printFigures.find( ( figure ) => figure.dataset.asset === id ).dataset.printSection;
+			( bySection[ section ] = bySection[ section ] || [] ).push( id );
+		} );
+		printFigures.forEach( ( figure ) => {
+			const chosen = bySection[ figure.dataset.printSection ] || [];
+			const place = chosen.indexOf( figure.dataset.asset );
+			const tag = figure.querySelector( '.ts-photo-print-tag' );
+			figure.classList.toggle( 'is-print', place >= 0 );
+			figure.querySelector( '.ts-photo-print' ).setAttribute( 'aria-pressed', place >= 0 ? 'true' : 'false' );
+			figure.querySelector( '.ts-photo-lead' ).hidden = place < 1;
+			tag.hidden = place < 0;
+			let label = 0 === place
+				? root.dataset.printLead
+				: root.dataset.printOf.replace( '%1$s', place + 1 ).replace( '%2$s', chosen.length );
+			if ( chosen.length > Number( root.dataset.printBest ) ) {
+				label = root.dataset.printMany.replace( '%s', label );
+			}
+			tag.textContent = label;
+		} );
+	}
+
+	function setPrintPhoto( btn, action ) {
+		btn.disabled = true;
+		api( '/print-photo', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { asset: btn.closest( '.ts-photo' ).dataset.asset, action } ),
+		} ).then( ( result ) => {
+			showPrintIds( result.ids );
+		} ).finally( () => {
+			btn.disabled = false;
+		} );
+	}
+
+	if ( printFigures.length ) {
+		showPrintIds( JSON.parse( root.dataset.printIds ) );
+		root.querySelectorAll( '.ts-photo-print' ).forEach( ( btn ) => {
+			btn.addEventListener( 'click', () => setPrintPhoto( btn, 'true' === btn.getAttribute( 'aria-pressed' ) ? 'remove' : 'add' ) );
+		} );
+		root.querySelectorAll( '.ts-photo-lead' ).forEach( ( btn ) => {
+			btn.addEventListener( 'click', () => setPrintPhoto( btn, 'lead' ) );
+		} );
+	}
+
 	/* ---------- Photo tools on touch screens (editors) ---------- */
 
 	const editPhotos = root.querySelector( '.ts-edit-photos' );

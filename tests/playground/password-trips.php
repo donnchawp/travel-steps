@@ -56,6 +56,7 @@ $pw_core = function ( int $trip ) use ( $get, $refused ) {
 $pw_reach = function ( int $trip, int $step ) use ( $render, $get, $pw_core, $pw_photo, $pw_cover ) {
 	return [
 		'page'  => $render( 'trip.php', (string) $trip ),
+		'print' => $render( 'trip-print.php', (string) $trip ),
 		'rest'  => $get( '/travel-steps/v1/trips/' . $trip ),
 		'proxy' => RestController::photo_answer( $trip, $pw_photo, 'thumbnail', '' ),
 		'photo' => RestController::access( $trip, $pw_photo ),
@@ -83,6 +84,8 @@ wp_set_current_user( 0 );
 $pw_enter( null );
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'no password: visitors see the whole trip', false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 200 === $seen['step'] );
+check( 'no password: a logged-out visitor gets no print version', false !== strpos( $seen['print'], 'Trip not found' ) && false === strpos( $seen['print'], $pw_photo ) );
+check( '…and the trip page doesn’t link to it', false === strpos( $seen['page'], esc_url( Trips::url( get_post( $pw_a ), 'print' ) ) ) );
 check( 'no password: its photos and REST stay in shared caches', 'public' === $seen['photo'] && 'public' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
 // Anyone who can edit the trip gets its photos as private; those who can't get them as a visitor does.
 $pw_as     = function ( int $user, callable $fn ) {
@@ -121,6 +124,7 @@ check( '…posting to the trip page, never wp-login.php', 1 === preg_match( '#<f
 check( '…titled without “Protected:”', 1 === preg_match( '#<title>Hidden Lisbon\b#', $seen['page'] ) && false === strpos( $seen['page'], 'Protected:' ), substr( $seen['page'], 0, 400 ) );
 check( '…and nothing else of the trip', false === strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'Lisbon day' ) && false === strpos( $seen['page'], 'ts-map' ) && false === strpos( $seen['page'], $pw_photo ) && false === strpos( $seen['page'], $pw_cover ) && false === strpos( $seen['page'], 'ts-hero-img' ) && false === strpos( $seen['page'], 'ts-stats' ) );
 check( '…no wrong-password message on a first visit', false === strpos( $seen['page'], 'That password isn’t right' ) );
+check( 'password: a logged-out visitor gets no print version, and no form', false !== strpos( $seen['print'], 'Trip not found' ) && false === strpos( $seen['print'], 'name="post_password"' ) && false === strpos( $seen['print'], 'Secret story' ) );
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && [ 404, 'no-store' ] === [ $seen['proxy']['status'], $seen['proxy']['cache'] ] && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']['status'], $seen['photo'], $seen['cover'], $seen['step'] ] );
 $pw_moved = $get( '/travel-steps/v1/trips/' . $pw_a . '/photo/' . $pw_photo, [ 'size' => 'medium' ] );
 check( '…and a photo URL from when REST served photos sends them to where it is now, which refuses them', 301 === $pw_moved->get_status() && RestController::photo_url( $pw_a, $pw_photo, 'medium' ) === ( $pw_moved->get_headers()['Location'] ?? '' ), [ $pw_moved->get_status(), $pw_moved->get_headers() ] );
@@ -135,7 +139,7 @@ $res = $get( '/wp/v2/travel_steps_trip/' . $pw_a, [ 'password' => 'open sesame' 
 check( '…not even with core’s ?password= and the right password', $refused( $res->get_status() ), [ $res->get_status(), $res->get_data() ] );
 
 // A trip page render that redirects: where to, or null if it rendered, leaving the page in $page.
-$pw_redirect = function ( $trip, &$page = null ) use ( $render ) {
+$pw_redirect = function ( $trip, &$page = null, $tpl = 'trip.php' ) use ( $render ) {
 	$to    = null;
 	$catch = function ( $location ) use ( &$to ) {
 		$to = $location;
@@ -145,7 +149,7 @@ $pw_redirect = function ( $trip, &$page = null ) use ( $render ) {
 	$level = ob_get_level();
 	$page  = null;
 	try {
-		$page = $render( 'trip.php', (string) $trip );
+		$page = $render( $tpl, (string) $trip );
 	} catch ( RuntimeException $e ) {
 		unset( $e );
 	}
@@ -183,6 +187,7 @@ check( '…the unlocked page is kept out of page caches too', $pw_nocache( $pw_a
 // There it shows the whole trip, its photos kept out of shared caches.
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'right password: the whole trip, and no message', false !== strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'That password isn’t right' ) && false === strpos( $seen['page'], 'name="post_password"' ) );
+check( '…but no print version, logged out', false !== strpos( $seen['print'], 'Trip not found' ) );
 check( '…REST and its steps let them in', 200 === $seen['rest']->get_status() && 200 === $seen['step'], [ $seen['rest']->get_status(), $seen['step'] ] );
 check( '…and core REST serves and lists it', 'open' === $seen['core'], $seen['core'] );
 check( '…its photos and REST are private', 'private' === $seen['photo'] && 'private' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'private' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
@@ -192,10 +197,10 @@ check( '…but the landing page still doesn’t list it', false === strpos( $see
 // The form posts to the trip page, which sets core's cookie as wp-login.php?action=postpass
 // would and sends the visitor back flagged. Returns where to, the Set-Cookie header for
 // core's cookie, or null if it set none, and the page if it rendered one.
-$pw_post = function ( $trip, $password, array $extra = [] ) use ( $pw_redirect ) {
+$pw_post = function ( $trip, $password, array $extra = [], $tpl = 'trip.php' ) use ( $pw_redirect ) {
 	header_remove( 'Set-Cookie' );
 	$_POST    = $_REQUEST = [ 'post_password' => $password ] + $extra;
-	$to       = $pw_redirect( $trip, $page );
+	$to       = $pw_redirect( $trip, $page, $tpl );
 	$_POST    = $_REQUEST = [];
 	$cookie   = null;
 	foreach ( headers_list() as $header ) {

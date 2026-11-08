@@ -73,6 +73,16 @@ Photos are picked when the page loads, so pin and hide take effect at once. New 
 
 To add a step by hand, click **Add step**, set its date in the block editor and write it up. It shows that day's photos, and the next sync places it on the map.
 
+## Printing a trip
+
+A trip prints as a short book of photos you choose. On the trip's page, press Print on a photo to add it to the book. This changes nothing visitors see. Photos print in the order you choose them. The first for a place is its lead, and Make lead changes that. A tag on each chosen photo gives its place, such as `2 of 5`. Five photos a place works best, as they fill three pages. More are allowed, and the tag says so.
+
+The Print button at the top of the trip's page opens the book: a cover page with the header photo, dates, stats and intro, then for each place with photos chosen, its text centred on a page, its lead alone on a page, then its other photos two to a page. Text pages are always left pages when printed double-sided, so a blank page goes before one that would land on the right. Five photos with a page of text need no blank page. A place with no photos chosen is left out, text and all, and a step with none is left out altogether. A hidden photo doesn't print, even if it was chosen, except as the trip's cover. If text doesn't fit on a page, it runs on from the top of the next. The browser's print dialog prints the book, or saves it as a PDF to keep or share offline. Its button waits for every photo to load first.
+
+Printing takes a login. Anyone logged in who can see the trip gets the button once photos are chosen on steps they can see, and editors always do. A share link doesn't open the book unless its visitor is logged in.
+
+Every photo is the preview size, the largest the proxy serves, which the photo cache keeps for Immich trips. So once a trip's photos are cached, it prints even when Immich is down. A portrait prints smaller than a landscape, at most 137×183mm, so it stays sharp. The layout fits both A4 and US Letter, but the browser picks the paper, so check the print dialog.
+
 ## Subscribing to a trip
 
 A published trip's page ends with a form to subscribe to it. A visitor enters an email address and confirms from the link emailed to them. Someone logged in gets a Subscribe button that subscribes their account at once, and the email goes to its current address. Subscribers see an Unsubscribe button there instead: logged-in ones by their account, others by a cookie set when they confirm, so on another browser they see the form again. On a protected trip, only people who can see the trip get the form.
@@ -154,6 +164,7 @@ The place names used offline ship in `data/geonames/`. They're towns of 500 peop
 |---|---|
 | `/travel-steps/` | Everyone: published trips (editors also see drafts, and password-protected trips are listed only to their editors and viewer lists) |
 | `/travel-steps/trip/{slug}` | Map, route and step timeline with photos and lightbox, or a password form for a protected trip. Editors can pin and hide photos. |
+| `/travel-steps/trip/{slug}/print` | A book of the trip's chosen photos, for printing or saving as a PDF (see Printing a trip). Takes a login, and being able to see the trip. |
 | `/travel-steps/new`, `/travel-steps/trip/{slug}/edit` | Trip managers (see Privacy): dates, photos (Immich or uploads), visibility, sync, step list |
 | `/travel-steps/subscription` | Anyone with a link from a subscription email: confirms or ends that subscription |
 | `/travel-steps/settings` | Trip makers: their own Immich and Dawarich keys, home and viewer list. Admins also: the server URLs, place radius, photos to pick, how long cached photos are kept and the hour roundups go out |

@@ -6,7 +6,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 /**
  * A published trip's title and password form, for a visitor who needs its password.
- * Set $trip before including. The form posts to the trip page, where
+ * Set $trip before including, and $trip_suffix on a page other than the trip's own. The
+ * form posts to the page it's on, where
  * Trips::handle_password_post() sets core's cookie and sends the visitor back with "tried"
  * added, so a visit with that flag and the cookie which still needs the password follows a
  * wrong one. Without the cookie it's a copied link, not a wrong guess.
@@ -18,7 +19,7 @@ include __DIR__ . '/_header.php';
 ?>
 <div class="ts-page ts-narrow">
 	<h1><?php echo esc_html( $page_title ); ?></h1>
-	<form class="ts-form ts-password-form" method="post" action="<?php echo esc_url( Trips::url( $trip ) ); ?>">
+	<form class="ts-form ts-password-form" method="post" action="<?php echo esc_url( Trips::url( $trip, $trip_suffix ?? '' ) ); ?>">
 		<?php if ( isset( $_GET['tried'], $_COOKIE[ Trips::password_cookie() ] ) ) : ?>
 			<p class="ts-notice is-error" role="alert"><?php esc_html_e( 'That password isn’t right.', 'travel-steps-storyteller' ); ?></p>
 		<?php endif; ?>

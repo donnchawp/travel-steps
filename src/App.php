@@ -125,6 +125,8 @@ class App extends BaseApp {
 		$this->app->route( 'new', 'trip-edit.php', [], Trips::capability() );
 		$this->app->route( 'settings', 'settings.php', [], Trips::capability() );
 		$this->app->route( 'trip/{slug}/edit', 'trip-edit.php', [], Trips::capability() );
+		// The trip laid out for paper: whoever may see the trip may print it.
+		$this->app->route( 'trip/{slug}/print', 'trip-print.php' );
 		$this->app->route( 'trip/{slug}', 'trip.php' );
 		// Confirm and unsubscribe links in emails: they work whatever the trip's status.
 		$this->app->route( 'subscription', 'subscription.php' );

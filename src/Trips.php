@@ -32,6 +32,7 @@ class Trips {
 	const META_PHOTOS = '_travel_steps_photos';         // JSON: list of photo rows (see PhotoSource::photos) + step.
 	const META_HIDDEN = '_travel_steps_hidden';         // array of hidden photo ids.
 	const META_PINNED = '_travel_steps_pinned';         // array of photo ids always shown.
+	const META_PRINT  = '_travel_steps_print';          // array of photo ids chosen to print, in order.
 	const META_COVER  = '_travel_steps_cover';          // photo id chosen for the header, else automatic.
 	const META_STATS  = '_travel_steps_stats';          // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
 	const META_SYNCED = '_travel_steps_synced';         // unix timestamp of last sync.
@@ -456,19 +457,21 @@ class Trips {
 	}
 
 	/**
-	 * The password form posts to the trip page, so a protected trip needs no route besides
-	 * its own: a site may close wp-login.php to visitors. This does what core's
+	 * The password form posts to the page it's on, so a protected trip needs no route of
+	 * its own for it: a site may close wp-login.php to visitors. This does what core's
 	 * wp-login.php?action=postpass does: sets its cookie to a hash of whatever was typed,
-	 * without checking it, and sends the visitor back to the trip with "tried", where
+	 * without checking it, and sends the visitor back to that page with "tried", where
 	 * needs_password() decides. No nonce, as in core: a forged post can only set a cookie
 	 * for a password the forger already knows. Returns if there's nothing to handle.
+	 *
+	 * @param string $suffix The page's url() suffix, which the page sets, not the request.
 	 */
-	public static function handle_password_post( \WP_Post $trip ): void {
+	public static function handle_password_post( \WP_Post $trip, string $suffix = '' ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- As core's form handler.
 		if ( ! isset( $_POST['post_password'] ) || 'publish' !== $trip->post_status || ! self::is_protected( $trip ) ) {
 			return;
 		}
-		$to = add_query_arg( 'tried', '1', self::url( $trip ) );
+		$to = add_query_arg( 'tried', '1', self::url( $trip, $suffix ) );
 		if ( is_string( $_POST['post_password'] ) ) {
 			require_once ABSPATH . WPINC . '/class-phpass.php';
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hashed, as core does: sanitising would change the password.
@@ -772,6 +775,16 @@ class Trips {
 
 	public static function pinned( int $trip_id ): array {
 		return self::id_list( $trip_id, self::META_PINNED );
+	}
+
+	/**
+	 * The photos chosen for the trip's print version, independent of pinned and hidden. The
+	 * first of a section's photos here is its lead (see PrintLayout).
+	 *
+	 * @return string[]
+	 */
+	public static function print_ids( int $trip_id ): array {
+		return self::id_list( $trip_id, self::META_PRINT );
 	}
 
 	private static function id_list( int $trip_id, string $key ): array {

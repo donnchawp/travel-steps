@@ -363,8 +363,9 @@ class View {
 	}
 
 	/**
-	 * Each non-hidden photo's section, for the trip page's Print buttons: its step's id and
-	 * section's index, which together name a section across the page.
+	 * Each photo's section, for the trip page's Print buttons: its step's id and section's
+	 * index, which together name a section across the page. Hidden photos are included, as
+	 * one can be unhidden without a reload.
 	 *
 	 * @param \WP_Post[] $steps
 	 * @param array      $by_step Those steps' photos, from Trips::photos_by_step().
@@ -378,7 +379,7 @@ class View {
 			}
 			$starts = Days::anchor_times( $step->post_content );
 			sort( $starts );
-			foreach ( array_merge( $by_step[ $step->ID ]['shown'], $by_step[ $step->ID ]['rest'] ) as $photo ) {
+			foreach ( array_merge( $by_step[ $step->ID ]['shown'], $by_step[ $step->ID ]['rest'], $by_step[ $step->ID ]['hidden'] ) as $photo ) {
 				$sections[ $photo['id'] ] = $step->ID . '-' . Days::section_index( $starts, (int) $photo['t'] );
 			}
 		}

@@ -444,6 +444,7 @@
 				figure.querySelectorAll( '.ts-photo-state' ).forEach( ( b ) => {
 					b.setAttribute( 'aria-pressed', b.dataset.set === state ? 'true' : 'false' );
 				} );
+				showPrintIds( printIds ); // A hidden photo doesn't print, so its section's labels change.
 			} ).finally( () => {
 				btn.disabled = false;
 			} );
@@ -453,16 +454,20 @@
 	/* ---------- Photos to print (editors) ---------- */
 
 	const printFigures = Array.from( root.querySelectorAll( '.ts-photo[data-print-section]' ) );
-	const sectionOf = new Map( printFigures.map( ( figure ) => [ figure.dataset.asset, figure.dataset.printSection ] ) );
+	const figureOf = new Map( printFigures.map( ( figure ) => [ figure.dataset.asset, figure ] ) );
+	let printIds = [];
 
 	// Shows the list of chosen photos on the page. As on the print page, a section's lead is
-	// the first of its photos in the list. A photo in the list that's hidden has no figure.
+	// the first of its photos in the list, and a photo that's hidden doesn't count.
 	function showPrintIds( ids ) {
+		printIds = ids;
 		const bySection = {};
-		ids.filter( ( id ) => sectionOf.has( id ) ).forEach( ( id ) => {
-			const section = sectionOf.get( id );
-			( bySection[ section ] = bySection[ section ] || [] ).push( id );
-		} );
+		ids.map( ( id ) => figureOf.get( id ) )
+			.filter( ( figure ) => figure && 'hidden' !== figure.dataset.state )
+			.forEach( ( figure ) => {
+				const section = figure.dataset.printSection;
+				( bySection[ section ] = bySection[ section ] || [] ).push( figure.dataset.asset );
+			} );
 		printFigures.forEach( ( figure ) => {
 			const chosen = bySection[ figure.dataset.printSection ] || [];
 			const place = chosen.indexOf( figure.dataset.asset );

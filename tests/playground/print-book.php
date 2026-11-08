@@ -216,11 +216,12 @@ $pb_figure = function ( string $page, string $asset ) {
 };
 check( 'trip page: an editor gets a Print toggle on a shown photo', false !== strpos( $pb_figure( $pb_page, $pb_id( 61 ) ), 'ts-photo-print' ) );
 check( '…and on one behind “Show more”', false !== strpos( $pb_figure( $pb_page, $pb_spare['id'] ), 'ts-photo-print' ) );
-check( '…not on a hidden one', '' !== $pb_figure( $pb_page, $pb_id( 66 ) ) && false === strpos( $pb_figure( $pb_page, $pb_id( 66 ) ), 'ts-photo-print' ) );
 check( '…labelled Print, with Make lead beside it', false !== strpos( $pb_figure( $pb_page, $pb_id( 61 ) ), '>Print<' ) && false !== strpos( $pb_figure( $pb_page, $pb_id( 61 ) ), '>Make lead<' ) );
 $pb_section = fn( string $figure ) => preg_match( '#data-print-section="([^"]+)"#', $figure, $m ) ? $m[1] : '';
 check( '…photos of one place share a section', '' !== $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_id( 62 ) ) ) );
 check( '…another place’s don’t', $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) !== $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_spare['id'] ) ) );
+// The stylesheet hides a hidden photo's toggle. It's there so unhiding needs no reload.
+check( '…a hidden photo has its section and toggle ready for when it’s unhidden', false !== strpos( $pb_figure( $pb_page, $pb_id( 66 ) ), 'ts-photo-print' ) && $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_id( 66 ) ) ), $pb_figure( $pb_page, $pb_id( 66 ) ) );
 check( '…and the page says how many work best', false !== strpos( $render( 'trip.php', (string) $pb_o ), 'data-print-best="' . \TravelSteps\PrintLayout::BEST . '"' ) && false !== strpos( $render( 'trip.php', (string) $pb_o ), '%s, best with 5' ) );
 check( '…and the page holds the chosen list, in order', false !== strpos( $pb_page, 'data-print-ids="' . esc_attr( wp_json_encode( [ $pb_id( 62 ), $pb_id( 61 ) ] ) ) . '"' ) );
 wp_set_current_user( 0 );

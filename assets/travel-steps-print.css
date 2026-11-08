@@ -7,7 +7,8 @@
 @page { size: portrait; margin: 12mm; }
 
 .ts-print {
-	--ts-print-page: 255mm;
+	--ts-print-paper: 255mm; /* The shorter paper's printable height, Letter's. */
+	--ts-print-page: var(--ts-print-paper);
 	max-width: 192mm;
 	margin: 0 auto;
 	padding: 1.5rem 16px 4rem;
@@ -36,7 +37,7 @@
 
 /* A section's text. The script adds is-short to text that fits on a page, to centre it. */
 .ts-book-text { break-before: page; padding-top: 2rem; }
-.ts-book-text.is-short { display: grid; grid-template-columns: fit-content(136mm); align-content: center; justify-content: center; min-height: var(--ts-print-page); padding: 0; box-sizing: border-box; }
+.ts-book-text.is-short { display: grid; grid-template-columns: fit-content(136mm); align-content: center; justify-content: center; min-height: var(--ts-print-page); padding: 0; }
 .ts-book-title { margin: .1rem 0 .5rem; font-size: 1.6rem; break-after: avoid; }
 .ts-print .ts-content h2, .ts-print .ts-content h3 { break-after: avoid; }
 .ts-print .ts-content p { orphans: 3; widows: 3; }
@@ -55,6 +56,12 @@
 .ts-book-photos.is-stack .ts-print-photo img { max-height: 118mm; }
 .ts-book-photos.is-pair { flex-direction: row; }
 .ts-book-photos.is-pair .ts-print-photo { flex: 1 1 0; }
+
+/* While the script measures the book: the print sizes below, on screen. */
+html body.ts-body.is-measuring:not(#ts-none) { font-size: 11pt; }
+body.is-measuring .ts-print { max-width: 186mm; padding: 0; }
+body.is-measuring .ts-book-text { min-height: 0; padding-top: 0; }
+.ts-book-ruler { height: var(--ts-print-paper); }
 
 @media print {
 	html body.ts-body:not(#ts-none) { background: #fff; color: #000; font-size: 11pt; }

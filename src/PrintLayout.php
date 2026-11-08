@@ -29,8 +29,8 @@ class PrintLayout {
 	 * @return array Photo rows.
 	 */
 	public static function in_print_order( array $photos, array $print_ids ): array {
-		$rank   = array_flip( array_values( $print_ids ) );
-		$chosen = array_values( array_filter( $photos, fn( $photo ) => isset( $rank[ $photo['id'] ] ) ) );
+		$rank   = array_flip( $print_ids );
+		$chosen = array_filter( $photos, fn( $photo ) => isset( $rank[ $photo['id'] ] ) );
 		usort( $chosen, fn( $a, $b ) => $rank[ $a['id'] ] <=> $rank[ $b['id'] ] );
 		return $chosen;
 	}

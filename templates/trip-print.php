@@ -30,24 +30,9 @@ if ( ! $trip ) {
 
 // Editors also get unpublished steps, marked as on the trip page.
 $can_edit = current_user_can( 'edit_post', $trip->ID );
-$book     = View::print_book( $trip, Trips::timeline_steps( $trip, $can_edit ) );
+$steps    = Trips::timeline_steps( $trip, $can_edit );
+$book     = View::print_book( $trip->ID, $steps, Trips::photos_by_step( $trip->ID, $steps ) );
 $cover    = View::cover_url( $trip->ID, 'preview' );
-
-$render_photo = function ( array $photo ) use ( $trip ) {
-	$caption = (string) ( $photo['caption'] ?? '' );
-	?>
-	<figure class="ts-print-photo">
-		<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
-			alt="<?php echo esc_attr( $caption ); ?>" decoding="async"
-			<?php if ( ! empty( $photo['w'] ) && ! empty( $photo['h'] ) ) : ?>
-				width="<?php echo (int) $photo['w']; ?>" height="<?php echo (int) $photo['h']; ?>"
-			<?php endif; ?>>
-		<?php if ( '' !== $caption ) : ?>
-			<figcaption><?php echo esc_html( $caption ); ?></figcaption>
-		<?php endif; ?>
-	</figure>
-	<?php
-};
 
 wp_app_enqueue_style(
 	'travel-steps-print',
@@ -107,36 +92,36 @@ include __DIR__ . '/_header.php';
 
 	<?php
 	foreach ( $book as $entry ) :
-		$step  = $entry['step'];
-		$day   = Trips::day_of_trip( $trip->ID, $step );
-		$badge = View::step_badge( $trip, $step );
+		$step = $entry['step'];
+		$day  = Trips::day_of_trip( $trip->ID, $step );
 		foreach ( $entry['sections'] as $section ) :
 			?>
 			<?php if ( $section['text_page'] ) : ?>
 				<section class="ts-book-text">
-					<p class="ts-step-meta">
-						<?php if ( $day > 0 ) : ?>
-							<?php /* translators: %d: day number of the trip */ ?>
-							<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps-storyteller' ), $day ) ); ?></span>
-						<?php endif; ?>
-						<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
-						<?php if ( $badge ) : ?>
-							<span class="<?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['text'] ); ?></span>
-						<?php endif; ?>
-					</p>
+					<?php include __DIR__ . '/_step-meta.php'; ?>
 					<?php if ( $section['first'] ) : ?>
 						<h2 class="ts-book-title"><?php echo esc_html( get_the_title( $step ) ); ?></h2>
 					<?php endif; ?>
-					<?php View::render_section_text( $section ); ?>
+					<?php View::render_blocks( $section['text'] ); ?>
 				</section>
 			<?php endif; ?>
 			<?php foreach ( PrintLayout::pages( $section['chosen'] ) as $page ) : ?>
 				<section class="ts-book-photos is-<?php echo esc_attr( $page['layout'] ); ?>">
 					<?php
-					foreach ( $page['photos'] as $photo ) {
-						$render_photo( $photo );
-					}
-					?>
+					foreach ( $page['photos'] as $photo ) :
+						$caption = (string) ( $photo['caption'] ?? '' );
+						?>
+						<figure class="ts-print-photo">
+							<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
+								alt="<?php echo esc_attr( $caption ); ?>" decoding="async"
+								<?php if ( ! empty( $photo['w'] ) && ! empty( $photo['h'] ) ) : ?>
+									width="<?php echo (int) $photo['w']; ?>" height="<?php echo (int) $photo['h']; ?>"
+								<?php endif; ?>>
+							<?php if ( '' !== $caption ) : ?>
+								<figcaption><?php echo esc_html( $caption ); ?></figcaption>
+							<?php endif; ?>
+						</figure>
+					<?php endforeach; ?>
 				</section>
 			<?php endforeach; ?>
 			<?php

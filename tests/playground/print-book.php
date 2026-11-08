@@ -59,7 +59,7 @@ $pb_seen = $render( 'trip.php', (string) $pb_a );
 [ $pb_b ] = $pb_trip( 'Unprinted Porto' );
 wp_set_current_user( 0 );
 $pb_plain = $render( 'trip.php', (string) $pb_b );
-$pb_assets = fn( string $page ) => array_values( array_unique( array_filter( array_map( fn( $n ) => false !== strpos( $page, $n ) ? $n : '', array_column( $pb_rows, 'id' ) ) ) ) );
+$pb_assets = fn( string $page ) => array_values( array_filter( array_column( $pb_rows, 'id' ), fn( $n ) => false !== strpos( $page, $n ) ) );
 check( '…and a visitor’s trip page has the same photos as a trip with none chosen', $pb_assets( $pb_seen ) === $pb_assets( $pb_plain ) && 6 === count( $pb_assets( $pb_seen ) ), $pb_assets( $pb_seen ) );
 
 // Removing: chosen out of time order, the next chosen leads.
@@ -239,10 +239,14 @@ check( '…a logged-in visitor gets it once photos are chosen', $pb_button( $pb_
 check( '…but not before', ! $pb_button( $pb_e, $pb_friend ) );
 check( '…an editor always does', $pb_button( $pb_e, 1 ) );
 check( '…nor if only an unpublished step has them', ! $pb_button( $pb_n, $pb_friend ) && $pb_button( $pb_n, 1 ) );
+[ $pb_h ] = $pb_trip( 'Hidden Porto' );
+$pb_do( $pb_h, $pb_id( 61 ), 'add' );
+$rest_post( "/travel-steps/v1/trips/$pb_h/photo-state", [ 'asset' => $pb_id( 61 ), 'state' => 'hidden' ] );
+check( '…nor if the only photo chosen is hidden', ! $pb_button( $pb_h, $pb_friend ) && $pb_button( $pb_h, 1 ) );
 wp_set_current_user( 0 );
 $_GET[ Trips::SHARE_ARG ] = $pb_code;
 $pb_page = $render( 'trip.php', (string) $pb_j );
 unset( $_GET[ Trips::SHARE_ARG ], $_COOKIE[ $pb_name ] );
 header_remove( 'Set-Cookie' );
-check( '…nor does a logged-out visitor with a share link', false !== strpos( $pb_page, 'Secret' ) || false !== strpos( $pb_page, 'Porto story' ) ? false === strpos( $pb_page, 'href="' . esc_url( $pb_print_url ) . '"' ) : false );
+check( '…nor does a logged-out visitor with a share link', ( false !== strpos( $pb_page, 'Secret' ) || false !== strpos( $pb_page, 'Porto story' ) ) && false === strpos( $pb_page, 'href="' . esc_url( $pb_print_url ) . '"' ) );
 wp_set_current_user( 0 );

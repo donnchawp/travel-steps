@@ -466,7 +466,7 @@ class Trips {
 	 *
 	 * @param string $suffix The page's url() suffix, which the page sets, not the request.
 	 */
-	public static function handle_password_post( \WP_Post $trip, string $suffix = '' ): void {
+	public static function handle_password_post( \WP_Post $trip, string $suffix ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- As core's form handler.
 		if ( ! isset( $_POST['post_password'] ) || 'publish' !== $trip->post_status || ! self::is_protected( $trip ) ) {
 			return;
@@ -770,7 +770,14 @@ class Trips {
 	 */
 	public static function cover( int $trip_id ): string {
 		$asset = (string) get_post_meta( $trip_id, self::META_COVER, true );
-		return '' !== $asset && in_array( $asset, array_column( self::photos( $trip_id ), 'id' ), true ) ? $asset : '';
+		return '' !== $asset && self::has_photo( $trip_id, $asset ) ? $asset : '';
+	}
+
+	/**
+	 * Whether a photo is one of the trip's synced photos.
+	 */
+	public static function has_photo( int $trip_id, string $asset ): bool {
+		return in_array( $asset, array_column( self::photos( $trip_id ), 'id' ), true );
 	}
 
 	public static function pinned( int $trip_id ): array {

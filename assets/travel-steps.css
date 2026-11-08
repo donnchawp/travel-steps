@@ -185,7 +185,7 @@ body.ts-body a:focus { color: var(--ts-accent); }
 	transition: opacity .15s;
 }
 /* Showing the tools also lets them take clicks, so one rule decides both. Pointer events, not visibility, so Tab still reaches them. */
-.ts-photo:hover .ts-photo-tools, .ts-photo-tools:focus-within, .ts-photo.is-pinned .ts-photo-tools, .ts-photo.is-hidden .ts-photo-tools { opacity: 1; --ts-tools-hit: auto; }
+.ts-photo:hover .ts-photo-tools, .ts-photo-tools:focus-within, .ts-photo.is-pinned .ts-photo-tools, .ts-photo.is-hidden .ts-photo-tools, .ts-photo.is-print .ts-photo-tools { opacity: 1; --ts-tools-hit: auto; }
 .ts-photo-tools > * { pointer-events: var(--ts-tools-hit, none); }
 /* A touch screen has no hover: the tools are off until "Edit photos" turns them on, so a long press while scrolling can't change the trip. */
 @media (hover: hover) {
@@ -208,8 +208,7 @@ body.ts-body a:focus { color: var(--ts-accent); }
 }
 .ts-photo-state, .ts-photo-cover, .ts-photo-print, .ts-photo-lead { cursor: pointer; }
 .ts-photo-state[aria-pressed="true"], .ts-photo-cover[aria-pressed="true"], .ts-photo-print[aria-pressed="true"] { background: var(--ts-accent); }
-/* A chosen photo's place in its section, and its tools, stay in view as a pinned photo's do. */
-.ts-photo.is-print .ts-photo-tools { opacity: 1; --ts-tools-hit: auto; }
+/* A chosen photo's place in its section. */
 .ts-photo-print-tag { position: absolute; bottom: 6px; left: 6px; padding: .1rem .5rem; border-radius: 4px; background: var(--ts-accent); color: var(--ts-accent-ink); font-size: .75rem; font-weight: 600; pointer-events: none; }
 /* A photo just hidden doesn't print, whatever it says. The list is redrawn on the next load. */
 .ts-photo.is-hidden .ts-photo-print, .ts-photo.is-hidden .ts-photo-lead, .ts-photo.is-hidden .ts-photo-print-tag { display: none; }

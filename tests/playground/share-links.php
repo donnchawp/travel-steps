@@ -37,13 +37,7 @@ $sh_name   = Trips::share_cookie( get_post( $sh_trip ) );
 $sh_cookie = $_COOKIE[ $sh_name ] ?? '';
 check( '…sets a cookie for this trip holding the code, not core’s cookie', $sh_code === $sh_cookie && ! isset( $_COOKIE[ Trips::password_cookie() ] ), $_COOKIE );
 $sh_print = $render( 'trip-print.php', (string) $sh_trip );
-check( '…which opens the print version too, the trip page’s Print button linking to it with no code', false !== strpos( $sh_print, 'Secret story' ) && false === strpos( $sh_print, 'name="post_password"' ) && false !== strpos( $sh_open, '"' . esc_url( Trips::url( get_post( $sh_trip ), 'print' ) ) . '"' ) );
-$sh_clean = 'data-clean-url="' . esc_url( Trips::url( get_post( $sh_trip ), 'print' ) ) . '"';
-check( '…with no clean URL to swap in, as its address holds no code', false === strpos( $sh_print, 'data-clean-url' ) );
-$_GET[ Trips::SHARE_ARG ] = $sh_code;
-$sh_print_coded           = $render( 'trip-print.php', (string) $sh_trip );
-unset( $_GET[ Trips::SHARE_ARG ] );
-check( '…but opened with the code, the print version swaps it out of its address', false !== strpos( $sh_print_coded, $sh_clean ), $sh_clean );
+check( '…but not the print version, which takes a login, and the trip page has no Print button', false !== strpos( $sh_print, 'Trip not found' ) && false === strpos( $sh_print, 'Secret story' ) && false === strpos( $sh_open, '"' . esc_url( Trips::url( get_post( $sh_trip ), 'print' ) ) . '"' ) );
 $sh_set = current( preg_grep( '/^Set-Cookie: ' . preg_quote( $sh_name, '/' ) . '=/', headers_list() ) ) ?: null;
 check( '…which lasts as core’s does, scripts can’t read, and other sites’ requests don’t carry', abs( (int) $pw_attr( $sh_set, 'Max-Age' ) - 10 * DAY_IN_SECONDS ) < 5 && COOKIEPATH === $pw_attr( $sh_set, 'path' ) && true === $pw_attr( $sh_set, 'HttpOnly' ) && 'Lax' === $pw_attr( $sh_set, 'SameSite' ), $sh_set );
 // A later visit, with the cookie and no code.

@@ -3,111 +3,92 @@
 namespace TravelSteps;
 
 /**
- * How a trip's print version lays out photos. Each photo is printed large or medium,
- * and the photos of a place go into rows the printer never splits across pages:
+ * How a trip's print version lays out the photos chosen for a section: its lead alone on
+ * a page, then the others together. Pure functions, no WordPress dependencies.
  *
- * - medium landscape photos side by side in pairs, each row a third of a page tall, so
- *   six to a page;
- * - medium photos side by side where either isn't landscape, half a page tall, so four
- *   to a page;
- * - a large landscape photo across the page, half a page tall, so two to a page;
- * - a large portrait photo on a page of its own.
- *
- * Rows keep the photos in the order they were taken. Pure functions, no WordPress
- * dependencies: the print page applies the travel_steps_print_size filter on top.
+ * A section's lead is whichever of its photos comes first in the trip's list of chosen
+ * photos. Its others print in the order they were taken.
  */
 class PrintLayout {
-	const LARGE  = 'large';
-	const MEDIUM = 'medium';
+	// Page layouts, which the print stylesheet sizes: .ts-book-photos.is-stack and so on.
+	const LANDSCAPE = 'landscape';
+	const PORTRAIT  = 'portrait';
+	const STACK     = 'stack';
+	const PAIR      = 'pair';
+	const THREE     = 'three';
 
-	// Row layouts, which the print stylesheet sizes: .ts-print-row.is-pair and so on.
-	const LOW  = 'low';
-	const PAIR = 'pair';
-	const WIDE = 'wide';
-	const TALL = 'tall';
-
-	// A photo at least this many times as wide as it's tall is a panorama, printed large.
-	const PANORAMA_RATIO = 2.0;
-	// An original whose long side is shorter than this is never printed large: across the
-	// page it would print at well under 150 dpi and look soft.
-	const MIN_LARGE_PX = 1200;
+	// A page holds at most this many photos besides a lead's page.
+	const MAX_ON_PAGE = 3;
 
 	/**
-	 * Whether a photo prints large or medium: large when it's the only photo of its place
-	 * (as the trip page shows it on its own, across the column) or a panorama, as long as
-	 * its original has the pixels for it. A photo whose size isn't known prints large only
-	 * when it's alone.
+	 * A section's chosen photos: its lead, then the others in time order.
 	 *
-	 * @param array $photo    A photo row, with w and h as displayed (after rotation).
-	 * @param int   $of_place How many photos its place has in the print.
+	 * @param array    $photos    The section's photos, by time.
+	 * @param string[] $print_ids The trip's chosen photo ids, in order.
+	 * @return array Photo rows.
 	 */
-	public static function size( array $photo, int $of_place ): string {
-		$w = (int) ( $photo['w'] ?? 0 );
-		$h = (int) ( $photo['h'] ?? 0 );
-		if ( ! $w || ! $h ) {
-			return 1 === $of_place ? self::LARGE : self::MEDIUM;
+	public static function lead_first( array $photos, array $print_ids ): array {
+		$rank   = array_flip( array_values( $print_ids ) );
+		$chosen = array_values( array_filter( $photos, fn( $photo ) => isset( $rank[ $photo['id'] ] ) ) );
+		if ( ! $chosen ) {
+			return [];
 		}
-		if ( max( $w, $h ) < self::MIN_LARGE_PX ) {
-			return self::MEDIUM;
+		$lead = 0;
+		foreach ( $chosen as $index => $photo ) {
+			if ( $rank[ $photo['id'] ] < $rank[ $chosen[ $lead ]['id'] ] ) {
+				$lead = $index;
+			}
 		}
-		return 1 === $of_place || $w >= $h * self::PANORAMA_RATIO ? self::LARGE : self::MEDIUM;
+		$first = array_splice( $chosen, $lead, 1 );
+		return array_merge( $first, $chosen );
 	}
 
 	/**
-	 * A place's photos as rows, in order. Medium photos taken one after another share
-	 * rows two at a time; a large photo between them ends the pair it interrupts, which
-	 * then prints as a row of one.
+	 * A section's pages of photos, each with the layout that prints them.
 	 *
-	 * @param array    $photos Photo rows, in the order to print them.
-	 * @param callable $size   fn( array $photo ): string, LARGE or MEDIUM.
+	 * @param array $chosen Photos from lead_first().
 	 * @return list<array{layout: string, photos: array}>
 	 */
-	public static function rows( array $photos, callable $size ): array {
-		$rows = [];
-		$pair = [];
-		foreach ( $photos as $photo ) {
-			if ( self::LARGE !== $size( $photo ) ) {
-				$pair[] = $photo;
-				if ( 2 === count( $pair ) ) {
-					$rows[] = self::side_by_side( $pair );
-					$pair   = [];
-				}
-				continue;
-			}
-			if ( $pair ) {
-				$rows[] = self::side_by_side( $pair );
-				$pair   = [];
-			}
-			$portrait = (int) ( $photo['h'] ?? 0 ) > (int) ( $photo['w'] ?? 0 );
-			$rows[]   = [ 'layout' => $portrait ? self::TALL : self::WIDE, 'photos' => [ $photo ] ];
+	public static function pages( array $chosen ): array {
+		if ( ! $chosen ) {
+			return [];
 		}
-		if ( $pair ) {
-			$rows[] = self::side_by_side( $pair );
+		$pages = [ self::page( [ array_shift( $chosen ) ] ) ];
+		foreach ( array_chunk( $chosen, self::MAX_ON_PAGE ) as $photos ) {
+			$pages[] = self::page( $photos );
 		}
-		return $rows;
+		return $pages;
 	}
 
 	/**
-	 * The image size a row's photos print at. Side by side, the proxy's medium size still
-	 * gives about 180 dpi or better, and a PDF is much smaller for it; across or down a
-	 * page they need the preview.
+	 * The list of chosen photos without $asset. If it was its section's lead, the section's
+	 * next chosen photo by time becomes the lead, wherever it was in the list.
 	 *
-	 * @param string $layout A row's layout, from rows().
+	 * @param string[] $print_ids      The trip's chosen photo ids, in order.
+	 * @param array    $section_photos The photos of $asset's section, by time.
+	 * @return string[]
 	 */
-	public static function image_size( string $layout ): string {
-		return self::LOW === $layout || self::PAIR === $layout ? 'medium' : 'preview';
+	public static function after_removal( array $print_ids, string $asset, array $section_photos ): array {
+		$left   = array_values( array_diff( $print_ids, [ $asset ] ) );
+		$chosen = self::lead_first( $section_photos, $print_ids );
+		if ( ! isset( $chosen[1] ) || $asset !== $chosen[0]['id'] ) {
+			return $left;
+		}
+		return array_merge( [ $chosen[1]['id'] ], array_values( array_diff( $left, [ $chosen[1]['id'] ] ) ) );
 	}
 
 	/**
-	 * A row of medium photos: low if all are known to be landscape, as half a page would
-	 * leave a blank band around them. A photo whose size isn't known gets the taller row.
+	 * A page of one to three photos. A photo whose size isn't known counts as landscape.
 	 */
-	private static function side_by_side( array $photos ): array {
-		foreach ( $photos as $photo ) {
-			if ( (int) ( $photo['w'] ?? 0 ) <= (int) ( $photo['h'] ?? 0 ) ) {
-				return [ 'layout' => self::PAIR, 'photos' => $photos ];
-			}
+	private static function page( array $photos ): array {
+		$portrait = fn( array $photo ) => (int) ( $photo['h'] ?? 0 ) > (int) ( $photo['w'] ?? 0 );
+		if ( 1 === count( $photos ) ) {
+			$layout = $portrait( $photos[0] ) ? self::PORTRAIT : self::LANDSCAPE;
+		} elseif ( 2 === count( $photos ) ) {
+			$layout = $portrait( $photos[0] ) || $portrait( $photos[1] ) ? self::PAIR : self::STACK;
+		} else {
+			$layout = self::THREE;
 		}
-		return [ 'layout' => self::LOW, 'photos' => $photos ];
+		return [ 'layout' => $layout, 'photos' => $photos ];
 	}
 }

@@ -105,15 +105,20 @@ include __DIR__ . '/_header.php';
 					<li><strong><?php echo esc_html( $value ); ?></strong> <?php echo esc_html( $label ); ?></li>
 				<?php endforeach; ?>
 			</ul>
-			<p class="ts-form-actions">
-				<?php if ( $can_curate ) : ?>
-					<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
-					<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
-					<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps-storyteller' ); ?></button>
-				<?php endif; ?>
-				<?php // A share link's visitor has its cookie by now, so the plain URL lets them in. ?>
-				<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'print' ) ); ?>"><?php esc_html_e( 'Print', 'travel-steps-storyteller' ); ?></a>
-			</p>
+			<?php // Printing takes a login. Editors get the button with nothing chosen, as the print page tells them what to do. ?>
+			<?php $can_print = is_user_logged_in() && ( $can_edit || View::has_print_book( $trip, $steps ) ); ?>
+			<?php if ( $can_curate || $can_print ) : ?>
+				<p class="ts-form-actions">
+					<?php if ( $can_curate ) : ?>
+						<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'edit' ) ); ?>"><?php esc_html_e( 'Edit trip', 'travel-steps-storyteller' ); ?></a>
+						<?php // Only on touch screens: there the photo tools are off until it's pressed. ?>
+						<button type="button" class="ts-button ts-button-light ts-edit-photos" aria-pressed="false"><?php esc_html_e( 'Edit photos', 'travel-steps-storyteller' ); ?></button>
+					<?php endif; ?>
+					<?php if ( $can_print ) : ?>
+						<a class="ts-button ts-button-light" href="<?php echo esc_url( Trips::url( $trip, 'print' ) ); ?>"><?php esc_html_e( 'Print', 'travel-steps-storyteller' ); ?></a>
+					<?php endif; ?>
+				</p>
+			<?php endif; ?>
 		</div>
 	</header>
 

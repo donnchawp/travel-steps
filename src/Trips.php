@@ -32,6 +32,7 @@ class Trips {
 	const META_PHOTOS = '_travel_steps_photos';         // JSON: list of photo rows (see PhotoSource::photos) + step.
 	const META_HIDDEN = '_travel_steps_hidden';         // array of hidden photo ids.
 	const META_PINNED = '_travel_steps_pinned';         // array of photo ids always shown.
+	const META_PRINT  = '_travel_steps_print';          // array of photo ids chosen to print, in order.
 	const META_COVER  = '_travel_steps_cover';          // photo id chosen for the header, else automatic.
 	const META_STATS  = '_travel_steps_stats';          // array: distance_km, points, photos, countries (ISO codes, else case-folded names).
 	const META_SYNCED = '_travel_steps_synced';         // unix timestamp of last sync.
@@ -774,6 +775,16 @@ class Trips {
 
 	public static function pinned( int $trip_id ): array {
 		return self::id_list( $trip_id, self::META_PINNED );
+	}
+
+	/**
+	 * The photos chosen for the trip's print version, independent of pinned and hidden. The
+	 * first of a section's photos here is its lead (see PrintLayout).
+	 *
+	 * @return string[]
+	 */
+	public static function print_ids( int $trip_id ): array {
+		return self::id_list( $trip_id, self::META_PRINT );
 	}
 
 	private static function id_list( int $trip_id, string $key ): array {

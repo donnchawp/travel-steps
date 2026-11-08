@@ -233,6 +233,25 @@ class View {
 	 * @param callable $grid   Echoes a photo grid: fn( array $photos ).
 	 */
 	public static function render_story( \WP_Post $step, array $photos, callable $grid ): void {
+		foreach ( self::story_sections( $step, $photos ) as $section ) {
+			self::render_blocks( $section['before'] );
+			if ( $section['photos'] ) {
+				$grid( $section['photos'] );
+			}
+			self::render_blocks( $section['after'] );
+		}
+	}
+
+	/**
+	 * A step's story split into sections, as render_story() shows them: each place heading's
+	 * blocks and photos, in story order. A section whose heading is nested inside another
+	 * block has photos and no blocks, and comes last. A Trip photos block isn't kept: the
+	 * blocks before it are "before", and those after it "after".
+	 *
+	 * @param array $photos Photos to show, sorted by time.
+	 * @return list<array{index: int, before: array, after: array, photos: array}>
+	 */
+	public static function story_sections( \WP_Post $step, array $photos ): array {
 		$starts = Days::anchor_times( $step->post_content );
 		sort( $starts );
 		$sections = [];
@@ -250,6 +269,7 @@ class View {
 			$chunks[ count( $chunks ) - 1 ]['blocks'][] = $block;
 		}
 
+		$out = [];
 		foreach ( $chunks as $chunk ) {
 			// Text before the photos, then text after them.
 			$parts  = [ [], [] ];
@@ -262,17 +282,136 @@ class View {
 				$parts[ (int) $placed ][] = $block;
 			}
 
-			self::render_blocks( $parts[0] );
-			if ( ! empty( $sections[ $chunk['section'] ] ) ) {
-				$grid( $sections[ $chunk['section'] ] );
-				unset( $sections[ $chunk['section'] ] );
-			}
-			self::render_blocks( $parts[1] );
+			$out[] = [
+				'index'  => $chunk['section'],
+				'before' => $parts[0],
+				'after'  => $parts[1],
+				'photos' => $sections[ $chunk['section'] ] ?? [],
+			];
+			unset( $sections[ $chunk['section'] ] );
 		}
 		// Headings nested inside other blocks: their photos go at the end.
-		foreach ( $sections as $rest ) {
-			$grid( $rest );
+		foreach ( $sections as $index => $rest ) {
+			$out[] = [
+				'index'  => $index,
+				'before' => [],
+				'after'  => [],
+				'photos' => $rest,
+			];
 		}
+		return $out;
+	}
+
+	/**
+	 * A step's non-hidden photos by time, from Trips::photos_by_step().
+	 *
+	 * @param array{shown: array, rest: array, hidden: array} $groups
+	 */
+	private static function visible_photos( array $groups ): array {
+		$photos = array_merge( $groups['shown'], $groups['rest'] );
+		usort( $photos, fn( $a, $b ) => (int) $a['t'] <=> (int) $b['t'] );
+		return $photos;
+	}
+
+	/**
+	 * The non-hidden photos of the section a photo is in, by time, or none if it's in no
+	 * step's section.
+	 */
+	public static function section_photos( int $trip_id, string $asset ): array {
+		$steps = Trips::steps( $trip_id, true );
+		foreach ( Trips::photos_by_step( $trip_id, $steps ) as $step_id => $groups ) {
+			foreach ( self::story_sections( get_post( $step_id ), self::visible_photos( $groups ) ) as $section ) {
+				if ( in_array( $asset, array_column( $section['photos'], 'id' ), true ) ) {
+					return $section['photos'];
+				}
+			}
+		}
+		return [];
+	}
+
+	/**
+	 * The trip's print version: for each of $steps with photos chosen, its sections with
+	 * photos chosen, lead first. A step's first section always has a text page, for its
+	 * title. A later one has one if it has a heading or text.
+	 *
+	 * @param \WP_Post[] $steps The steps the current user may see.
+	 * @return list<array{step: \WP_Post, sections: list<array{before: array, after: array, chosen: array, text_page: bool, first: bool}>}>
+	 */
+	public static function print_book( \WP_Post $trip, array $steps ): array {
+		$ids = Trips::print_ids( $trip->ID );
+		if ( ! $ids ) {
+			return [];
+		}
+		$by_step = Trips::photos_by_step( $trip->ID, $steps );
+		$book    = [];
+		foreach ( $steps as $step ) {
+			if ( empty( $by_step[ $step->ID ] ) ) {
+				continue;
+			}
+			$sections = [];
+			foreach ( self::story_sections( $step, self::visible_photos( $by_step[ $step->ID ] ) ) as $section ) {
+				$chosen = PrintLayout::lead_first( $section['photos'], $ids );
+				if ( ! $chosen ) {
+					continue;
+				}
+				$first      = ! $sections;
+				$sections[] = [
+					'before'    => $section['before'],
+					'after'     => $section['after'],
+					'chosen'    => $chosen,
+					'text_page' => $first || '' !== trim( serialize_blocks( array_merge( $section['before'], $section['after'] ) ) ),
+					'first'     => $first,
+				];
+			}
+			if ( $sections ) {
+				$book[] = [
+					'step'     => $step,
+					'sections' => $sections,
+				];
+			}
+		}
+		return $book;
+	}
+
+	/**
+	 * Whether the current user would find any chosen photos in the trip's print version.
+	 *
+	 * @param \WP_Post[] $steps The steps the current user may see.
+	 */
+	public static function has_print_book( \WP_Post $trip, array $steps ): bool {
+		return (bool) self::print_book( $trip, $steps );
+	}
+
+	/**
+	 * Each non-hidden photo's section, for the trip page's Print buttons: its step's id and
+	 * section's index, which together name a section across the page.
+	 *
+	 * @param \WP_Post[] $steps
+	 * @return array<string, string> Keyed by photo id.
+	 */
+	public static function print_sections( int $trip_id, array $steps ): array {
+		$by_step  = Trips::photos_by_step( $trip_id, $steps );
+		$sections = [];
+		foreach ( $steps as $step ) {
+			if ( empty( $by_step[ $step->ID ] ) ) {
+				continue;
+			}
+			foreach ( self::story_sections( $step, self::visible_photos( $by_step[ $step->ID ] ) ) as $section ) {
+				foreach ( $section['photos'] as $photo ) {
+					$sections[ $photo['id'] ] = $step->ID . '-' . $section['index'];
+				}
+			}
+		}
+		return $sections;
+	}
+
+	/**
+	 * Echo a print section's heading and text, without its photos.
+	 *
+	 * @param array{before: array, after: array} $section
+	 */
+	public static function render_section_text( array $section ): void {
+		self::render_blocks( array_merge( $section['before'], $section['after'] ) );
 	}
 
 	private static function render_blocks( array $blocks ): void {

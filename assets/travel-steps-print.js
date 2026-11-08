@@ -27,9 +27,24 @@
 			img.addEventListener( 'error', () => resolve( false ), { once: true } );
 		} );
 
+	// Text that fits on a page is centred on it. Longer text stays a plain block, as a
+	// centred box doesn't break across pages reliably in every browser. Measured once
+	// images in the text have their height.
+	const centreShortText = () => {
+		const ruler = document.createElement( 'div' );
+		ruler.style.height = '230mm';
+		document.body.append( ruler );
+		const fits = ruler.offsetHeight;
+		ruler.remove();
+		document.querySelectorAll( '.ts-book-text' ).forEach( ( text ) => {
+			text.classList.toggle( 'is-short', text.offsetHeight < fits );
+		} );
+	};
+
 	button.disabled = true;
 	status.textContent = status.dataset.loading;
 	const ready = Promise.all( images.map( settled ) ).then( ( loaded ) => {
+		centreShortText();
 		button.disabled = false;
 		status.textContent = loaded.every( Boolean ) ? status.dataset.tip : status.dataset.failed;
 	} );

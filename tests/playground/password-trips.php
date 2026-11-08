@@ -84,9 +84,8 @@ wp_set_current_user( 0 );
 $pw_enter( null );
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'no password: visitors see the whole trip', false !== strpos( $seen['page'], 'Secret story' ) && 200 === $seen['rest']->get_status() && 200 === $seen['step'] );
-check( 'no password: the print version has the story and its photo in a print row', false !== strpos( $seen['print'], 'Secret story' ) && false !== strpos( $seen['print'], $pw_photo ) && 1 === preg_match( '#class="ts-print-row is-low"#', $seen['print'] ) && false === strpos( $seen['print'], 'ts-map' ) && false === strpos( $seen['print'], 'ts-photo-tools' ) );
-check( '…its side-by-side photos at the medium size', false !== strpos( $seen['print'], esc_url( RestController::photo_url( $pw_a, $pw_photo, 'medium' ) ) ) && false === strpos( $seen['print'], esc_url( RestController::photo_url( $pw_a, $pw_photo, 'preview' ) ) ) );
-check( '…and the trip page links to it', false !== strpos( $seen['page'], esc_url( Trips::url( get_post( $pw_a ), 'print' ) ) ) );
+check( 'no password: a logged-out visitor gets no print version', false !== strpos( $seen['print'], 'Trip not found' ) && false === strpos( $seen['print'], $pw_photo ) );
+check( '…and the trip page doesn’t link to it', false === strpos( $seen['page'], esc_url( Trips::url( get_post( $pw_a ), 'print' ) ) ) );
 check( 'no password: its photos and REST stay in shared caches', 'public' === $seen['photo'] && 'public' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'public' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
 // Anyone who can edit the trip gets its photos as private; those who can't get them as a visitor does.
 $pw_as     = function ( int $user, callable $fn ) {
@@ -125,8 +124,7 @@ check( '…posting to the trip page, never wp-login.php', 1 === preg_match( '#<f
 check( '…titled without “Protected:”', 1 === preg_match( '#<title>Hidden Lisbon\b#', $seen['page'] ) && false === strpos( $seen['page'], 'Protected:' ), substr( $seen['page'], 0, 400 ) );
 check( '…and nothing else of the trip', false === strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'Lisbon day' ) && false === strpos( $seen['page'], 'ts-map' ) && false === strpos( $seen['page'], $pw_photo ) && false === strpos( $seen['page'], $pw_cover ) && false === strpos( $seen['page'], 'ts-hero-img' ) && false === strpos( $seen['page'], 'ts-stats' ) );
 check( '…no wrong-password message on a first visit', false === strpos( $seen['page'], 'That password isn’t right' ) );
-check( 'password: the print version shows the same form and nothing else of the trip', false !== strpos( $seen['print'], 'name="post_password"' ) && false === strpos( $seen['print'], 'Secret story' ) && false === strpos( $seen['print'], $pw_photo ) && false === strpos( $seen['print'], $pw_cover ) && false === strpos( $seen['print'], 'ts-print-row' ) );
-check( '…posting back to the print version', false !== strpos( $seen['print'], 'action="' . esc_url( Trips::url( get_post( $pw_a ), 'print' ) ) . '"' ) );
+check( 'password: a logged-out visitor gets no print version, and no form', false !== strpos( $seen['print'], 'Trip not found' ) && false === strpos( $seen['print'], 'name="post_password"' ) && false === strpos( $seen['print'], 'Secret story' ) );
 check( 'password: REST, the photo proxy and core REST for its steps refuse a visitor', $refused( $seen['rest']->get_status() ) && [ 404, 'no-store' ] === [ $seen['proxy']['status'], $seen['proxy']['cache'] ] && '' === $seen['photo'] && '' === $seen['cover'] && $refused( $seen['step'] ), [ $seen['rest']->get_status(), $seen['proxy']['status'], $seen['photo'], $seen['cover'], $seen['step'] ] );
 $pw_moved = $get( '/travel-steps/v1/trips/' . $pw_a . '/photo/' . $pw_photo, [ 'size' => 'medium' ] );
 check( '…and a photo URL from when REST served photos sends them to where it is now, which refuses them', 301 === $pw_moved->get_status() && RestController::photo_url( $pw_a, $pw_photo, 'medium' ) === ( $pw_moved->get_headers()['Location'] ?? '' ), [ $pw_moved->get_status(), $pw_moved->get_headers() ] );
@@ -189,7 +187,7 @@ check( '…the unlocked page is kept out of page caches too', $pw_nocache( $pw_a
 // There it shows the whole trip, its photos kept out of shared caches.
 $seen = $pw_reach( $pw_a, $pw_a_step );
 check( 'right password: the whole trip, and no message', false !== strpos( $seen['page'], 'Secret story' ) && false === strpos( $seen['page'], 'That password isn’t right' ) && false === strpos( $seen['page'], 'name="post_password"' ) );
-check( '…and its print version', false !== strpos( $seen['print'], 'Secret story' ) && false !== strpos( $seen['print'], $pw_photo ) && false === strpos( $seen['print'], 'name="post_password"' ) );
+check( '…but no print version, logged out', false !== strpos( $seen['print'], 'Trip not found' ) );
 check( '…REST and its steps let them in', 200 === $seen['rest']->get_status() && 200 === $seen['step'], [ $seen['rest']->get_status(), $seen['step'] ] );
 check( '…and core REST serves and lists it', 'open' === $seen['core'], $seen['core'] );
 check( '…its photos and REST are private', 'private' === $seen['photo'] && 'private' === $seen['cover'] && 0 === strpos( $pw_cache( $seen['rest'] ), 'private' ), [ $seen['photo'], $seen['cover'], $pw_cache( $seen['rest'] ) ] );
@@ -243,17 +241,6 @@ $pw_enter( null );
 // Not a string: no cookie, back flagged, as core does.
 [ $pw_to, $pw_cookie ] = $pw_post( $pw_a, [ 'x' ] );
 check( 'posting post_password[]: back flagged, without a cookie', $pw_flagged === $pw_to && null === $pw_cookie, [ $pw_to, $pw_cookie ] );
-
-// Typed on the print version, it comes back there.
-$pw_print              = Trips::url( get_post( $pw_a ), 'print' );
-[ $pw_to, $pw_cookie ] = $pw_post( $pw_a, 'open sesame', [], 'trip-print.php' );
-check( 'posting on the print version: back to it, flagged, with core’s cookie', add_query_arg( 'tried', '1', $pw_print ) === $pw_to && null !== $pw_cookie, [ $pw_to, $pw_cookie ] );
-$pw_keep( $pw_cookie );
-$_GET  = [ 'tried' => '1' ];
-$pw_to = $pw_redirect( $pw_a, $page, 'trip-print.php' );
-$_GET  = [];
-check( '…whose flagged URL drops the flag and stays there', $pw_print === $pw_to, $pw_to );
-$pw_enter( null );
 
 // Where to is always the trip: nothing in the request picks it.
 $pw_referer              = $_SERVER['HTTP_REFERER'] ?? null;

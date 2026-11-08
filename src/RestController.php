@@ -29,6 +29,27 @@ class RestController {
 		);
 		register_rest_route(
 			self::NS,
+			'/trips/(?P<id>\d+)/print-photo',
+			[
+				'methods'             => 'POST',
+				'callback'            => [ $this, 'set_print_photo' ],
+				'permission_callback' => fn( $request ) => Trips::can_edit_trip( (int) $request['id'] ),
+				'args'                => [
+					'asset'  => [
+						'type'     => 'string',
+						'required' => true,
+						'pattern'  => '^' . self::ASSET_ID . '$',
+					],
+					'action' => [
+						'type'     => 'string',
+						'required' => true,
+						'enum'     => [ 'add', 'remove', 'lead' ],
+					],
+				],
+			]
+		);
+		register_rest_route(
+			self::NS,
 			'/trips/(?P<id>\d+)/photo-state',
 			[
 				'methods'             => 'POST',
@@ -194,6 +215,37 @@ class RestController {
 			[
 				'asset' => $asset,
 				'state' => $state,
+			]
+		);
+	}
+
+	/**
+	 * Add a photo to the trip's print version, remove it, or make it its section's lead.
+	 * Pinned and hidden stay as they are. A chosen photo is already visible, so its preview
+	 * is already on the cache's list.
+	 *
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function set_print_photo( \WP_REST_Request $request ) {
+		$trip_id = (int) $request['id'];
+		$asset   = (string) $request['asset'];
+		$action  = (string) $request['action'];
+		$ids     = Trips::print_ids( $trip_id );
+		if ( 'remove' === $action ) {
+			$ids = PrintLayout::after_removal( $ids, $asset, View::section_photos( $trip_id, $asset ) );
+		} elseif ( ! in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true ) ) {
+			return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
+		} elseif ( 'lead' === $action ) {
+			$ids = array_merge( [ $asset ], array_values( array_diff( $ids, [ $asset ] ) ) );
+		} elseif ( ! in_array( $asset, $ids, true ) ) {
+			$ids[] = $asset;
+		}
+		update_post_meta( $trip_id, Trips::META_PRINT, $ids );
+		return new \WP_REST_Response(
+			[
+				'asset'  => $asset,
+				'action' => $action,
+				'ids'    => $ids,
 			]
 		);
 	}

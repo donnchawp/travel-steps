@@ -4,36 +4,40 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 /**
- * A trip laid out for paper, to print or save as a PDF: a cover page, then each step on
- * a new page with its story, and its photos under the place headings they belong to,
- * printed large or medium (see PrintLayout). No map, lightbox or photo tools.
+ * A short book of the photos chosen on the trip page, to print or save as a PDF: a cover
+ * page, then for each place with photos chosen, its text on a page, its lead photo alone,
+ * then its other photos together (see PrintLayout). Logged-in users only.
  *
- * Large photos are the preview size, the largest the photo proxy serves, and medium ones
- * the medium size (see PrintLayout::image_size()), which the proxy makes from the preview.
- * CacheFill keeps the preview, so the print works from the cache when Immich can't be reached.
+ * Every photo is the preview size, the largest the photo proxy serves and the one
+ * CacheFill keeps, so the print works from the cache when Immich can't be reached.
  */
 use TravelSteps\PrintLayout;
 use TravelSteps\RestController;
 use TravelSteps\Trips;
 use TravelSteps\View;
 
+// What this page shows depends on who's logged in, so no page cache may keep it.
+nocache_headers();
+if ( ! is_user_logged_in() ) {
+	include __DIR__ . '/_notfound.php';
+	return;
+}
 $trip_suffix = 'print';
 $trip        = include __DIR__ . '/_trip-gate.php';
 if ( ! $trip ) {
 	return;
 }
 
-// What the trip page shows them: editors see unpublished steps, marked as on the page.
+// Editors also get unpublished steps, marked as on the trip page.
 $can_edit = current_user_can( 'edit_post', $trip->ID );
-$steps    = Trips::timeline_steps( $trip, $can_edit );
-$by_step  = Trips::photos_by_step( $trip->ID, $steps );
+$book     = View::print_book( $trip, Trips::timeline_steps( $trip, $can_edit ) );
 $cover    = View::cover_url( $trip->ID, 'preview' );
 
-$render_photo = function ( array $photo, string $image_size ) use ( $trip ) {
+$render_photo = function ( array $photo ) use ( $trip ) {
 	$caption = (string) ( $photo['caption'] ?? '' );
 	?>
 	<figure class="ts-print-photo">
-		<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], $image_size ) ); ?>"
+		<img src="<?php echo esc_url( RestController::photo_url( $trip->ID, $photo['id'], 'preview' ) ); ?>"
 			alt="<?php echo esc_attr( $caption ); ?>" decoding="async"
 			<?php if ( ! empty( $photo['w'] ) && ! empty( $photo['h'] ) ) : ?>
 				width="<?php echo (int) $photo['w']; ?>" height="<?php echo (int) $photo['h']; ?>"
@@ -43,35 +47,6 @@ $render_photo = function ( array $photo, string $image_size ) use ( $trip ) {
 		<?php endif; ?>
 	</figure>
 	<?php
-};
-// A place's photos, in rows the printer keeps whole.
-$render_grid = function ( array $photos ) use ( $render_photo ) {
-	$of_place = count( $photos );
-	$size     = function ( array $photo ) use ( $of_place ) {
-		/**
-		 * Whether a photo prints large or medium in a trip's print version. Large photos
-		 * print one (portrait) or two (landscape) to a page; medium ones six (landscape)
-		 * or four to a page.
-		 *
-		 * @param string $size     PrintLayout::LARGE or PrintLayout::MEDIUM.
-		 * @param array  $photo    The photo row: id, w and h (pixels, as displayed), t,
-		 *                         fav, caption, city, country…
-		 * @param int    $of_place How many photos the photo's place has in the print.
-		 */
-		$size = apply_filters( 'travel_steps_print_size', PrintLayout::size( $photo, $of_place ), $photo, $of_place );
-		return PrintLayout::LARGE === $size ? PrintLayout::LARGE : PrintLayout::MEDIUM;
-	};
-	foreach ( PrintLayout::rows( $photos, $size ) as $row ) {
-		?>
-		<div class="ts-print-row is-<?php echo esc_attr( $row['layout'] ); ?>">
-			<?php
-			foreach ( $row['photos'] as $photo ) {
-				$render_photo( $photo, PrintLayout::image_size( $row['layout'] ) );
-			}
-			?>
-		</div>
-		<?php
-	}
 };
 
 wp_app_enqueue_style(
@@ -123,35 +98,51 @@ include __DIR__ . '/_header.php';
 		<?php endif; ?>
 	</header>
 
+	<?php if ( ! $book && $can_edit ) : ?>
+		<p class="ts-notice is-warning ts-print-note">
+			<?php esc_html_e( 'No photos are chosen for printing yet.', 'travel-steps-storyteller' ); ?>
+			<a href="<?php echo esc_url( Trips::url( $trip ) ); ?>"><?php esc_html_e( 'Choose them on the trip page.', 'travel-steps-storyteller' ); ?></a>
+		</p>
+	<?php endif; ?>
+
 	<?php
-	foreach ( $steps as $step ) :
-		$day    = Trips::day_of_trip( $trip->ID, $step );
-		$places = get_the_terms( $step, Trips::PLACE );
-		$shown  = $by_step[ $step->ID ]['shown'] ?? [];
-		?>
-		<section class="ts-print-step">
-			<p class="ts-step-meta">
-				<?php if ( $day > 0 ) : ?>
-					<?php /* translators: %d: day number of the trip */ ?>
-					<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps-storyteller' ), $day ) ); ?></span>
-				<?php endif; ?>
-				<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
-				<?php $badge = View::step_badge( $trip, $step ); ?>
-				<?php if ( $badge ) : ?>
-					<span class="<?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['text'] ); ?></span>
-				<?php endif; ?>
-			</p>
-			<h2><?php echo esc_html( get_the_title( $step ) ); ?></h2>
-			<?php if ( $places && ! is_wp_error( $places ) ) : ?>
-				<ul class="ts-places">
-					<?php foreach ( $places as $place ) : ?>
-						<li><?php echo esc_html( $place->name ); ?></li>
-					<?php endforeach; ?>
-				</ul>
+	foreach ( $book as $entry ) :
+		$step  = $entry['step'];
+		$day   = Trips::day_of_trip( $trip->ID, $step );
+		$badge = View::step_badge( $trip, $step );
+		foreach ( $entry['sections'] as $section ) :
+			?>
+			<?php if ( $section['text_page'] ) : ?>
+				<section class="ts-book-text">
+					<p class="ts-step-meta">
+						<?php if ( $day > 0 ) : ?>
+							<?php /* translators: %d: day number of the trip */ ?>
+							<span><?php echo esc_html( sprintf( __( 'Day %d', 'travel-steps-storyteller' ), $day ) ); ?></span>
+						<?php endif; ?>
+						<time datetime="<?php echo esc_attr( Trips::day( $step ) ); ?>"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $step->post_date ) ); ?></time>
+						<?php if ( $badge ) : ?>
+							<span class="<?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['text'] ); ?></span>
+						<?php endif; ?>
+					</p>
+					<?php if ( $section['first'] ) : ?>
+						<h2 class="ts-book-title"><?php echo esc_html( get_the_title( $step ) ); ?></h2>
+					<?php endif; ?>
+					<?php View::render_section_text( $section ); ?>
+				</section>
 			<?php endif; ?>
-			<?php View::render_story( $step, $shown, $render_grid ); ?>
-		</section>
-	<?php endforeach; ?>
+			<?php foreach ( PrintLayout::pages( $section['chosen'] ) as $page ) : ?>
+				<section class="ts-book-photos is-<?php echo esc_attr( $page['layout'] ); ?>">
+					<?php
+					foreach ( $page['photos'] as $photo ) {
+						$render_photo( $photo );
+					}
+					?>
+				</section>
+			<?php endforeach; ?>
+			<?php
+		endforeach;
+	endforeach;
+	?>
 </article>
 <?php
 include __DIR__ . '/_footer.php';

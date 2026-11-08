@@ -444,7 +444,7 @@
 				figure.querySelectorAll( '.ts-photo-state' ).forEach( ( b ) => {
 					b.setAttribute( 'aria-pressed', b.dataset.set === state ? 'true' : 'false' );
 				} );
-				showPrintIds( printIds ); // A hidden photo doesn't print, so its section's labels change.
+				showPrintIds(); // A hidden photo doesn't print, so its section's labels change.
 			} ).finally( () => {
 				btn.disabled = false;
 			} );
@@ -459,18 +459,17 @@
 
 	// Shows the list of chosen photos on the page. As on the print page, a section's lead is
 	// the first of its photos in the list, and a photo that's hidden doesn't count.
-	function showPrintIds( ids ) {
-		printIds = ids;
+	function showPrintIds() {
 		const bySection = {};
-		ids.map( ( id ) => figureOf.get( id ) )
+		printIds.map( ( id ) => figureOf.get( id ) )
 			.filter( ( figure ) => figure && 'hidden' !== figure.dataset.state )
 			.forEach( ( figure ) => {
 				const section = figure.dataset.printSection;
-				( bySection[ section ] = bySection[ section ] || [] ).push( figure.dataset.asset );
+				( bySection[ section ] = bySection[ section ] || [] ).push( figure );
 			} );
 		printFigures.forEach( ( figure ) => {
 			const chosen = bySection[ figure.dataset.printSection ] || [];
-			const place = chosen.indexOf( figure.dataset.asset );
+			const place = chosen.indexOf( figure );
 			const tag = figure.querySelector( '.ts-photo-print-tag' );
 			figure.classList.toggle( 'is-print', place >= 0 );
 			figure.querySelector( '.ts-photo-print' ).setAttribute( 'aria-pressed', place >= 0 ? 'true' : 'false' );
@@ -493,14 +492,16 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify( { asset: btn.closest( '.ts-photo' ).dataset.asset, action } ),
 		} ).then( ( result ) => {
-			showPrintIds( result.ids );
+			printIds = result.ids;
+			showPrintIds();
 		} ).finally( () => {
 			btn.disabled = false;
 		} );
 	}
 
 	if ( printFigures.length ) {
-		showPrintIds( JSON.parse( root.dataset.printIds ) );
+		printIds = JSON.parse( root.dataset.printIds );
+		showPrintIds();
 		root.querySelectorAll( '.ts-photo-print' ).forEach( ( btn ) => {
 			btn.addEventListener( 'click', () => setPrintPhoto( btn, 'true' === btn.getAttribute( 'aria-pressed' ) ? 'remove' : 'add' ) );
 		} );

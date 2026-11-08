@@ -379,7 +379,8 @@ class View {
 			}
 			$starts = Days::anchor_times( $step->post_content );
 			sort( $starts );
-			foreach ( array_merge( $by_step[ $step->ID ]['shown'], $by_step[ $step->ID ]['rest'], $by_step[ $step->ID ]['hidden'] ) as $photo ) {
+			$groups = $by_step[ $step->ID ];
+			foreach ( array_merge( $groups['shown'], $groups['rest'], $groups['hidden'] ) as $photo ) {
 				$sections[ $photo['id'] ] = $step->ID . '-' . Days::section_index( $starts, (int) $photo['t'] );
 			}
 		}

@@ -36,8 +36,7 @@
 
 /* A section's text. The script adds is-short to text that fits on a page, to centre it. */
 .ts-book-text { break-before: page; padding-top: 2rem; }
-.ts-book-text.is-short { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: var(--ts-print-page); padding: 0 25mm; text-align: center; box-sizing: border-box; }
-.ts-book-text.is-short .ts-step-meta { justify-content: center; }
+.ts-book-text.is-short { display: grid; grid-template-columns: fit-content(136mm); align-content: center; justify-content: center; min-height: var(--ts-print-page); padding: 0; box-sizing: border-box; }
 .ts-book-title { margin: .1rem 0 .5rem; font-size: 1.6rem; break-after: avoid; }
 .ts-print .ts-content h2, .ts-print .ts-content h3 { break-after: avoid; }
 .ts-print .ts-content p { orphans: 3; widows: 3; }
@@ -68,7 +67,7 @@
 /* On a phone the paper sizes would overflow: pages follow the screen instead. */
 @media screen and (max-width: 720px) {
 	.ts-print { --ts-print-page: 130vw; }
-	.ts-book-text.is-short { padding: 0 16px; }
+	.ts-book-text.is-short { grid-template-columns: fit-content(100%); }
 	.ts-book-photos.is-portrait .ts-print-photo img, .ts-print-photo img { max-height: 120vw; }
 	.ts-book-photos.is-stack .ts-print-photo img { max-height: 60vw; }
 	.ts-book-photos.is-three .ts-print-photo img { max-height: 40vw; }

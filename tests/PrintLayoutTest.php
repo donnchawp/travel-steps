@@ -19,11 +19,11 @@ $id      = fn( int $n ) => photo( $n )['id'];
 $nums    = fn( array $photos ) => array_map( fn( $p ) => (int) substr( $p['id'], -12 ), $photos );
 $layouts = fn( array $pages ) => array_column( $pages, 'layout' );
 
-// lead_first()
-check( 'lead is first chosen, others by time', [ 3, 1, 2 ] === $nums( PrintLayout::lead_first( [ photo( 1 ), photo( 2 ), photo( 3 ) ], [ $id( 3 ), $id( 2 ), $id( 1 ) ] ) ) );
-check( 'unchosen photos drop out', [ 2 ] === $nums( PrintLayout::lead_first( [ photo( 1 ), photo( 2 ) ], [ $id( 2 ) ] ) ) );
-check( 'ids not in the section are ignored', [ 1 ] === $nums( PrintLayout::lead_first( [ photo( 1 ) ], [ $id( 9 ), $id( 1 ) ] ) ) );
-check( 'nothing chosen: nothing', [] === PrintLayout::lead_first( [ photo( 1 ) ], [] ) );
+// in_print_order()
+check( 'chosen photos keep the order they were chosen', [ 3, 2, 1 ] === $nums( PrintLayout::in_print_order( [ photo( 1 ), photo( 2 ), photo( 3 ) ], [ $id( 3 ), $id( 2 ), $id( 1 ) ] ) ) );
+check( 'unchosen photos drop out', [ 2 ] === $nums( PrintLayout::in_print_order( [ photo( 1 ), photo( 2 ) ], [ $id( 2 ) ] ) ) );
+check( 'ids not in the section are ignored', [ 1 ] === $nums( PrintLayout::in_print_order( [ photo( 1 ) ], [ $id( 9 ), $id( 1 ) ] ) ) );
+check( 'nothing chosen: nothing', [] === PrintLayout::in_print_order( [ photo( 1 ) ], [] ) );
 
 // pages()
 check( 'one photo: alone', [ 'landscape' ] === $layouts( PrintLayout::pages( [ photo( 1 ) ] ) ) );
@@ -38,12 +38,5 @@ check( 'five: three pages, the lead, then two and two', [ 'landscape', 'stack', 
 check( 'six: a fourth page, for the one left over', [ 'landscape', 'stack', 'stack', 'landscape' ] === $layouts( PrintLayout::pages( array_map( 'photo', [ 1, 2, 3, 4, 5, 6 ] ) ) ) );
 check( 'the lead keeps its place', [ 7 ] === $nums( PrintLayout::pages( [ photo( 7 ), photo( 1 ) ] )[0]['photos'] ) );
 check( 'no photos: no pages', [] === PrintLayout::pages( [] ) );
-
-// after_removal(): chosen out of time order, 3, then 2, then 1.
-$list    = [ $id( 3 ), $id( 2 ), $id( 1 ) ];
-$section = [ photo( 1 ), photo( 2 ), photo( 3 ) ];
-check( 'removing the lead: next by time leads', [ $id( 1 ), $id( 2 ) ] === PrintLayout::after_removal( $list, $id( 3 ), $section ) );
-check( 'removing another keeps the lead', [ $id( 3 ), $id( 1 ) ] === PrintLayout::after_removal( $list, $id( 2 ), $section ) );
-check( 'removing the only one leaves another section alone', [ $id( 9 ) ] === PrintLayout::after_removal( [ $id( 3 ), $id( 9 ) ], $id( 3 ), [ photo( 3 ) ] ) );
 
 exit( $failures ? 1 : 0 );

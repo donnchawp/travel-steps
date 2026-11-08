@@ -62,19 +62,13 @@ $pb_plain = $render( 'trip.php', (string) $pb_b );
 $pb_assets = fn( string $page ) => array_values( array_unique( array_filter( array_map( fn( $n ) => false !== strpos( $page, $n ) ? $n : '', array_column( $pb_rows, 'id' ) ) ) ) );
 check( '…and a visitor’s trip page has the same photos as a trip with none chosen', $pb_assets( $pb_seen ) === $pb_assets( $pb_plain ) && 6 === count( $pb_assets( $pb_seen ) ), $pb_assets( $pb_seen ) );
 
-// A section's photos, whichever place a photo is in.
-wp_set_current_user( 1 );
-check( 'print: a photo’s section is its place', [ $pb_id( 64 ), $pb_id( 65 ), $pb_id( 66 ) ] === array_column( View::section_photos( $pb_a, $pb_id( 65 ) ), 'id' ) );
-
-// Removing: chosen out of time order, the next by time leads.
+// Removing: chosen out of time order, the next chosen leads.
 [ $pb_c ] = $pb_trip( 'Reordered Porto' );
 foreach ( [ 63, 62, 61, 64 ] as $pb_n ) {
 	$pb_do( $pb_c, $pb_id( $pb_n ), 'add' );
 }
 $pb_do( $pb_c, $pb_id( 63 ), 'remove' );
-check( 'print: removing a lead makes the next by time the lead', $pb_id( 61 ) === Trips::print_ids( $pb_c )[0] && 3 === count( Trips::print_ids( $pb_c ) ), Trips::print_ids( $pb_c ) );
-$pb_do( $pb_c, $pb_id( 64 ), 'remove' );
-check( '…and removing another place’s only photo leaves this place’s lead', $pb_id( 61 ) === Trips::print_ids( $pb_c )[0] && 2 === count( Trips::print_ids( $pb_c ) ), Trips::print_ids( $pb_c ) );
+check( 'print: removing a lead makes the next chosen the lead', [ $pb_id( 62 ), $pb_id( 61 ), $pb_id( 64 ) ] === Trips::print_ids( $pb_c ), Trips::print_ids( $pb_c ) );
 wp_set_current_user( 0 );
 
 // The print page. Everything after the cover, so its photo doesn't count.
@@ -107,6 +101,10 @@ check( 'book: a place with photos chosen prints', false !== strpos( $pb_page, 'B
 check( '…a place with none is left out, text and all', false === strpos( $pb_page, 'Porto story' ) && ! $pb_has( $pb_page, 61 ) );
 check( '…its photos are previews', false !== strpos( $pb_page, esc_url( RestController::photo_url( $pb_f, $pb_id( 64 ), 'preview' ) ) ) && false === strpos( $pb_page, esc_url( RestController::photo_url( $pb_f, $pb_id( 64 ), 'medium' ) ) ) );
 check( '…three photos: the lead alone, then two stacked', 1 === preg_match( '#ts-book-photos is-landscape.*ts-book-photos is-stack#s', $pb_page ), $pb_page );
+[ $pb_q ] = $pb_trip( 'Ordered Porto' );
+$pb_choose( $pb_q, [ 66, 65, 64 ] );
+$pb_order = $pb_body( $pb_print( $pb_q ) );
+check( '…printing in the order they were chosen, not by time', strpos( $pb_order, $pb_id( 66 ) ) < strpos( $pb_order, $pb_id( 65 ) ) && strpos( $pb_order, $pb_id( 65 ) ) < strpos( $pb_order, $pb_id( 64 ) ) );
 check( '…no map or photo tools', false === strpos( $pb_page, 'ts-map' ) && false === strpos( $pb_page, 'ts-photo-tools' ) );
 $pb_page = $pb_print( $pb_f, $pb_friend );
 check( '…a logged-in visitor gets the same book', $pb_has( $pb_body( $pb_page ), 64 ) && false === strpos( $pb_page, 'No photos are chosen' ) );

@@ -232,7 +232,7 @@ class RestController {
 		$action  = (string) $request['action'];
 		$ids     = Trips::print_ids( $trip_id );
 		if ( 'remove' === $action ) {
-			$ids = PrintLayout::after_removal( $ids, $asset, View::section_photos( $trip_id, $asset ) );
+			$ids = array_values( array_diff( $ids, [ $asset ] ) );
 		} elseif ( ! in_array( $asset, array_column( Trips::photos( $trip_id ), 'id' ), true ) ) {
 			return new \WP_Error( 'travel_steps_not_in_trip', 'That photo isn’t part of this trip.', [ 'status' => 400 ] );
 		} elseif ( 'lead' === $action ) {

@@ -52,11 +52,11 @@ The work has failed, even if it functions, if:
 Each non-hidden photo on the trip page, including those behind "Show more", gets a **Print** toggle beside Pin, Hide and Cover. It appears for those who get the other photo tools (`Trips::can_edit_trip()`), and shows on touch screens under the existing "Edit photos" toggle.
 
 - The first photo chosen in a section is its lead. A **Make lead** button appears on the section's other chosen photos.
-- Removing the lead makes the next chosen photo, by time, the lead.
+- Removing the lead makes the next chosen photo the lead.
 - The section shows how many of its photos are chosen. A sixth or later photo is allowed, with a warning that the book works best with five.
 - Changes save straight away and update the page without a reload, as Pin and Hide do.
 
-Storage is one ordered list of photo ids in trip meta, `_travel_steps_print`, written through a new REST route that takes the same permission as `photo-state`. The route refuses photos that aren't in the trip. A section's lead is whichever of its photos comes first in the list; its other photos print in time order.
+Storage is one ordered list of photo ids in trip meta, `_travel_steps_print`, written through a new REST route that takes the same permission as `photo-state`. The route refuses photos that aren't in the trip. A section's photos print in the order they're in the list, so its lead is whichever comes first.
 
 The selection is independent of pinned and hidden. A photo that's hidden after being chosen stays in the list but doesn't print, and comes back if it's unhidden. Ids no longer in the trip are ignored.
 

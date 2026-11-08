@@ -7,8 +7,7 @@ namespace TravelSteps;
  * a page, then the others two to a page. So the five that work best fill three pages,
  * and with its text page a section takes four. Pure functions, no WordPress dependencies.
  *
- * A section's lead is whichever of its photos comes first in the trip's list of chosen
- * photos. Its others print in the order they were taken.
+ * Photos print in the order they were chosen, so a section's lead is the first of them.
  */
 class PrintLayout {
 	// Page layouts, which the print stylesheet sizes: .ts-book-photos.is-stack and so on.
@@ -23,32 +22,23 @@ class PrintLayout {
 	const BEST = 5;
 
 	/**
-	 * A section's chosen photos: its lead, then the others in time order.
+	 * A section's chosen photos, in the order they were chosen, the first being its lead.
 	 *
-	 * @param array    $photos    The section's photos, by time.
+	 * @param array    $photos    The section's photos.
 	 * @param string[] $print_ids The trip's chosen photo ids, in order.
 	 * @return array Photo rows.
 	 */
-	public static function lead_first( array $photos, array $print_ids ): array {
+	public static function in_print_order( array $photos, array $print_ids ): array {
 		$rank   = array_flip( array_values( $print_ids ) );
 		$chosen = array_values( array_filter( $photos, fn( $photo ) => isset( $rank[ $photo['id'] ] ) ) );
-		if ( ! $chosen ) {
-			return [];
-		}
-		$lead = 0;
-		foreach ( $chosen as $index => $photo ) {
-			if ( $rank[ $photo['id'] ] < $rank[ $chosen[ $lead ]['id'] ] ) {
-				$lead = $index;
-			}
-		}
-		$first = array_splice( $chosen, $lead, 1 );
-		return array_merge( $first, $chosen );
+		usort( $chosen, fn( $a, $b ) => $rank[ $a['id'] ] <=> $rank[ $b['id'] ] );
+		return $chosen;
 	}
 
 	/**
 	 * A section's pages of photos, each with the layout that prints them.
 	 *
-	 * @param array $chosen Photos from lead_first().
+	 * @param array $chosen Photos from in_print_order().
 	 * @return list<array{layout: string, photos: array}>
 	 */
 	public static function pages( array $chosen ): array {
@@ -60,23 +50,6 @@ class PrintLayout {
 			$pages[] = self::page( $photos );
 		}
 		return $pages;
-	}
-
-	/**
-	 * The list of chosen photos without $asset. If it was its section's lead, the section's
-	 * next chosen photo by time becomes the lead, wherever it was in the list.
-	 *
-	 * @param string[] $print_ids      The trip's chosen photo ids, in order.
-	 * @param array    $section_photos The photos of $asset's section, by time.
-	 * @return string[]
-	 */
-	public static function after_removal( array $print_ids, string $asset, array $section_photos ): array {
-		$left   = array_values( array_diff( $print_ids, [ $asset ] ) );
-		$chosen = self::lead_first( $section_photos, $print_ids );
-		if ( ! isset( $chosen[1] ) || $asset !== $chosen[0]['id'] ) {
-			return $left;
-		}
-		return array_merge( [ $chosen[1]['id'] ], array_values( array_diff( $left, [ $chosen[1]['id'] ] ) ) );
 	}
 
 	/**

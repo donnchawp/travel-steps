@@ -314,24 +314,8 @@ class View {
 	}
 
 	/**
-	 * The non-hidden photos of the section a photo is in, by time, or none if it's in no
-	 * step's section.
-	 */
-	public static function section_photos( int $trip_id, string $asset ): array {
-		$steps = Trips::steps( $trip_id, true );
-		foreach ( Trips::photos_by_step( $trip_id, $steps ) as $step_id => $groups ) {
-			foreach ( self::story_sections( get_post( $step_id ), self::visible_photos( $groups ) ) as $section ) {
-				if ( in_array( $asset, array_column( $section['photos'], 'id' ), true ) ) {
-					return $section['photos'];
-				}
-			}
-		}
-		return [];
-	}
-
-	/**
 	 * The trip's print version: for each of $steps with photos chosen, its sections with
-	 * photos chosen, lead first. A step's first section always has a text page, for its
+	 * photos chosen, in the order they were chosen. A step's first section always has a text page, for its
 	 * title. A later one has one if it has a heading or text.
 	 *
 	 * @param \WP_Post[] $steps The steps the current user may see.
@@ -350,7 +334,7 @@ class View {
 			}
 			$sections = [];
 			foreach ( self::story_sections( $step, self::visible_photos( $by_step[ $step->ID ] ) ) as $section ) {
-				$chosen = PrintLayout::lead_first( $section['photos'], $ids );
+				$chosen = PrintLayout::in_print_order( $section['photos'], $ids );
 				if ( ! $chosen ) {
 					continue;
 				}

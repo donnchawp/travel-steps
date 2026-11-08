@@ -210,8 +210,8 @@ body.ts-body a:focus { color: var(--ts-accent); }
 .ts-photo-state[aria-pressed="true"], .ts-photo-cover[aria-pressed="true"], .ts-photo-print[aria-pressed="true"] { background: var(--ts-accent); }
 /* A chosen photo's place in its section. */
 .ts-photo-print-tag { position: absolute; bottom: 6px; left: 6px; padding: .1rem .5rem; border-radius: 4px; background: var(--ts-accent); color: var(--ts-accent-ink); font-size: .75rem; font-weight: 600; pointer-events: none; }
-/* A photo just hidden doesn't print, whatever it says. The list is redrawn on the next load. */
-.ts-photo.is-hidden .ts-photo-print, .ts-photo.is-hidden .ts-photo-lead, .ts-photo.is-hidden .ts-photo-print-tag { display: none; }
+/* A hidden photo doesn't print, so it doesn't offer to. It keeps its place in the list for when it's unhidden. */
+.ts-photo.is-hidden .ts-photo-print { display: none; }
 .ts-photo-fav { color: #ff7a9c; }
 
 .ts-more-photos, .ts-untimed { margin-top: .75rem; }

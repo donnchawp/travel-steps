@@ -36,8 +36,12 @@
 		document.body.append( ruler );
 		const fits = ruler.offsetHeight;
 		ruler.remove();
+		// Measured as it would print: centred text sits in a narrower column, so wraps more.
 		document.querySelectorAll( '.ts-book-text' ).forEach( ( text ) => {
+			text.classList.add( 'is-short' );
+			text.style.minHeight = '0';
 			text.classList.toggle( 'is-short', text.offsetHeight < fits );
+			text.style.minHeight = '';
 		} );
 	};
 

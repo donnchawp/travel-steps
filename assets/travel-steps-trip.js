@@ -471,7 +471,6 @@
 			const chosen = bySection[ figure.dataset.printSection ] || [];
 			const place = chosen.indexOf( figure );
 			const tag = figure.querySelector( '.ts-photo-print-tag' );
-			figure.classList.toggle( 'is-print', place >= 0 );
 			figure.querySelector( '.ts-photo-print' ).setAttribute( 'aria-pressed', place >= 0 ? 'true' : 'false' );
 			figure.querySelector( '.ts-photo-lead' ).hidden = place < 1;
 			tag.hidden = place < 0;
@@ -510,7 +509,7 @@
 		} );
 	}
 
-	/* ---------- Photo tools on touch screens (editors) ---------- */
+	/* ---------- Edit photos toggle (editors) ---------- */
 
 	const editPhotos = root.querySelector( '.ts-edit-photos' );
 	if ( editPhotos ) {

@@ -45,7 +45,7 @@ A step shows photos from its date. Favourites in Immich decide which:
 - A step without favourites (one you added by hand) gets an automatic pick of 8 photos by default, spread across the day. A burst of shots taken seconds apart counts as one.
 - On the trip page, **Pin** a photo to always show it, or **Hide** it to never show it. Press the button again to undo.
 - **Cover** makes a photo the trip's header image. Press it again to go back to the automatic choice, which is the first landscape favourite on a published step. A chosen cover is public with the trip, even if its step isn't.
-- On a phone or tablet these buttons only appear after you press **Edit photos** at the top of the trip page, so a long press while you scroll can't change anything.
+- These buttons only appear after you press **Edit photos** at the top of the trip page, so looking through a trip can't change anything. Press it again, or reload the page, to put them away.
 - Everything else stays behind a collapsed "Show N more photos".
 - Days without a step show no photos at all.
 - Sync skips screenshots and other images with no camera make or model in their EXIF, unless they're favourites.
@@ -75,7 +75,7 @@ To add a step by hand, click **Add step**, set its date in the block editor and 
 
 ## Printing a trip
 
-A trip prints as a short book of photos you choose. On the trip's page, press Print on a photo to add it to the book. This changes nothing visitors see. Photos print in the order you choose them. The first for a place is its lead, and Make lead changes that. A tag on each chosen photo gives its place, such as `2 of 5`. Five photos a place works best, as they fill three pages. More are allowed, and the tag says so.
+A trip prints as a short book of photos you choose. On the trip's page, press Edit photos, then Print on a photo to add it to the book. This changes nothing visitors see. Photos print in the order you choose them. The first for a place is its lead, and Make lead changes that. A tag on each chosen photo gives its place, such as `2 of 5`. Five photos a place works best, as they fill three pages. More are allowed, and the tag says so.
 
 The Print button at the top of the trip's page opens the book: a cover page with the header photo, dates, stats and intro, then for each place with photos chosen, its text centred on a page, its lead alone on a page, then its other photos two to a page. Text pages are always left pages when printed double-sided, so a blank page goes before one that would land on the right. Five photos with a page of text need no blank page. A place with no photos chosen is left out, text and all, and a step with none is left out altogether. A hidden photo doesn't print, even if it was chosen, except as the trip's cover. It stays chosen, and comes back in its place if it's unhidden. If text doesn't fit on a page, it runs on from the top of the next. The browser's print dialog prints the book, or saves it as a PDF to keep or share offline. Its button waits for every photo to load first.
 

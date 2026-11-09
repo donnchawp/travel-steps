@@ -471,7 +471,7 @@ check( 'cover: visitors can load the chosen cover', isset( Trips::shown_photo_id
 wp_set_current_user( 1 );
 $html = $render( 'trip.php', (string) $trip_id );
 check( 'cover: its button is pressed on the trip page', 1 === preg_match( '/data-asset="' . $faro . '"[^>]*>(?:(?!<\/figure>).)*ts-photo-cover[^>]*aria-pressed="true"/s', $html ) );
-// On a touch screen the photo tools stay off until this is pressed, so a long press can't use them.
+// The photo tools stay off until this is pressed.
 check( 'an editor gets the Edit photos toggle, off', 1 === preg_match( '/<button[^>]*class="[^"]*ts-edit-photos[^"]*"[^>]*aria-pressed="false"/', $html ) );
 $res = $cover( '' );
 check( 'cover: pressing again goes back to automatic', 200 === $res->get_status() && false !== strpos( View::cover_url( $trip_id ), $lis ) );

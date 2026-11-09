@@ -175,26 +175,15 @@ body.ts-body a:focus { color: var(--ts-accent); }
 	top: 6px;
 	right: 6px;
 	left: 6px;
-	display: flex;
+	display: none; /* Off until "Edit photos" turns them on, so looking at a trip can't change it. */
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	gap: 4px;
 	pointer-events: none; /* Clicks between the buttons open the photo. */
 	align-items: center;
-	opacity: 0;
-	transition: opacity .15s;
 }
-/* Showing the tools also lets them take clicks, so one rule decides both. Pointer events, not visibility, so Tab still reaches them. */
-.ts-photo:hover .ts-photo-tools, .ts-photo-tools:focus-within, .ts-photo.is-pinned .ts-photo-tools, .ts-photo.is-hidden .ts-photo-tools, .ts-photo.is-print .ts-photo-tools { opacity: 1; --ts-tools-hit: auto; }
-.ts-photo-tools > * { pointer-events: var(--ts-tools-hit, none); }
-/* A touch screen has no hover: the tools are off until "Edit photos" turns them on, so a long press while scrolling can't change the trip. */
-@media (hover: hover) {
-	.ts-edit-photos { display: none; }
-}
-@media (hover: none) {
-	.ts-trip:not(.is-editing-photos) .ts-photo-tools { display: none; }
-	.ts-trip.is-editing-photos .ts-photo-tools { opacity: 1; --ts-tools-hit: auto; }
-}
+.ts-trip.is-editing-photos .ts-photo-tools { display: flex; }
+.ts-photo-tools > * { pointer-events: auto; }
 .ts-edit-photos[aria-pressed="true"] { background: var(--ts-accent); color: var(--ts-accent-ink) !important; }
 .ts-photo-state, .ts-photo-cover, .ts-photo-fav, .ts-photo-print, .ts-photo-lead {
 	padding: .15rem .5rem;

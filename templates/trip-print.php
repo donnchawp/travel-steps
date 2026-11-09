@@ -86,7 +86,7 @@ include __DIR__ . '/_header.php';
 	<?php if ( ! $book && $can_edit ) : ?>
 		<p class="ts-notice is-warning ts-print-note">
 			<?php esc_html_e( 'No photos are chosen for printing yet.', 'travel-steps-storyteller' ); ?>
-			<a href="<?php echo esc_url( Trips::url( $trip ) ); ?>"><?php esc_html_e( 'Choose them on the trip page.', 'travel-steps-storyteller' ); ?></a>
+			<a href="<?php echo esc_url( Trips::url( $trip ) ); ?>"><?php esc_html_e( 'Press Edit photos on the trip page to choose them.', 'travel-steps-storyteller' ); ?></a>
 		</p>
 	<?php endif; ?>
 

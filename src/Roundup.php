@@ -78,7 +78,6 @@ class Roundup {
 				'numberposts'      => -1,
 				'orderby'          => 'ID',
 				'order'            => 'ASC',
-				'suppress_filters' => true,
 				'meta_key'         => self::META_STATE, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Once a day.
 			]
 		);

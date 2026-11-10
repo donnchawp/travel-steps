@@ -114,10 +114,9 @@ class Subscriptions {
 	private static function query( array $args ): array {
 		return get_posts(
 			$args + [
-				'post_type'        => self::TYPE,
-				'post_status'      => 'private',
-				'numberposts'      => -1,
-				'suppress_filters' => true,
+				'post_type'   => self::TYPE,
+				'post_status' => 'private',
+				'numberposts' => -1,
 			]
 		);
 	}
@@ -316,8 +315,8 @@ class Subscriptions {
 		if ( $user ) {
 			return self::find( $trip_id, self::META_USER, $user );
 		}
-		$value  = $_COOKIE[ self::cookie( $trip_id ) ] ?? ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitised below.
-		$cookie = is_string( $value ) ? sanitize_text_field( wp_unslash( $value ) ) : '';
+		// An array cookie (name[]=…) sanitises to ''.
+		$cookie = sanitize_text_field( wp_unslash( $_COOKIE[ self::cookie( $trip_id ) ] ?? '' ) );
 		$parts  = explode( '.', $cookie, 2 );
 		if ( 2 !== count( $parts ) ) {
 			return null;

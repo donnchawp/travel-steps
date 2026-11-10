@@ -13,9 +13,9 @@ use TravelSteps\Trips;
 // (a form with no action, so it posts to this same link), or a mail client's one-click
 // unsubscribe, POSTs back to it, and that acts. No cache may keep either answer.
 nocache_headers();
-$posted = 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' );
+$posted = 'POST' === sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ?? '' ) );
 // The page the button's unsubscribe sends the browser on to (below) only says it's done.
-$result = 'unsubscribed' === ( $_GET[ Subscriptions::NOTICE_ARG ] ?? '' )
+$result = 'unsubscribed' === sanitize_key( wp_unslash( $_GET[ Subscriptions::NOTICE_ARG ] ?? '' ) )
 	? [
 		'state' => 'unsubscribed',
 		'trip'  => null,

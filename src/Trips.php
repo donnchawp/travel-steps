@@ -165,7 +165,8 @@ class Trips {
 		$owned = array_merge( array_keys( $types ), array_values( $types ) );
 		$in    = fn( array $list ) => implode( ',', array_fill( 0, count( $list ), '%s' ) );
 		$set   = "SET pm.meta_key = CONCAT( '_travel_steps_', SUBSTRING( pm.meta_key, 5 ) ) WHERE pm.meta_key IN ( {$in( $keys )} )";
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		// $set holds only fixed SQL and %s placeholders; the values go through prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		// Two queries, not a LEFT JOIN: Playground's SQLite driver drops the posts without a parent.
 		$moved = [
 			$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id $set AND p.post_type IN ( {$in( $owned )} )", array_merge( $keys, $owned ) ) ),

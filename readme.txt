@@ -4,7 +4,7 @@ Tags: travel, journal, map, immich, dawarich
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.6.2
+Stable tag: 0.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,7 +107,7 @@ Place names come from [GeoNames](https://www.geonames.org), licensed under [CC B
 
 == Changelog ==
 
-= Unreleased =
+= 0.7.0 =
 * A trip can print as a short book of photos you choose. On the trip's page, press Edit photos, then Print on the photos you want, which changes nothing visitors see. The Print button then opens a cover page and, for each place with photos chosen, its text on a page, its lead photo alone, and its other photos two to a page. Five photos a place work best. It's laid out for A4, or A5 to fold into a zine, with steps on the page for printing it as a booklet; on US Letter, print with fit to page. Print it, or save it as a PDF to keep. Printing takes a login.
 * On a computer too, the photo buttons on the trip page stay out of sight until you press Edit photos, as they already did on a phone.
 

@@ -58,7 +58,7 @@
 .ts-book-photos.is-landscape .ts-print-photo, .ts-book-photos.is-stack .ts-print-photo { width: 100%; }
 /* Room for a caption below a photo alone, and for two photos' captions and the gap between them. */
 .ts-book-photos.is-portrait .ts-print-photo img { max-width: min(137mm, 100%); max-height: min(183mm, calc(var(--ts-print-paper) - 12mm)); }
-.ts-book-photos.is-stack .ts-print-photo img { max-height: min(118mm, calc((var(--ts-print-paper) - 19mm) / 2)); }
+.ts-book-photos.is-stack .ts-print-photo img { max-height: min(118mm, calc((var(--ts-print-paper) - 30mm) / 2)); }
 .ts-book-photos.is-pair { flex-direction: row; }
 .ts-book-photos.is-pair .ts-print-photo { flex: 1 1 0; }
 

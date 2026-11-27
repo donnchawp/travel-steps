@@ -35,9 +35,9 @@ $book     = View::print_book( $trip->ID, $steps, Trips::photos_by_step( $trip->I
 $cover    = View::cover_url( $trip->ID, 'preview' );
 
 // The paper the book is laid out for, asked for in the address, so the choice needs no saving.
-$paper     = PrintLayout::paper( isset( $_GET['paper'] ) ? sanitize_key( wp_unslash( $_GET['paper'] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
+$paper     = PrintLayout::paper( isset( $_GET[ PrintLayout::PAPER_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ PrintLayout::PAPER_ARG ] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
 $print_url = Trips::url( $trip, 'print' );
-$paper_url = fn( string $size ) => PrintLayout::A4 === $size ? $print_url : add_query_arg( 'paper', $size, $print_url );
+$paper_url = fn( string $size ) => PrintLayout::A4 === $size ? $print_url : add_query_arg( PrintLayout::PAPER_ARG, $size, $print_url );
 $papers    = [
 	PrintLayout::A4 => __( 'A4', 'travel-steps-storyteller' ),
 	PrintLayout::A5 => __( 'A5', 'travel-steps-storyteller' ),

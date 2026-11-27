@@ -8,7 +8,7 @@ A WordPress plugin that tells the story of a trip from its photos and location h
 
 **Book**:
 A trip printed as a short book of its chosen photos, section by section, with each section's text on its own left-hand page.
-_Avoid_: Zine, print version, booklet
+_Avoid_: Print version
 
 **Section**:
 One place heading's part of a step, or the part of a step before its first heading.
@@ -21,5 +21,4 @@ _Avoid_: Book photo, print photo
 The chosen photo that prints first and alone on its page in a section.
 
 **Paper size**:
-The page the book is laid out for: A4 by default, or A5. The same chosen photos make either.
-_Avoid_: Zine (for the A5 book)
+The page the book is laid out for: A4 by default, or A5. The same chosen photos make either. An A5 book printed as a booklet and folded is a zine.

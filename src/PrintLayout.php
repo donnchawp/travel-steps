@@ -21,10 +21,11 @@ class PrintLayout {
 	// How many photos a section is best with. More are allowed, and the trip page says so.
 	const BEST = 5;
 
-	// Paper sizes the book is laid out for. A4 unless A5 is asked for.
-	const A4    = 'a4';
-	const A5    = 'a5';
-	const PAPER = [ self::A4, self::A5 ];
+	// Paper sizes the book is laid out for, asked for with PAPER_ARG. A4 unless A5 is asked for.
+	const A4        = 'a4';
+	const A5        = 'a5';
+	const PAPERS    = [ self::A4, self::A5 ];
+	const PAPER_ARG = 'paper';
 
 	/**
 	 * The paper size to lay the book out for, from the one asked for in the address.
@@ -32,7 +33,7 @@ class PrintLayout {
 	 * @param string|null $requested The paper asked for, if any.
 	 */
 	public static function paper( ?string $requested ): string {
-		return in_array( $requested, self::PAPER, true ) ? $requested : self::A4;
+		return in_array( $requested, self::PAPERS, true ) ? $requested : self::A4;
 	}
 
 	/**

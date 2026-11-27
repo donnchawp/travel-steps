@@ -110,12 +110,12 @@ $pb_page = $pb_print( $pb_f, $pb_friend );
 check( '…a logged-in visitor gets the same book', $pb_has( $pb_body( $pb_page ), 64 ) && false === strpos( $pb_page, 'No photos are chosen' ) );
 
 // Paper: A4 unless A5 is asked for in the address, for a folded zine.
-$pb_page = $pb_print( $pb_f );
-check( 'book: laid out for A4, with a link to A5', false === strpos( $pb_page, 'is-a5' ) && false === strpos( $pb_page, 'size: A5' ) && false !== strpos( $pb_page, 'href="' . esc_url( add_query_arg( \TravelSteps\PrintLayout::PAPER_ARG, 'a5', Trips::url( get_post( $pb_f ), 'print' ) ) ) . '"' ) );
+$pb_a4 = $pb_print( $pb_f );
+check( 'book: laid out for A4, with a link to A5', false === strpos( $pb_a4, 'is-a5' ) && false === strpos( $pb_a4, 'size: A5' ) && false !== strpos( $pb_a4, 'href="' . esc_url( add_query_arg( \TravelSteps\PrintLayout::PAPER_ARG, 'a5', Trips::url( get_post( $pb_f ), 'print' ) ) ) . '"' ) );
 $_GET[ \TravelSteps\PrintLayout::PAPER_ARG ] = 'a5';
-$pb_page =  $pb_print( $pb_f );
+$pb_page = $pb_print( $pb_f );
 unset( $_GET[ \TravelSteps\PrintLayout::PAPER_ARG ] );
-check( '…with booklet instructions only on A5', false === strpos( $pb_print( $pb_f ), 'ts-print-booklet' ) && false !== strpos( $pb_page, 'ts-print-booklet' ) );
+check( '…with booklet instructions only on A5', false === strpos( $pb_a4, 'ts-print-booklet' ) && false !== strpos( $pb_page, 'ts-print-booklet' ) );
 check( '…and on A5 when asked, the same book', false !== strpos( $pb_page, 'ts-print is-a5' ) && false !== strpos( $pb_page, '@page { size: A5; }' ) && $pb_has( $pb_body( $pb_page ), 64 ) );
 
 // A step with nothing chosen is left out altogether, title included.

@@ -10,6 +10,7 @@
 	--ts-print-width: 186mm;
 	--ts-print-paper: 273mm; /* The printable height. */
 	--ts-print-page: var(--ts-print-paper);
+	--ts-print-photo: calc(var(--ts-print-paper) - 12mm); /* A photo alone, with room for its caption. */
 	max-width: calc(var(--ts-print-width) + 6mm);
 	margin: 0 auto;
 	padding: 1.5rem 16px 4rem;
@@ -38,7 +39,7 @@
 .ts-print-button:disabled { opacity: .6; cursor: progress; }
 
 .ts-print-cover h1 { margin: .2rem 0 .6rem; font-size: 2.4rem; line-height: 1.1; }
-.ts-print-cover-img { display: block; width: 100%; max-height: min(150mm, calc(var(--ts-print-paper) * .55)); object-fit: cover; border-radius: 4px; margin-bottom: 6mm; }
+.ts-print-cover-img { display: block; width: 100%; max-height: calc(var(--ts-print-paper) * .55); object-fit: cover; border-radius: 4px; margin-bottom: 6mm; }
 .ts-print-dates { margin: 0; font-weight: 600; color: var(--ts-muted); }
 .ts-print-cover .ts-stats { margin-bottom: 6mm; }
 
@@ -55,12 +56,12 @@
 /* A page of photos, centred on it. */
 .ts-book-photos { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4mm; height: var(--ts-print-page); margin: 0; break-before: page; break-inside: avoid; }
 .ts-print-photo { display: flex; flex-direction: column; align-items: center; min-width: 0; margin: 0; }
-.ts-print-photo img { display: block; width: auto; height: auto; max-width: 100%; max-height: min(200mm, calc(var(--ts-print-paper) - 12mm)); }
+.ts-print-photo img { display: block; width: auto; height: auto; max-width: 100%; max-height: min(200mm, var(--ts-print-photo)); }
 .ts-print-photo figcaption { padding-top: 1.5mm; color: var(--ts-muted); font-size: 8.5pt; line-height: 1.3; text-align: center; }
 
 .ts-book-photos.is-landscape .ts-print-photo, .ts-book-photos.is-stack .ts-print-photo { width: 100%; }
 /* Room for a caption below a photo alone, and for two photos' captions and the gap between them. */
-.ts-book-photos.is-portrait .ts-print-photo img { max-width: min(137mm, 100%); max-height: min(183mm, calc(var(--ts-print-paper) - 12mm)); }
+.ts-book-photos.is-portrait .ts-print-photo img { max-width: min(137mm, 100%); max-height: min(183mm, var(--ts-print-photo)); }
 .ts-book-photos.is-stack .ts-print-photo img { max-height: min(118mm, calc((var(--ts-print-paper) - 30mm) / 2)); }
 .ts-book-photos.is-pair { flex-direction: row; }
 .ts-book-photos.is-pair .ts-print-photo { flex: 1 1 0; }

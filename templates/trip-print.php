@@ -38,10 +38,6 @@ $cover    = View::cover_url( $trip->ID, 'preview' );
 $paper     = PrintLayout::paper( isset( $_GET[ PrintLayout::PAPER_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ PrintLayout::PAPER_ARG ] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
 $print_url = Trips::url( $trip, 'print' );
 $paper_url = fn( string $size ) => PrintLayout::A4 === $size ? $print_url : add_query_arg( PrintLayout::PAPER_ARG, $size, $print_url );
-$papers    = [
-	PrintLayout::A4 => __( 'A4', 'travel-steps-storyteller' ),
-	PrintLayout::A5 => __( 'A5', 'travel-steps-storyteller' ),
-];
 
 wp_app_enqueue_style(
 	'travel-steps-print',
@@ -70,22 +66,20 @@ include __DIR__ . '/_header.php';
 		data-failed="<?php esc_attr_e( 'Some photos couldn’t be loaded and will be missing from the print.', 'travel-steps-storyteller' ); ?>"
 		data-tip="<?php esc_attr_e( 'To keep a copy, choose “Save as PDF” as the printer.', 'travel-steps-storyteller' ); ?>"></span>
 	<nav class="ts-print-paper" aria-label="<?php esc_attr_e( 'Paper size', 'travel-steps-storyteller' ); ?>">
-		<?php foreach ( $papers as $size => $label ) : ?>
-			<a href="<?php echo esc_url( $paper_url( $size ) ); ?>"<?php echo $size === $paper ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?></a>
+		<?php foreach ( PrintLayout::PAPERS as $size ) : ?>
+			<a href="<?php echo esc_url( $paper_url( $size ) ); ?>"<?php echo $size === $paper ? ' aria-current="page"' : ''; ?>><?php echo esc_html( strtoupper( $size ) ); ?></a>
 		<?php endforeach; ?>
 	</nav>
 	<button type="button" class="ts-button ts-print-button"><?php esc_html_e( 'Print or save as PDF', 'travel-steps-storyteller' ); ?></button>
 </div>
 
-<?php if ( PrintLayout::A5 === $paper ) : ?>
-	<?php // The stylesheet's @page is A4, and a page's size can't follow a class. ?>
-	<style>@page { size: A5; }</style>
-<?php endif; ?>
 <article class="ts-print is-<?php echo esc_attr( $paper ); ?>"
 	<?php if ( $shared ) : ?>
 		data-clean-url="<?php echo esc_url( $paper_url( $paper ) ); ?>"
 	<?php endif; ?>>
 	<?php if ( PrintLayout::A5 === $paper ) : ?>
+		<?php // The stylesheet's @page is A4, and a page's size can't follow a class. ?>
+		<style>@page { size: A5; }</style>
 		<?php // Browsers print pages in reading order, so folding order needs a PDF reader. ?>
 		<div class="ts-notice ts-print-note ts-print-booklet">
 			<p><?php esc_html_e( 'To print this as a folded booklet, two pages on each side of an A4 sheet:', 'travel-steps-storyteller' ); ?></p>

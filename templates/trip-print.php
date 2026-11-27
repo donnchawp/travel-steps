@@ -22,7 +22,10 @@ if ( ! is_user_logged_in() ) {
 	include __DIR__ . '/_notfound.php';
 	return;
 }
+// The paper the book is laid out for, asked for in the address, so the choice needs no saving.
+$paper       = PrintLayout::paper( isset( $_GET[ PrintLayout::PAPER_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ PrintLayout::PAPER_ARG ] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
 $trip_suffix = 'print';
+$trip_args   = PrintLayout::A4 === $paper ? [] : [ PrintLayout::PAPER_ARG => $paper ];
 $trip        = include __DIR__ . '/_trip-gate.php';
 if ( ! $trip ) {
 	return;
@@ -33,6 +36,9 @@ $can_edit = current_user_can( 'edit_post', $trip->ID );
 $steps    = Trips::timeline_steps( $trip, $can_edit );
 $book     = View::print_book( $trip->ID, $steps, Trips::photos_by_step( $trip->ID, $steps ) );
 $cover    = View::cover_url( $trip->ID, 'preview' );
+
+$print_url = Trips::url( $trip, 'print' );
+$paper_url = fn( string $size ) => PrintLayout::A4 === $size ? $print_url : add_query_arg( PrintLayout::PAPER_ARG, $size, $print_url );
 
 wp_app_enqueue_style(
 	'travel-steps-print',
@@ -60,13 +66,32 @@ include __DIR__ . '/_header.php';
 		data-loading="<?php esc_attr_e( 'Loading photos…', 'travel-steps-storyteller' ); ?>"
 		data-failed="<?php esc_attr_e( 'Some photos couldn’t be loaded and will be missing from the print.', 'travel-steps-storyteller' ); ?>"
 		data-tip="<?php esc_attr_e( 'To keep a copy, choose “Save as PDF” as the printer.', 'travel-steps-storyteller' ); ?>"></span>
+	<nav class="ts-print-paper" aria-label="<?php esc_attr_e( 'Paper size', 'travel-steps-storyteller' ); ?>">
+		<?php foreach ( PrintLayout::PAPERS as $size ) : ?>
+			<a href="<?php echo esc_url( $paper_url( $size ) ); ?>"<?php echo $size === $paper ? ' aria-current="page"' : ''; ?>><?php echo esc_html( strtoupper( $size ) ); ?></a>
+		<?php endforeach; ?>
+	</nav>
 	<button type="button" class="ts-button ts-print-button"><?php esc_html_e( 'Print or save as PDF', 'travel-steps-storyteller' ); ?></button>
 </div>
 
-<article class="ts-print"
+<article class="ts-print is-<?php echo esc_attr( $paper ); ?>"
 	<?php if ( $shared ) : ?>
-		data-clean-url="<?php echo esc_url( Trips::url( $trip, 'print' ) ); ?>"
+		data-clean-url="<?php echo esc_url( $paper_url( $paper ) ); ?>"
 	<?php endif; ?>>
+	<?php if ( PrintLayout::A5 === $paper ) : ?>
+		<?php // The stylesheet's @page is A4, and a page's size can't follow a class. ?>
+		<style>@page { size: A5; }</style>
+		<?php // Browsers print pages in reading order, so folding order needs a PDF reader. ?>
+		<div class="ts-notice ts-print-note ts-print-booklet">
+			<p><?php esc_html_e( 'To print this as a folded booklet, two pages on each side of an A4 sheet:', 'travel-steps-storyteller' ); ?></p>
+			<ol>
+				<li><?php esc_html_e( 'Press “Print or save as PDF” and save it as a PDF. The browser’s own print dialog can’t put the pages in folding order.', 'travel-steps-storyteller' ); ?></li>
+				<li><?php esc_html_e( 'Open the PDF in a reader that prints booklets, such as Adobe Acrobat Reader or PDFCraft, and choose Booklet, both sides, on A4 paper.', 'travel-steps-storyteller' ); ?></li>
+				<li><?php esc_html_e( 'Set the printer to print on both sides, flipping on the short edge. Print pages 1–8 first, two sheets, to check.', 'travel-steps-storyteller' ); ?></li>
+				<li><?php esc_html_e( 'Fold the sheets in half together and staple along the fold.', 'travel-steps-storyteller' ); ?></li>
+			</ol>
+		</div>
+	<?php endif; ?>
 	<header class="ts-print-cover">
 		<?php if ( $cover ) : ?>
 			<img class="ts-print-cover-img" src="<?php echo esc_url( $cover ); ?>" alt="" decoding="async">

@@ -91,7 +91,7 @@ include __DIR__ . '/_header.php';
 			<p><?php esc_html_e( 'To print this as a folded booklet, two pages on each side of an A4 sheet:', 'travel-steps-storyteller' ); ?></p>
 			<ol>
 				<li><?php esc_html_e( 'Press “Print or save as PDF” and save it as a PDF. The browser’s own print dialog can’t put the pages in folding order.', 'travel-steps-storyteller' ); ?></li>
-				<li><?php esc_html_e( 'Open the PDF in a reader that prints booklets, such as Adobe Acrobat Reader, and choose Booklet, both sides, on A4 paper.', 'travel-steps-storyteller' ); ?></li>
+				<li><?php esc_html_e( 'Open the PDF in a reader that prints booklets, such as Adobe Acrobat Reader or PDFCraft, and choose Booklet, both sides, on A4 paper.', 'travel-steps-storyteller' ); ?></li>
 				<li><?php esc_html_e( 'Set the printer to print on both sides, flipping on the short edge. Print pages 1–8 first, two sheets, to check.', 'travel-steps-storyteller' ); ?></li>
 				<li><?php esc_html_e( 'Fold the sheets in half together and staple along the fold.', 'travel-steps-storyteller' ); ?></li>
 			</ol>

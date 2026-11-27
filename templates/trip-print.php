@@ -34,6 +34,15 @@ $steps    = Trips::timeline_steps( $trip, $can_edit );
 $book     = View::print_book( $trip->ID, $steps, Trips::photos_by_step( $trip->ID, $steps ) );
 $cover    = View::cover_url( $trip->ID, 'preview' );
 
+// The paper the book is laid out for, asked for in the address, so the choice needs no saving.
+$paper     = PrintLayout::paper( isset( $_GET['paper'] ) ? sanitize_key( wp_unslash( $_GET['paper'] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
+$print_url = Trips::url( $trip, 'print' );
+$paper_url = fn( string $size ) => PrintLayout::A4 === $size ? $print_url : add_query_arg( 'paper', $size, $print_url );
+$papers    = [
+	PrintLayout::A4 => __( 'A4', 'travel-steps-storyteller' ),
+	PrintLayout::A5 => __( 'A5', 'travel-steps-storyteller' ),
+];
+
 wp_app_enqueue_style(
 	'travel-steps-print',
 	TRAVEL_STEPS_PLUGIN_URL . 'assets/travel-steps-print.css',
@@ -60,12 +69,21 @@ include __DIR__ . '/_header.php';
 		data-loading="<?php esc_attr_e( 'Loading photos…', 'travel-steps-storyteller' ); ?>"
 		data-failed="<?php esc_attr_e( 'Some photos couldn’t be loaded and will be missing from the print.', 'travel-steps-storyteller' ); ?>"
 		data-tip="<?php esc_attr_e( 'To keep a copy, choose “Save as PDF” as the printer.', 'travel-steps-storyteller' ); ?>"></span>
+	<nav class="ts-print-paper" aria-label="<?php esc_attr_e( 'Paper size', 'travel-steps-storyteller' ); ?>">
+		<?php foreach ( $papers as $size => $label ) : ?>
+			<a href="<?php echo esc_url( $paper_url( $size ) ); ?>"<?php echo $size === $paper ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?></a>
+		<?php endforeach; ?>
+	</nav>
 	<button type="button" class="ts-button ts-print-button"><?php esc_html_e( 'Print or save as PDF', 'travel-steps-storyteller' ); ?></button>
 </div>
 
-<article class="ts-print"
+<?php if ( PrintLayout::A5 === $paper ) : ?>
+	<?php // The stylesheet's @page is A4, and a page's size can't follow a class. ?>
+	<style>@page { size: A5; }</style>
+<?php endif; ?>
+<article class="ts-print is-<?php echo esc_attr( $paper ); ?>"
 	<?php if ( $shared ) : ?>
-		data-clean-url="<?php echo esc_url( Trips::url( $trip, 'print' ) ); ?>"
+		data-clean-url="<?php echo esc_url( $paper_url( $paper ) ); ?>"
 	<?php endif; ?>>
 	<header class="ts-print-cover">
 		<?php if ( $cover ) : ?>

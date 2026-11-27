@@ -109,6 +109,14 @@ check( '…no map or photo tools', false === strpos( $pb_page, 'ts-map' ) && fal
 $pb_page = $pb_print( $pb_f, $pb_friend );
 check( '…a logged-in visitor gets the same book', $pb_has( $pb_body( $pb_page ), 64 ) && false === strpos( $pb_page, 'No photos are chosen' ) );
 
+// Paper: A4 unless A5 is asked for in the address, for a folded zine.
+$pb_page = $pb_print( $pb_f );
+check( 'book: laid out for A4, with a link to A5', false === strpos( $pb_page, 'is-a5' ) && false === strpos( $pb_page, 'size: A5' ) && false !== strpos( $pb_page, 'href="' . esc_url( add_query_arg( 'paper', 'a5', Trips::url( get_post( $pb_f ), 'print' ) ) ) . '"' ) );
+$_GET['paper'] = 'a5';
+$pb_page       = $pb_print( $pb_f );
+unset( $_GET['paper'] );
+check( '…and on A5 when asked, the same book', false !== strpos( $pb_page, 'ts-print is-a5' ) && false !== strpos( $pb_page, '@page { size: A5; }' ) && $pb_has( $pb_body( $pb_page ), 64 ) );
+
 // A step with nothing chosen is left out altogether, title included.
 wp_set_current_user( 1 );
 [ $pb_g ] = $pb_trip( 'Titled Porto' );

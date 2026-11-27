@@ -81,7 +81,7 @@ The Print button at the top of the trip's page opens the book: a cover page with
 
 Printing takes a login. Anyone logged in who can see the trip gets the button once photos are chosen on steps they can see, and editors always do. A share link doesn't open the book unless its visitor is logged in.
 
-Every photo is the preview size, the largest the proxy serves, which the photo cache keeps for Immich trips. So once a trip's photos are cached, it prints even when Immich is down. A portrait prints smaller than a landscape, at most 137×183mm, so it stays sharp. The layout fits both A4 and US Letter, but the browser picks the paper, so check the print dialog.
+Every photo is the preview size, the largest the proxy serves, which the photo cache keeps for Immich trips. So once a trip's photos are cached, it prints even when Immich is down. A portrait prints smaller than a landscape, at most 137×183mm, so it stays sharp. The book is laid out for A4. Press A5 at the top of the print page for a book half the size, to print as a folded zine: the PDF keeps its pages in reading order, so print it with a booklet option, such as Adobe Reader's Booklet, which puts two pages on each side of an A4 sheet in folding order. On US Letter paper, print with fit to page.
 
 ## Subscribing to a trip
 

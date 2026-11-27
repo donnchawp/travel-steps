@@ -39,4 +39,9 @@ check( 'six: a fourth page, for the one left over', [ 'landscape', 'stack', 'sta
 check( 'the lead keeps its place', [ 7 ] === $nums( PrintLayout::pages( [ photo( 7 ), photo( 1 ) ] )[0]['photos'] ) );
 check( 'no photos: no pages', [] === PrintLayout::pages( [] ) );
 
+// paper()
+check( 'paper: A5 when asked for', 'a5' === PrintLayout::paper( 'a5' ) );
+check( 'paper: A4 when nothing is asked for', 'a4' === PrintLayout::paper( null ) );
+check( 'paper: A4 for a size it doesn’t know', 'a4' === PrintLayout::paper( 'letter' ) );
+
 exit( $failures ? 1 : 0 );

@@ -3,7 +3,7 @@
 
 PLAYGROUND := npx --yes @wp-playground/cli@3.1.57
 # Dotfiles (.git, .github in dependencies…), tests and build files stay behind: Plugin Check rejects hidden files.
-RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude docs --exclude tools --exclude AGENTS.md --exclude Makefile --exclude Makefile.local --exclude dist --exclude 'whats-next*'
+RSYNC      := rsync -av --delete --exclude '.*' --exclude tests --exclude demo --exclude docs --exclude tools --exclude AGENTS.md --exclude CONTEXT.md --exclude Makefile --exclude Makefile.local --exclude dist --exclude 'whats-next*'
 
 # Judges a Playground run by its out dir ($(1)) and the exit status in $$status: prints result.txt and
 # fails if the run failed, wrote no results ($(2) didn't finish) or has a FAIL line.

@@ -31,6 +31,9 @@
 }
 .ts-print-paper { display: flex; gap: .6rem; }
 .ts-print-paper a[aria-current] { font-weight: 600; color: inherit; text-decoration: none; }
+.ts-print-booklet { margin-bottom: 1.5rem; }
+.ts-print-booklet p { margin: 0 0 .4rem; }
+.ts-print-booklet ol { margin: 0; padding-left: 1.4rem; }
 .ts-print-status { flex: 1; color: var(--ts-muted); font-size: .9rem; }
 .ts-print-button:disabled { opacity: .6; cursor: progress; }
 

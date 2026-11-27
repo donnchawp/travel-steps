@@ -115,6 +115,7 @@ check( 'book: laid out for A4, with a link to A5', false === strpos( $pb_page, '
 $_GET[ \TravelSteps\PrintLayout::PAPER_ARG ] = 'a5';
 $pb_page =  $pb_print( $pb_f );
 unset( $_GET[ \TravelSteps\PrintLayout::PAPER_ARG ] );
+check( '…with booklet instructions only on A5', false === strpos( $pb_print( $pb_f ), 'ts-print-booklet' ) && false !== strpos( $pb_page, 'ts-print-booklet' ) );
 check( '…and on A5 when asked, the same book', false !== strpos( $pb_page, 'ts-print is-a5' ) && false !== strpos( $pb_page, '@page { size: A5; }' ) && $pb_has( $pb_body( $pb_page ), 64 ) );
 
 // A step with nothing chosen is left out altogether, title included.

@@ -465,14 +465,14 @@ class Trips {
 	 * needs_password() decides. No nonce, as in core: a forged post can only set a cookie
 	 * for a password the forger already knows. Returns if there's nothing to handle.
 	 *
-	 * @param string $suffix The page's url() suffix, which the page sets, not the request.
+	 * @param string $url The page's URL, which the page sets, not the request.
 	 */
-	public static function handle_password_post( \WP_Post $trip, string $suffix ): void {
+	public static function handle_password_post( \WP_Post $trip, string $url ): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- As core's form handler.
 		if ( ! isset( $_POST['post_password'] ) || 'publish' !== $trip->post_status || ! self::is_protected( $trip ) ) {
 			return;
 		}
-		$to = add_query_arg( 'tried', '1', self::url( $trip, $suffix ) );
+		$to = add_query_arg( 'tried', '1', $url );
 		if ( is_string( $_POST['post_password'] ) ) {
 			require_once ABSPATH . WPINC . '/class-phpass.php';
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Hashed, as core does: sanitising would change the password.

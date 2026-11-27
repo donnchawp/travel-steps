@@ -22,7 +22,10 @@ if ( ! is_user_logged_in() ) {
 	include __DIR__ . '/_notfound.php';
 	return;
 }
+// The paper the book is laid out for, asked for in the address, so the choice needs no saving.
+$paper       = PrintLayout::paper( isset( $_GET[ PrintLayout::PAPER_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ PrintLayout::PAPER_ARG ] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
 $trip_suffix = 'print';
+$trip_args   = PrintLayout::A4 === $paper ? [] : [ PrintLayout::PAPER_ARG => $paper ];
 $trip        = include __DIR__ . '/_trip-gate.php';
 if ( ! $trip ) {
 	return;
@@ -34,8 +37,6 @@ $steps    = Trips::timeline_steps( $trip, $can_edit );
 $book     = View::print_book( $trip->ID, $steps, Trips::photos_by_step( $trip->ID, $steps ) );
 $cover    = View::cover_url( $trip->ID, 'preview' );
 
-// The paper the book is laid out for, asked for in the address, so the choice needs no saving.
-$paper     = PrintLayout::paper( isset( $_GET[ PrintLayout::PAPER_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ PrintLayout::PAPER_ARG ] ) ) : null ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Picks a layout, changes nothing.
 $print_url = Trips::url( $trip, 'print' );
 $paper_url = fn( string $size ) => PrintLayout::A4 === $size ? $print_url : add_query_arg( PrintLayout::PAPER_ARG, $size, $print_url );
 

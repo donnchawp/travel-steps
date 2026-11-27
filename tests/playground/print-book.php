@@ -4,6 +4,7 @@
  * of smoke.php after share-links.php, in its scope: uses check(), row(), $render,
  * $rest_post, $alice, $refused, $pw_set and $pw_enter.
  */
+use TravelSteps\PrintLayout;
 use TravelSteps\RestController;
 use TravelSteps\Trips;
 use TravelSteps\View;
@@ -109,14 +110,13 @@ check( '…no map or photo tools', false === strpos( $pb_page, 'ts-map' ) && fal
 $pb_page = $pb_print( $pb_f, $pb_friend );
 check( '…a logged-in visitor gets the same book', $pb_has( $pb_body( $pb_page ), 64 ) && false === strpos( $pb_page, 'No photos are chosen' ) );
 
-// Paper: A4 unless A5 is asked for in the address, for a folded zine.
+// Paper: A4 unless A5 is asked for in the address (PrintLayoutTest owns that rule).
 $pb_a4 = $pb_print( $pb_f );
-check( 'book: laid out for A4, with a link to A5', false === strpos( $pb_a4, 'is-a5' ) && false === strpos( $pb_a4, 'size: A5' ) && false !== strpos( $pb_a4, 'href="' . esc_url( add_query_arg( \TravelSteps\PrintLayout::PAPER_ARG, 'a5', Trips::url( get_post( $pb_f ), 'print' ) ) ) . '"' ) );
-$_GET[ \TravelSteps\PrintLayout::PAPER_ARG ] = 'a5';
+check( 'book: the print page links to A5', false !== strpos( $pb_a4, 'href="' . esc_url( add_query_arg( PrintLayout::PAPER_ARG, 'a5', Trips::url( get_post( $pb_f ), 'print' ) ) ) . '"' ) );
+$_GET[ PrintLayout::PAPER_ARG ] = 'a5';
 $pb_page = $pb_print( $pb_f );
-unset( $_GET[ \TravelSteps\PrintLayout::PAPER_ARG ] );
-check( '…with booklet instructions only on A5', false === strpos( $pb_a4, 'ts-print-booklet' ) && false !== strpos( $pb_page, 'ts-print-booklet' ) );
-check( '…and on A5 when asked, the same book', false !== strpos( $pb_page, 'ts-print is-a5' ) && false !== strpos( $pb_page, '@page { size: A5; }' ) && $pb_has( $pb_body( $pb_page ), 64 ) );
+unset( $_GET[ PrintLayout::PAPER_ARG ] );
+check( '…which lays out the same book for A5, with booklet steps only there', false !== strpos( $pb_page, 'is-a5' ) && $pb_has( $pb_body( $pb_page ), 64 ) && false !== strpos( $pb_page, 'ts-print-booklet' ) && false === strpos( $pb_a4, 'ts-print-booklet' ) );
 
 // A step with nothing chosen is left out altogether, title included.
 wp_set_current_user( 1 );
@@ -166,6 +166,13 @@ $pb_to = $pw_redirect( $pb_j, $pb_ignored, 'trip-print.php' );
 $_GET  = [];
 check( '…whose flagged URL drops the flag and stays there', $pb_print_url === $pb_to, $pb_to );
 check( '…to show the book', $pb_has( $pb_body( $pb_print( $pb_j, $pb_friend ) ), 61 ) );
+$pb_a5_url = add_query_arg( PrintLayout::PAPER_ARG, 'a5', $pb_print_url );
+$_GET      = [ PrintLayout::PAPER_ARG => 'a5' ];
+[ $pb_to ] = $pw_post( $pb_j, 'douro', [], 'trip-print.php' );
+$_GET      = [ PrintLayout::PAPER_ARG => 'a5', 'tried' => '1' ];
+$pb_back   = $pw_redirect( $pb_j, $pb_ignored, 'trip-print.php' );
+$_GET      = [];
+check( '…and on A5, the password and its flag both keep A5', add_query_arg( 'tried', '1', $pb_a5_url ) === $pb_to && $pb_a5_url === $pb_back, [ $pb_to, $pb_back ] );
 $pw_enter( null );
 wp_set_current_user( $pb_friend );
 $_GET[ Trips::SHARE_ARG ] = $pb_code;
@@ -231,7 +238,7 @@ check( '…photos of one place share a section', '' !== $pb_section( $pb_figure(
 check( '…another place’s don’t', $pb_section( $pb_figure( $pb_page, $pb_id( 61 ) ) ) !== $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) && $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_spare['id'] ) ) );
 // The stylesheet hides a hidden photo's toggle. It's there so unhiding needs no reload.
 check( '…a hidden photo has its section and toggle ready for when it’s unhidden', false !== strpos( $pb_figure( $pb_page, $pb_id( 66 ) ), 'ts-photo-print' ) && $pb_section( $pb_figure( $pb_page, $pb_id( 64 ) ) ) === $pb_section( $pb_figure( $pb_page, $pb_id( 66 ) ) ), $pb_figure( $pb_page, $pb_id( 66 ) ) );
-check( '…and the page says how many work best', false !== strpos( $render( 'trip.php', (string) $pb_o ), 'data-print-best="' . \TravelSteps\PrintLayout::BEST . '"' ) && false !== strpos( $render( 'trip.php', (string) $pb_o ), '%s, best with 5' ) );
+check( '…and the page says how many work best', false !== strpos( $render( 'trip.php', (string) $pb_o ), 'data-print-best="' . PrintLayout::BEST . '"' ) && false !== strpos( $render( 'trip.php', (string) $pb_o ), '%s, best with 5' ) );
 check( '…and the page holds the chosen list, in order', false !== strpos( $pb_page, 'data-print-ids="' . esc_attr( wp_json_encode( [ $pb_id( 62 ), $pb_id( 61 ) ] ) ) . '"' ) );
 wp_set_current_user( 0 );
 $pb_page = $render( 'trip.php', (string) $pb_o );

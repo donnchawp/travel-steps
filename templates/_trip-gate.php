@@ -9,9 +9,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * and its print version. Returns the trip for a visitor who may see it, and sets $shared
  * when a share link let them in. Otherwise it shows the password form or "not found" and
  * returns null, and the page includes nothing else. A page other than the trip's own sets
- * $trip_suffix to its Trips::url() suffix, so the password form brings them back to it:
+ * $trip_suffix to its Trips::url() suffix, and $trip_args to query args it keeps, so the
+ * password form brings them back to it:
  *
  *     $trip_suffix = 'print';
+ *     $trip_args   = [ 'paper' => 'a5' ];
  *     $trip        = include __DIR__ . '/_trip-gate.php';
  *     if ( ! $trip ) {
  *         return;
@@ -21,6 +23,7 @@ use TravelSteps\Trips;
 
 $trip_suffix = $trip_suffix ?? '';
 $trip        = Trips::find_by_slug( (string) get_query_var( 'slug' ) );
+$trip_back   = $trip ? add_query_arg( $trip_args ?? [], Trips::url( $trip, $trip_suffix ) ) : '';
 // Core does this for a singular post with a password; this route isn't one, so a page
 // cache could otherwise keep the unlocked trip and serve it to everyone. The password
 // form posts to the page it's on: that sets core's cookie and redirects. A share link
@@ -32,7 +35,7 @@ if ( $trip && Trips::is_protected( $trip ) ) {
 	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 		define( 'DONOTCACHEPAGE', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Page caches' own constant.
 	}
-	Trips::handle_password_post( $trip, $trip_suffix );
+	Trips::handle_password_post( $trip, $trip_back );
 	$shared = Trips::handle_share_link( $trip );
 }
 if ( $trip && Trips::needs_password( $trip ) ) {
@@ -45,7 +48,7 @@ if ( ! $trip || ! Trips::can_view( $trip ) ) {
 }
 // In with the password: drop the form's flag, so a copied link doesn't carry it.
 if ( isset( $_GET['tried'] ) ) {
-	wp_safe_redirect( Trips::url( $trip, $trip_suffix ) );
+	wp_safe_redirect( $trip_back );
 	exit;
 }
 return $trip;
